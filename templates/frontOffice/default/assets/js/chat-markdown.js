@@ -14,32 +14,32 @@
  * Keep both copies identical.
  */
 (function (global) {
-    var INLINE = /(\*\*([^*]+)\*\*)|(\*([^*\s][^*]*)\*)|(~~([^~]+)~~)|(`([^`]+)`)|(\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]*)\))/g;
-
     function appendInline(parent, text) {
+        // Fresh regex per call: appendInline recurses into bold/italic/strike
+        // and link labels, and a shared lastIndex would corrupt the outer scan.
+        var inline = /(\*\*([^*]+)\*\*)|(\*([^*\s][^*]*)\*)|(~~([^~]+)~~)|(`([^`]+)`)|(\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]*)\))/g;
         var last = 0;
         var match;
-        INLINE.lastIndex = 0;
-        while ((match = INLINE.exec(text)) !== null) {
+        while ((match = inline.exec(text)) !== null) {
             if (match.index > last) {
                 parent.appendChild(document.createTextNode(text.slice(last, match.index)));
             }
             var el;
             if (match[2] !== undefined) {
                 el = document.createElement('strong');
-                el.textContent = match[2];
+                appendInline(el, match[2]);
             } else if (match[4] !== undefined) {
                 el = document.createElement('em');
-                el.textContent = match[4];
+                appendInline(el, match[4]);
             } else if (match[6] !== undefined) {
                 el = document.createElement('s');
-                el.textContent = match[6];
+                appendInline(el, match[6]);
             } else if (match[8] !== undefined) {
                 el = document.createElement('code');
                 el.textContent = match[8];
             } else {
                 el = document.createElement('a');
-                el.textContent = match[10];
+                appendInline(el, match[10]);
                 el.setAttribute('href', match[11]);
                 el.className = 'cam-link';
                 if (match[11].indexOf('http') === 0 && match[11].indexOf(global.location.origin) !== 0) {
