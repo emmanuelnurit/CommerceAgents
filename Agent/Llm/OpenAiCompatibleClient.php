@@ -98,6 +98,14 @@ final readonly class OpenAiCompatibleClient implements LlmClientInterface
      */
     private function parseStream(object $response): \Generator
     {
+        if ($response->getStatusCode() >= 400) {
+            $body = json_decode($response->getContent(false), true);
+            $message = $body['error']['message'] ?? sprintf('Provider returned HTTP %d', $response->getStatusCode());
+            yield LlmEvent::error($message);
+
+            return;
+        }
+
         $buffer = '';
         $stopReason = null;
         $pendingToolCalls = [];

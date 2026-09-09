@@ -75,6 +75,22 @@ class AnthropicClientTest extends TestCase
         $this->assertSame('tc_1', $body['messages'][2]['content'][0]['tool_use_id']);
     }
 
+    public function testHttpErrorYieldsErrorEventInsteadOfThrowing(): void
+    {
+        $errorBody = '{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low"}}';
+        $http = new MockHttpClient(new MockResponse($errorBody, [
+            'http_code' => 400,
+            'response_headers' => ['content-type' => 'application/json'],
+        ]));
+        $client = new AnthropicClient($http);
+
+        $events = iterator_to_array($client->streamChat([LlmMessage::user('ping')], [], '', $this->config()), false);
+
+        $this->assertCount(1, $events);
+        $this->assertSame(LlmEvent::ERROR, $events[0]->type);
+        $this->assertStringContainsString('credit balance is too low', $events[0]->text);
+    }
+
     public function testStreamParsing(): void
     {
         $sse = implode('', [

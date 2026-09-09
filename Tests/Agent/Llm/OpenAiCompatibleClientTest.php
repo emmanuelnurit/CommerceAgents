@@ -82,6 +82,22 @@ class OpenAiCompatibleClientTest extends TestCase
         $this->assertSame('call_1', $tool['tool_call_id']);
     }
 
+    public function testHttpErrorYieldsErrorEventInsteadOfThrowing(): void
+    {
+        $errorBody = '{"error":{"message":"Insufficient credits","type":"invalid_request_error"}}';
+        $http = new MockHttpClient(new MockResponse($errorBody, [
+            'http_code' => 402,
+            'response_headers' => ['content-type' => 'application/json'],
+        ]));
+        $client = new OpenAiCompatibleClient($http);
+
+        $events = iterator_to_array($client->streamChat([LlmMessage::user('ping')], [], '', $this->config()), false);
+
+        $this->assertCount(1, $events);
+        $this->assertSame(LlmEvent::ERROR, $events[0]->type);
+        $this->assertStringContainsString('Insufficient credits', $events[0]->text);
+    }
+
     public function testStreamParsing(): void
     {
         $chunks = [
