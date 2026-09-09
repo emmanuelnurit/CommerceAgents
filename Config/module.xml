@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="http://thelia.net/schema/dic/module"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://thelia.net/schema/dic/module http://thelia.net/schema/dic/module/module-2_2.xsd">
+    <fullnamespace>CommerceAgents\CommerceAgents</fullnamespace>
+    <descriptive locale="en_US">
+        <title>Commerce Agents</title>
+        <description>AI shopping and merchant assistants powered by LLM agents (Anthropic or OpenAI-compatible providers).</description>
+    </descriptive>
+    <descriptive locale="fr_FR">
+        <title>Agents Commerce</title>
+        <description>Assistants IA d'achat et marchand propulsés par des agents LLM (Anthropic ou fournisseurs compatibles OpenAI).</description>
+    </descriptive>
+    <languages>
+        <language>en_US</language>
+        <language>fr_FR</language>
+    </languages>
+    <version>0.1.0</version>
+    <authors>
+        <author>
+            <name>Emmanuel Nurit</name>
+            <email>emmanuel.nurit@gmail.com</email>
+        </author>
+    </authors>
+    <type>classic</type>
+    <thelia>3.0.0</thelia>
+    <stability>alpha</stability>
+    <mandatory>0</mandatory>
+    <hidden>0</hidden>
+</module>
