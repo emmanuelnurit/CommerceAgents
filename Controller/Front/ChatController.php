@@ -78,6 +78,21 @@ final class ChatController extends BaseFrontController
             foreach ($runtime->runTurn($history, $system, $toolContext, $llmConfig) as $event) {
                 if ($event->type === AgentEvent::TEXT_DELTA) {
                     $assistantText .= $event->payload['text'];
+                } elseif ($event->type === AgentEvent::TOOL_CALL) {
+                    $this->conversationService->appendMessage(
+                        $conversation->getId(),
+                        'assistant',
+                        $assistantText,
+                        [['id' => $event->payload['id'], 'name' => $event->payload['name'], 'arguments' => $event->payload['arguments']]],
+                    );
+                    $assistantText = '';
+                } elseif ($event->type === AgentEvent::TOOL_RESULT) {
+                    $this->conversationService->appendMessage(
+                        $conversation->getId(),
+                        'tool',
+                        json_encode($event->payload['result'], \JSON_THROW_ON_ERROR),
+                        ['tool_call_id' => $event->payload['id']],
+                    );
                 }
 
                 echo 'event: '.$event->type."\n";
