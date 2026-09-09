@@ -43,7 +43,7 @@ final readonly class MerchantChatController
             return $denied;
         }
 
-        return new Response($this->twig->render('@CommerceAgentsModule/backOffice/merchant-chat/page.html.twig', [
+        return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/merchant-chat/page.html.twig', [
             'assistantName' => $this->configService->getAssistantName(),
             'apiKeyConfigured' => $this->configService->getLlmConfig()->apiKey !== '',
         ]));

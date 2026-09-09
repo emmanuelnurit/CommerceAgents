@@ -45,7 +45,7 @@ class AdminHookManager extends BaseHook
             return;
         }
 
-        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/hook/menu-item.html.twig', [
+        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/menu-item.html.twig', [
             'merchantPageUrl' => $this->urlGenerator->generate('commerceagents_merchant_page'),
             'isActive' => $event->getArgument('admin_current_location') === 'commerceagents_merchant_page',
         ]));
@@ -59,7 +59,7 @@ class AdminHookManager extends BaseHook
 
         $llmConfig = $this->configService->getLlmConfig();
 
-        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/hook/module-configuration.html.twig', [
+        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/module-configuration.html.twig', [
             'provider' => $this->configService->getProvider(),
             'model' => $llmConfig->model,
             'baseUrl' => $llmConfig->baseUrl,
