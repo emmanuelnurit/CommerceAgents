@@ -6,6 +6,9 @@
  * Streams /agent/chat SSE events. LLM text is only ever rendered through
  * x-text (never as HTML); rich blocks are built from structured tool results.
  */
+var COMMERCE_AGENTS_STORAGE_KEY = 'commerceagents.chat';
+var COMMERCE_AGENTS_MAX_PERSISTED = 50;
+
 function commerceAgentsChat() {
     return {
         open: false,
@@ -13,6 +16,34 @@ function commerceAgentsChat() {
         input: '',
         lastSent: '',
         messages: [],
+
+        init() {
+            try {
+                const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_STORAGE_KEY) || 'null');
+                if (saved && Array.isArray(saved.messages)) {
+                    this.messages = saved.messages;
+                    this.open = !!saved.open;
+                }
+            } catch (error) {
+                sessionStorage.removeItem(COMMERCE_AGENTS_STORAGE_KEY);
+            }
+
+            this.$watch('messages', () => this.persist());
+            this.$watch('open', () => this.persist());
+        },
+
+        persist() {
+            try {
+                const messages = this.messages.slice(-COMMERCE_AGENTS_MAX_PERSISTED).map(function (message) {
+                    const copy = Object.assign({}, message);
+                    delete copy.streaming;
+                    return copy;
+                });
+                sessionStorage.setItem(COMMERCE_AGENTS_STORAGE_KEY, JSON.stringify({ open: this.open, messages: messages }));
+            } catch (error) {
+                // storage full or unavailable: the chat still works, it just won't survive navigation
+            }
+        },
 
         formatPrice(product) {
             if (product.price === null || product.price === undefined) {
@@ -63,6 +94,7 @@ function commerceAgentsChat() {
                 this.pushError('Connection lost');
             } finally {
                 this.pending = false;
+                this.persist();
                 this.scrollDown();
             }
         },
