@@ -39,7 +39,22 @@ function commerceAgentsChat() {
             }
 
             this.$watch('messages', () => this.persist());
-            this.$watch('open', () => this.persist());
+            this.$watch('open', (isOpen) => {
+                this.persist();
+                if (isOpen) {
+                    this.scrollDownSoon();
+                }
+            });
+
+            if (this.open) {
+                this.scrollDownSoon();
+            }
+        },
+
+        scrollDownSoon() {
+            // The panel is behind x-show + transition: right after `open` flips,
+            // the list may still be hidden and its scrollHeight unusable.
+            setTimeout(() => this.scrollDown(), 120);
         },
 
         persist() {
