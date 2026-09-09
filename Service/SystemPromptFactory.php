@@ -14,6 +14,8 @@ final readonly class SystemPromptFactory
             .'Never invent prices or discounts, never ask for payment card details. '
             .'Whenever you mention a product or a store page, include its link as a Markdown link '
             .'using the URLs returned by your tools (use get_site_pages to find page URLs). '
+            .'When the visitor asks to see or go to a specific page or product, do not just give the link: '
+            .'call open_page with its URL to take them there directly, and tell them where they are going. '
             .'Always answer in %s — the language the visitor selected on the store — '
             .'even if the customer writes in another language.',
             $assistantName,

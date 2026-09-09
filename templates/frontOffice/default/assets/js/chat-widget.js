@@ -19,6 +19,7 @@ function commerceAgentsChat() {
         cartCount: 0,
         cartTotal: 0,
         currency: 'EUR',
+        pendingNavigationUrl: null,
 
         init() {
             const root = document.getElementById('commerce-agents-widget');
@@ -174,8 +175,33 @@ function commerceAgentsChat() {
                 this.pushToolBlock(payload);
             } else if (event === 'error') {
                 this.pushError(payload.message || 'Something went wrong');
+            } else if (event === 'done') {
+                this.navigateIfRequested();
             }
             this.scrollDown();
+        },
+
+        navigateIfRequested() {
+            const url = this.pendingNavigationUrl;
+            this.pendingNavigationUrl = null;
+            if (!url) {
+                return;
+            }
+            // Defense in depth: the server already refused non-store URLs,
+            // but never navigate cross-origin from here either.
+            let resolved;
+            try {
+                resolved = new URL(url, window.location.origin);
+            } catch (error) {
+                return;
+            }
+            if (resolved.origin !== window.location.origin) {
+                return;
+            }
+            this.persist();
+            setTimeout(function () {
+                window.location.assign(resolved.href);
+            }, 700);
         },
 
         appendAssistantText(text) {
@@ -196,6 +222,8 @@ function commerceAgentsChat() {
             } else if ((payload.name === 'get_cart' || payload.name === 'add_to_cart') && result.cart) {
                 this.messages.push({ kind: 'cart', role: 'assistant', data: result.cart });
                 this.updateCartFromResult(result.cart);
+            } else if (payload.name === 'open_page' && result.navigation && result.navigation.url) {
+                this.pendingNavigationUrl = result.navigation.url;
             }
         },
 

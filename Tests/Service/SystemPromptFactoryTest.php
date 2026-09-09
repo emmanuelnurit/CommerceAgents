@@ -58,6 +58,14 @@ class SystemPromptFactoryTest extends TestCase
         $this->assertStringContainsString('get_site_pages', $prompt);
     }
 
+    public function testShoppingPromptPrefersNavigationOverLinks(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringContainsString('open_page', $prompt);
+        $this->assertStringContainsString('take them there', $prompt);
+    }
+
     public function testMerchantPromptRequiresLinks(): void
     {
         $prompt = $this->factory->merchant('fr_FR');
