@@ -1,13 +1,13 @@
 {% extends '@BackOfficeDefaultTwig/base.html.twig' %}
 
-{% block title %}{{ 'Merchant Agent'|trans }}{% endblock %}
+{% block title %}{{ 'Merchant Agent'|trans({}, 'commerceagents') }}{% endblock %}
 {% block body_testid %}commerceagents-merchant-chat{% endblock %}
 
 {% block breadcrumb %}
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans }}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{ 'Merchant Agent'|trans }}</li>
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'Merchant Agent'|trans({}, 'commerceagents') }}</li>
         </ol>
     </nav>
 {% endblock %}
@@ -20,32 +20,32 @@
 {% block content %}
     <div class="container-fluid" data-testid="merchant-chat-page">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h1 class="h3 mb-0">{{ 'Merchant Agent'|trans }}</h1>
-            <a class="btn btn-outline-primary" href="{{ path('commerceagents_changes') }}">{{ 'Proposed changes'|trans }}</a>
+            <h1 class="h3 mb-0">{{ 'Merchant Agent'|trans({}, 'commerceagents') }}</h1>
+            <a class="btn btn-outline-primary" href="{{ path('commerceagents_changes') }}">{{ 'Proposed changes'|trans({}, 'commerceagents') }}</a>
         </div>
 
         {% if not apiKeyConfigured %}
             <div class="alert alert-warning">
-                {{ 'No LLM API key configured yet. Set one in the module configuration.'|trans }}
-                <a href="{{ path('admin.module.configure', {module_code: 'CommerceAgents'}) }}">{{ 'Configure'|trans }}</a>
+                {{ 'No LLM API key configured yet. Set one in the module configuration.'|trans({}, 'commerceagents') }}
+                <a href="{{ path('admin.module.configure', {module_code: 'CommerceAgents'}) }}">{{ 'Configure'|trans({}, 'commerceagents') }}</a>
             </div>
         {% endif %}
 
         <div id="merchant-chat" class="card" data-endpoint="{{ path('commerceagents_merchant_chat') }}">
             <div class="card-body mc-messages" id="mc-messages" aria-live="polite">
                 <div class="mc-suggestions" id="mc-suggestions">
-                    <p class="fw-semibold mb-2">{{ 'Quick actions'|trans }}</p>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Which products are almost out of stock?'|trans }}</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'What should I take care of this morning?'|trans }}</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Revenue and top sellers over the last 7 days'|trans }}</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Which campaigns are currently active?'|trans }}</button>
+                    <p class="fw-semibold mb-2">{{ 'Quick actions'|trans({}, 'commerceagents') }}</p>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Which products are almost out of stock?'|trans({}, 'commerceagents') }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'What should I take care of this morning?'|trans({}, 'commerceagents') }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Revenue and top sellers over the last 7 days'|trans({}, 'commerceagents') }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Which campaigns are currently active?'|trans({}, 'commerceagents') }}</button>
                 </div>
             </div>
             <div class="card-footer">
                 <form id="mc-form" class="d-flex gap-2">
                     <input type="text" id="mc-input" class="form-control" maxlength="2000"
-                           placeholder="{{ 'Ask about sales, inventory, pricing…'|trans }}" autocomplete="off">
-                    <button type="submit" id="mc-send" class="btn btn-primary">{{ 'Send'|trans }}</button>
+                           placeholder="{{ 'Ask about sales, inventory, pricing…'|trans({}, 'commerceagents') }}" autocomplete="off">
+                    <button type="submit" id="mc-send" class="btn btn-primary">{{ 'Send'|trans({}, 'commerceagents') }}</button>
                 </form>
             </div>
         </div>
