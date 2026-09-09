@@ -7,6 +7,9 @@ namespace CommerceAgents\Controller\Admin;
 use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
 use CommerceAgents\CommerceAgents;
 use CommerceAgents\Hook\Admin\AdminHookManager;
+use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\ConnectionTester;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,7 +27,24 @@ final readonly class ConfigSaveController
         private AdminAccessChecker $access,
         private CsrfTokenManagerInterface $csrfTokenManager,
         private UrlGeneratorInterface $urlGenerator,
+        private AgentConfigService $configService,
+        private ConnectionTester $connectionTester,
     ) {
+    }
+
+    #[Route('/admin/module/commerceagents/test-connection', name: 'commerceagents_config_test', methods: ['POST'])]
+    public function testConnection(Request $request): Response
+    {
+        if ($denied = $this->access->check([], 'commerceagents', AccessManager::UPDATE)) {
+            return $denied;
+        }
+
+        $token = new CsrfToken(AdminHookManager::CSRF_TOKEN_ID, (string) $request->request->get('_token'));
+        if (!$this->csrfTokenManager->isTokenValid($token)) {
+            return new Response('Invalid CSRF token', Response::HTTP_FORBIDDEN);
+        }
+
+        return new JsonResponse($this->connectionTester->test($this->configService->getLlmConfig()));
     }
 
     #[Route('/admin/module/commerceagents/save', name: 'commerceagents_config_save', methods: ['POST'])]

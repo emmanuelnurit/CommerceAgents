@@ -1,0 +1,33 @@
+<script>
+(function () {
+    const button = document.getElementById('ca-test-connection');
+    const result = document.getElementById('ca-test-result');
+    if (!button || !result) {
+        return;
+    }
+
+    button.addEventListener('click', async function () {
+        const token = document.querySelector('[data-testid="commerceagents-config"] input[name="_token"]');
+        button.disabled = true;
+        result.className = 'ms-2 text-muted';
+        result.textContent = '…';
+
+        try {
+            const response = await fetch(button.dataset.testUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ _token: token ? token.value : '' }),
+            });
+            const payload = await response.json().catch(() => ({ success: false, message: 'HTTP ' + response.status }));
+
+            result.className = payload.success ? 'ms-2 text-success' : 'ms-2 text-danger';
+            result.textContent = payload.message || (payload.success ? 'OK' : 'Error');
+        } catch (error) {
+            result.className = 'ms-2 text-danger';
+            result.textContent = 'Connection failed';
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+</script>

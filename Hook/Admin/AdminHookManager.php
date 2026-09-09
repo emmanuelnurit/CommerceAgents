@@ -36,7 +36,17 @@ class AdminHookManager extends BaseHook
         return [
             'main.in-top-menu-items' => [['type' => 'back', 'method' => 'onMainTopMenuItems']],
             'module.configuration' => [['type' => 'back', 'method' => 'onModuleConfiguration']],
+            'module.config-js' => [['type' => 'back', 'method' => 'onModuleConfigJs']],
         ];
+    }
+
+    public function onModuleConfigJs(HookRenderEvent $event): void
+    {
+        if (strtolower((string) $event->getArgument('modulecode')) !== 'commerceagents') {
+            return;
+        }
+
+        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/module-config-js.html.twig'));
     }
 
     public function onMainTopMenuItems(HookRenderEvent $event): void
@@ -72,6 +82,7 @@ class AdminHookManager extends BaseHook
             'dailyMessageLimit' => $this->configService->getDailyMessageLimit(),
             'policyContentIds' => implode(',', $this->configService->getPolicyContentIds()),
             'saveUrl' => $this->urlGenerator->generate('commerceagents_config_save'),
+            'testUrl' => $this->urlGenerator->generate('commerceagents_config_test'),
             'csrfToken' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
         ]));
     }
