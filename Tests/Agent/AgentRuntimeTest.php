@@ -31,7 +31,7 @@ class ScriptedLlmClient implements LlmClientInterface
     public function streamChat(array $messages, array $toolSpecs, string $system, LlmConfig $config): \Generator
     {
         $this->receivedMessages[] = $messages;
-        $script = $this->scripts[$this->callCount] ?? end($this->scripts);
+        $script = $this->scripts[$this->callCount] ?? $this->scripts[array_key_last($this->scripts)];
         ++$this->callCount;
 
         yield from $script;
