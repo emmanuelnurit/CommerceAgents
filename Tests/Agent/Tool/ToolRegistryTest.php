@@ -77,6 +77,13 @@ class ToolRegistryTest extends TestCase
         $this->registry()->execute('echo', ['text' => 'hi'], new ToolContext(isAdmin: false));
     }
 
+    public function testConstructorRegistersIterableTools(): void
+    {
+        $registry = new ToolRegistry([new FakeEchoTool()]);
+        $specs = $registry->getToolSpecs(new ToolContext(isAdmin: true));
+        $this->assertSame('echo', $specs[0]['name']);
+    }
+
     public function testExportsSpecsForLlm(): void
     {
         $specs = $this->registry()->getToolSpecs(new ToolContext(isAdmin: true));

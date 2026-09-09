@@ -4,10 +4,23 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Agent\Tool;
 
+use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
+
 class ToolRegistry
 {
     /** @var array<string, ToolInterface> */
     private array $tools = [];
+
+    /**
+     * @param iterable<ToolInterface> $tools
+     */
+    public function __construct(
+        #[TaggedIterator('commerce_agents.tool')] iterable $tools = [],
+    ) {
+        foreach ($tools as $tool) {
+            $this->register($tool);
+        }
+    }
 
     public function register(ToolInterface $tool): void
     {
