@@ -45,6 +45,7 @@ final readonly class TheliaCatalogAdminGateway implements CatalogAdminGatewayInt
                 'visible' => (bool) $product->getVisible(),
                 'position' => $product->getPosition(),
                 'categoryTitles' => $categoryTitles,
+                'publicUrl' => $product->getUrl($ctx->locale),
             ];
         }
 

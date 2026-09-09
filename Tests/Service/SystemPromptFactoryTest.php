@@ -50,6 +50,21 @@ class SystemPromptFactoryTest extends TestCase
         $this->assertStringNotContainsString('read-only', $prompt);
     }
 
+    public function testShoppingPromptRequiresLinks(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringContainsString('include its link', $prompt);
+        $this->assertStringContainsString('get_site_pages', $prompt);
+    }
+
+    public function testMerchantPromptRequiresLinks(): void
+    {
+        $prompt = $this->factory->merchant('fr_FR');
+
+        $this->assertStringContainsString('include its link', $prompt);
+    }
+
     public function testUnknownLocaleFallsBackToRawCode(): void
     {
         $prompt = $this->factory->shopping('Alex', 'xx_XX');

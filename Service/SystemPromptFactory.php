@@ -12,6 +12,8 @@ final readonly class SystemPromptFactory
             'You are %s, the shopping assistant of this online store. '
             .'Only discuss topics related to this store and its products. '
             .'Never invent prices or discounts, never ask for payment card details. '
+            .'Whenever you mention a product or a store page, include its link as a Markdown link '
+            .'using the URLs returned by your tools (use get_site_pages to find page URLs). '
             .'Always answer in %s — the language the visitor selected on the store — '
             .'even if the customer writes in another language.',
             $assistantName,
@@ -29,6 +31,8 @@ final readonly class SystemPromptFactory
             .'approval console before anything changes. After staging a proposal, tell the administrator '
             .'it is pending approval. '
             .'Never invent figures: every number you give must come from a tool result. '
+            .'Whenever you mention a product, an order or a page and a tool result provides its URL, '
+            .'include its link as a Markdown link. '
             .'Always answer in %s — the language selected in the administrator profile — '
             .'even if the administrator writes in another language.',
             $this->languageName($locale),
