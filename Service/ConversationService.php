@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Service;
 
+use CommerceAgents\Agent\Llm\HistorySanitizer;
 use CommerceAgents\Agent\Llm\LlmMessage;
 use CommerceAgents\Agent\Llm\LlmToolCall;
 use CommerceAgents\Model\AgentConversation;
@@ -78,7 +79,7 @@ final readonly class ConversationService
             $history[] = $this->toLlmMessage($row);
         }
 
-        return $history;
+        return HistorySanitizer::sanitize($history);
     }
 
     private function toLlmMessage(AgentMessage $message): LlmMessage
