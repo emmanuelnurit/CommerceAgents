@@ -12,6 +12,11 @@
     }
 
     const endpoint = root.dataset.endpoint;
+    const i18n = {
+        connectionLost: root.dataset.i18nConnectionLost || 'Connection lost',
+        serviceUnavailable: root.dataset.i18nServiceUnavailable || 'Service unavailable',
+        error: root.dataset.i18nError || 'Something went wrong',
+    };
     const messagesContainer = document.getElementById('mc-messages');
     const form = document.getElementById('mc-form');
     const input = document.getElementById('mc-input');
@@ -88,7 +93,7 @@
             addToolBlock(payload);
         } else if (event === 'error') {
             streamingBubble = null;
-            addBubble('mc-error', payload.message || 'Something went wrong');
+            addBubble('mc-error', payload.message || i18n.error);
         }
     }
 
@@ -106,7 +111,7 @@
 
             if (!response.ok) {
                 const payload = await response.json().catch(() => ({}));
-                addBubble('mc-error', payload.error || 'Service unavailable');
+                addBubble('mc-error', payload.error || i18n.serviceUnavailable);
                 return;
             }
 
@@ -128,7 +133,7 @@
                 }
             }
         } catch (error) {
-            addBubble('mc-error', 'Connection lost');
+            addBubble('mc-error', i18n.connectionLost);
         } finally {
             streamingBubble = null;
             sendButton.disabled = false;

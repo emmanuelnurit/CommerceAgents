@@ -8,6 +8,10 @@
      data-cart-count="{{ cartItemCount }}"
      data-cart-total="{{ cartTotal }}"
      data-currency="{{ currencyCode }}"
+     data-i18n-items="{{ i18n.itemsLabel }}"
+     data-i18n-connection-lost="{{ i18n.connectionLost }}"
+     data-i18n-service-unavailable="{{ i18n.serviceUnavailable }}"
+     data-i18n-error="{{ i18n.error }}"
      x-cloak>
     <button type="button" class="caw-toggle" x-on:click="open = !open" x-bind:aria-expanded="open" aria-controls="caw-panel">
         <span x-show="!open">💬</span>
@@ -21,17 +25,17 @@
 
         <div class="caw-cart-banner" x-show="cartCount > 0">
             <span x-text="cartBannerLabel()"></span>
-            <a class="caw-cta caw-cta-small" href="{{ checkoutUrl }}">{{ isFrench ? 'Finaliser ma commande' : 'Checkout' }}</a>
+            <a class="caw-cta caw-cta-small" href="{{ checkoutUrl }}">{{ i18n.completeOrder }}</a>
         </div>
 
         <div class="caw-messages" x-ref="messages">
             <div class="caw-suggestions" x-show="messages.length === 0">
-                <p class="caw-suggestions-title">{{ isFrench ? 'Comment puis-je vous aider ?' : 'How can I help you?' }}</p>
-                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Je cherche un produit…' : 'I am looking for a product…' }}</button>
-                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Où en est mon panier ?' : 'What is in my cart?' }}</button>
-                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Quelles sont vos conditions de livraison ?' : 'What are your shipping conditions?' }}</button>
+                <p class="caw-suggestions-title">{{ i18n.helpTitle }}</p>
+                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestProduct }}</button>
+                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestCart }}</button>
+                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestShipping }}</button>
                 {% if isCustomerLoggedIn %}
-                    <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Où en sont mes commandes ?' : 'Where are my orders?' }}</button>
+                    <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestOrders }}</button>
                 {% endif %}
             </div>
             <template x-for="(message, index) in messages" x-bind:key="index">

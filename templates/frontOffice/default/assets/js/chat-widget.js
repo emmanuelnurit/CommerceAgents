@@ -20,6 +20,12 @@ function commerceAgentsChat() {
         cartTotal: 0,
         currency: 'EUR',
         pendingNavigationUrl: null,
+        i18n: {
+            items: 'item(s)',
+            connectionLost: 'Connection lost',
+            serviceUnavailable: 'Service unavailable',
+            error: 'Something went wrong',
+        },
 
         init() {
             const root = document.getElementById('commerce-agents-widget');
@@ -27,6 +33,10 @@ function commerceAgentsChat() {
                 this.cartCount = parseInt(root.dataset.cartCount || '0', 10);
                 this.cartTotal = parseFloat(root.dataset.cartTotal || '0');
                 this.currency = root.dataset.currency || 'EUR';
+                this.i18n.items = root.dataset.i18nItems || this.i18n.items;
+                this.i18n.connectionLost = root.dataset.i18nConnectionLost || this.i18n.connectionLost;
+                this.i18n.serviceUnavailable = root.dataset.i18nServiceUnavailable || this.i18n.serviceUnavailable;
+                this.i18n.error = root.dataset.i18nError || this.i18n.error;
             }
             try {
                 const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_STORAGE_KEY) || 'null');
@@ -87,8 +97,7 @@ function commerceAgentsChat() {
         },
 
         cartBannerLabel() {
-            const isFrench = (document.documentElement.lang || '').toLowerCase().startsWith('fr');
-            return this.cartCount + (isFrench ? ' article(s)' : ' item(s)') + ' — ' + this.cartTotal + ' ' + this.currency;
+            return this.cartCount + ' ' + this.i18n.items + ' — ' + this.cartTotal + ' ' + this.currency;
         },
 
         sendSuggestion(text) {
@@ -130,13 +139,13 @@ function commerceAgentsChat() {
 
                 if (!response.ok) {
                     const payload = await response.json().catch(() => ({}));
-                    this.pushError(payload.error || 'Service unavailable');
+                    this.pushError(payload.error || this.i18n.serviceUnavailable);
                     return;
                 }
 
                 await this.readStream(response.body.getReader());
             } catch (error) {
-                this.pushError('Connection lost');
+                this.pushError(this.i18n.connectionLost);
             } finally {
                 this.pending = false;
                 this.persist();
@@ -189,7 +198,7 @@ function commerceAgentsChat() {
             } else if (event === 'tool_result') {
                 this.pushToolBlock(payload);
             } else if (event === 'error') {
-                this.pushError(payload.message || 'Something went wrong');
+                this.pushError(payload.message || this.i18n.error);
             } else if (event === 'done') {
                 this.navigateIfRequested();
             }

@@ -31,7 +31,10 @@
             </div>
         {% endif %}
 
-        <div id="merchant-chat" class="card" data-endpoint="{{ path('commerceagents_merchant_chat') }}">
+        <div id="merchant-chat" class="card" data-endpoint="{{ path('commerceagents_merchant_chat') }}"
+             data-i18n-connection-lost="{{ 'Connection lost'|trans({}, 'commerceagents') }}"
+             data-i18n-service-unavailable="{{ 'Service unavailable'|trans({}, 'commerceagents') }}"
+             data-i18n-error="{{ 'Something went wrong'|trans({}, 'commerceagents') }}">
             <div class="card-body mc-messages" id="mc-messages" aria-live="polite">
                 <div class="mc-suggestions" id="mc-suggestions">
                     <p class="fw-semibold mb-2">{{ 'Quick actions'|trans({}, 'commerceagents') }}</p>
