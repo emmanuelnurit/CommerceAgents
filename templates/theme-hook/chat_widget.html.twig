@@ -1,0 +1,58 @@
+<link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/chat-widget.css') }}">
+<script src="{{ module_asset('CommerceAgents', 'assets/js/chat-widget.js') }}"></script>
+<script src="{{ module_asset('CommerceAgents', 'assets/js/alpine.min.js') }}" defer></script>
+
+<div id="commerce-agents-widget" x-data="commerceAgentsChat()" x-cloak>
+    <button type="button" class="caw-toggle" x-on:click="open = !open" x-bind:aria-expanded="open" aria-controls="caw-panel">
+        <span x-show="!open">💬</span>
+        <span x-show="open">✕</span>
+    </button>
+
+    <section id="caw-panel" class="caw-panel" x-show="open" x-transition role="dialog" aria-label="{{ assistantName }}">
+        <header class="caw-header">
+            <strong>{{ assistantName }}</strong>
+        </header>
+
+        <div class="caw-messages" x-ref="messages">
+            <template x-for="(message, index) in messages" x-bind:key="index">
+                <div>
+                    <p x-show="message.kind === 'text'" class="caw-message" x-bind:class="message.role === 'user' ? 'caw-user' : 'caw-assistant'" x-text="message.text"></p>
+
+                    <div x-show="message.kind === 'products'" class="caw-products">
+                        <template x-for="product in message.data" x-bind:key="product.id">
+                            <a class="caw-product" x-bind:href="product.url">
+                                <img x-show="product.imageUrl" x-bind:src="product.imageUrl" x-bind:alt="product.title" loading="lazy">
+                                <span class="caw-product-title" x-text="product.title"></span>
+                                <span class="caw-product-price" x-text="formatPrice(product)"></span>
+                            </a>
+                        </template>
+                    </div>
+
+                    <div x-show="message.kind === 'cart'" class="caw-cart">
+                        <template x-for="item in (message.data.items || [])" x-bind:key="item.productId">
+                            <p class="caw-cart-line">
+                                <span x-text="item.quantity + ' × ' + item.title"></span>
+                                <span x-text="item.totalTaxedPrice + ' ' + message.data.currency"></span>
+                            </p>
+                        </template>
+                        <p class="caw-cart-total">
+                            <span>Total</span>
+                            <span x-text="message.data.totalTaxedAmount + ' ' + message.data.currency"></span>
+                        </p>
+                    </div>
+
+                    <p x-show="message.kind === 'error'" class="caw-message caw-error">
+                        <span x-text="message.text"></span>
+                        <button type="button" class="caw-retry" x-on:click="retry()">↻</button>
+                    </p>
+                </div>
+            </template>
+            <p class="caw-message caw-assistant caw-pending" x-show="pending">…</p>
+        </div>
+
+        <form class="caw-form" x-on:submit.prevent="send()">
+            <input type="text" x-model="input" maxlength="2000" x-bind:disabled="pending" autocomplete="off">
+            <button type="submit" x-bind:disabled="pending || !input.trim()">➤</button>
+        </form>
+    </section>
+</div>
