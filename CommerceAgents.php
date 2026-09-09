@@ -39,6 +39,9 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Tool\Shopping\Gateway\OrderGatewayInterface::class, Service\Shopping\TheliaOrderGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\PolicyGatewayInterface::class, Service\Shopping\TheliaPolicyGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\CheckoutUrlProviderInterface::class, Service\Shopping\CheckoutUrlProvider::class);
+        $servicesConfigurator->alias(Tool\Admin\Gateway\AnalyticsGatewayInterface::class, Service\Merchant\TheliaAnalyticsGateway::class);
+        $servicesConfigurator->alias(Tool\Admin\Gateway\CatalogAdminGatewayInterface::class, Service\Merchant\TheliaCatalogAdminGateway::class);
+        $servicesConfigurator->alias(Tool\Admin\Gateway\CampaignGatewayInterface::class, Service\Merchant\TheliaCampaignGateway::class);
 
         $configServiceRef = str_replace('\\', '\\\\', Service\AgentConfigService::class);
         $servicesConfigurator->set(Tool\Shopping\AddToCartTool::class)
