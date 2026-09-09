@@ -10,6 +10,7 @@ final readonly class ToolContext
         public bool $isAdmin = false,
         public ?int $customerId = null,
         public ?int $adminId = null,
+        public ?int $conversationId = null,
         public ?string $sessionId = null,
         public string $locale = 'fr_FR',
         public string $currencyCode = 'EUR',
