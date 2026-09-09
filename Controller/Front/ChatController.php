@@ -18,6 +18,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Thelia\Controller\Front\BaseFrontController;
 use Thelia\Core\HttpFoundation\Request;
+use Thelia\Domain\Cart\CartFacade;
 
 final class ChatController extends BaseFrontController
 {
@@ -30,6 +31,7 @@ final class ChatController extends BaseFrontController
         private readonly ToolRegistry $toolRegistry,
         private readonly ChatStreamer $chatStreamer,
         private readonly SystemPromptFactory $systemPromptFactory,
+        private readonly CartFacade $cartFacade,
     ) {
     }
 
@@ -70,6 +72,11 @@ final class ChatController extends BaseFrontController
         $conversation = $this->conversationService->getOrCreate('shopping', $session->getId(), $customerId, $locale);
         $this->conversationService->appendMessage($conversation->getId(), 'user', $userMessage);
         $history = $this->conversationService->getHistory($conversation->getId());
+
+        // Warm up the session cart while the real session is still writable:
+        // once the stream starts the session is frozen (see SessionFreezer) and
+        // a cart created mid-stream would never be attached to the visitor.
+        $this->cartFacade->getOrCreateFromSession();
 
         $runtime = new AgentRuntime($this->llmClientFactory->create($llmConfig->provider), $this->toolRegistry);
 
