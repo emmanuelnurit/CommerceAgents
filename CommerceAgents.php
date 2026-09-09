@@ -6,6 +6,8 @@ namespace CommerceAgents;
 
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\expr;
 use Thelia\Core\Install\Database;
 use Thelia\Module\BaseModule;
 
@@ -31,5 +33,22 @@ class CommerceAgents extends BaseModule
             ->exclude([__DIR__.'/I18n/*', __DIR__.'/Config/*', __DIR__.'/Model/*', __DIR__.'/Tests/*'])
             ->autowire(true)
             ->autoconfigure(true);
+
+        $servicesConfigurator->alias(Tool\Shopping\Gateway\CatalogGatewayInterface::class, Service\Shopping\TheliaCatalogGateway::class);
+        $servicesConfigurator->alias(Tool\Shopping\Gateway\CartGatewayInterface::class, Service\Shopping\TheliaCartGateway::class);
+        $servicesConfigurator->alias(Tool\Shopping\Gateway\OrderGatewayInterface::class, Service\Shopping\TheliaOrderGateway::class);
+        $servicesConfigurator->alias(Tool\Shopping\Gateway\PolicyGatewayInterface::class, Service\Shopping\TheliaPolicyGateway::class);
+        $servicesConfigurator->alias(Tool\Shopping\Gateway\CheckoutUrlProviderInterface::class, Service\Shopping\CheckoutUrlProvider::class);
+
+        $configServiceRef = str_replace('\\', '\\\\', Service\AgentConfigService::class);
+        $servicesConfigurator->set(Tool\Shopping\AddToCartTool::class)
+            ->autowire(true)->autoconfigure(true)
+            ->arg('$cartEnabled', expr(sprintf("service('%s').isCartEnabled()", $configServiceRef)));
+        $servicesConfigurator->set(Tool\Shopping\PrepareCheckoutTool::class)
+            ->autowire(true)->autoconfigure(true)
+            ->arg('$checkoutEnabled', expr(sprintf("service('%s').isCheckoutEnabled()", $configServiceRef)));
+        $servicesConfigurator->set(Tool\Shopping\GetOrdersTool::class)
+            ->autowire(true)->autoconfigure(true)
+            ->arg('$ordersEnabled', expr(sprintf("service('%s').areOrdersEnabled()", $configServiceRef)));
     }
 }

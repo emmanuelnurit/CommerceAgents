@@ -53,4 +53,17 @@ final readonly class AgentConfigService
     {
         return (int) CommerceAgents::getConfigValue('daily_message_limit', 200);
     }
+
+    /**
+     * @return int[] content ids holding the store policies (terms, shipping, returns)
+     */
+    public function getPolicyContentIds(): array
+    {
+        $raw = trim((string) CommerceAgents::getConfigValue('policy_content_ids', ''));
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('intval', explode(',', $raw))));
+    }
 }
