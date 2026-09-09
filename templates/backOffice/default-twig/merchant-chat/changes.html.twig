@@ -1,0 +1,86 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'Merchant Agent — Proposed changes'|trans }}{% endblock %}
+{% block body_testid %}commerceagents-changes{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('commerceagents_merchant_page') }}">{{ 'Merchant Agent'|trans }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'Proposed changes'|trans }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid" data-testid="changes-page">
+        <h1 class="h3 mb-3">{{ 'Proposed changes'|trans }}</h1>
+
+        {% if changes is empty %}
+            <div class="alert alert-info">{{ 'No proposal yet. The Merchant Agent records its price and stock proposals here.'|trans }}</div>
+        {% else %}
+            <table class="table table-hover align-middle" data-testid="changes-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>{{ 'Date'|trans }}</th>
+                        <th>{{ 'Type'|trans }}</th>
+                        <th>{{ 'Target'|trans }}</th>
+                        <th>{{ 'Before'|trans }}</th>
+                        <th>{{ 'After'|trans }}</th>
+                        <th>{{ 'Status'|trans }}</th>
+                        <th>{{ 'Actions'|trans }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for change in changes %}
+                        <tr data-change-id="{{ change.id }}">
+                            <td>{{ change.id }}</td>
+                            <td>{{ change.createdAt }}</td>
+                            <td>
+                                {% if change.targetType == 'pse_price' %}
+                                    <span class="badge text-bg-secondary">{{ 'Price'|trans }}</span>
+                                {% elseif change.targetType == 'pse_stock' %}
+                                    <span class="badge text-bg-secondary">{{ 'Stock'|trans }}</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">{{ change.targetType }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                PSE #{{ change.targetId }}
+                                {% if change.payloadBefore.pseRef is defined %}<br><small class="text-muted">{{ change.payloadBefore.pseRef }}</small>{% endif %}
+                            </td>
+                            <td><code>{{ change.payloadBefore|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
+                            <td><code>{{ change.payloadAfter|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
+                            <td>
+                                {% if change.status == 'pending' %}
+                                    <span class="badge text-bg-warning">{{ 'Pending'|trans }}</span>
+                                {% elseif change.status == 'applied' %}
+                                    <span class="badge text-bg-success">{{ 'Applied'|trans }}</span>
+                                {% elseif change.status == 'rejected' %}
+                                    <span class="badge text-bg-secondary">{{ 'Rejected'|trans }}</span>
+                                {% else %}
+                                    <span class="badge text-bg-danger">{{ 'Failed'|trans }}</span>
+                                    {% if change.error %}<br><small class="text-danger">{{ change.error }}</small>{% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if change.status == 'pending' and canApprove %}
+                                    <form method="post" action="{{ path('commerceagents_change_approve', {id: change.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                        <button type="submit" class="btn btn-sm btn-success">{{ 'Approve'|trans }}</button>
+                                    </form>
+                                    <form method="post" action="{{ path('commerceagents_change_reject', {id: change.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">{{ 'Reject'|trans }}</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+{% endblock %}
