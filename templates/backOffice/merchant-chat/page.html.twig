@@ -1,0 +1,46 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'Merchant Agent'|trans }}{% endblock %}
+{% block body_testid %}commerceagents-merchant-chat{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'Merchant Agent'|trans }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/merchant-chat.css') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid" data-testid="merchant-chat-page">
+        <h1 class="h3 mb-3">{{ 'Merchant Agent'|trans }}</h1>
+
+        {% if not apiKeyConfigured %}
+            <div class="alert alert-warning">
+                {{ 'No LLM API key configured yet. Set one in the module configuration.'|trans }}
+                <a href="{{ path('admin.module.configure', {module_code: 'CommerceAgents'}) }}">{{ 'Configure'|trans }}</a>
+            </div>
+        {% endif %}
+
+        <div id="merchant-chat" class="card" data-endpoint="{{ path('commerceagents_merchant_chat') }}">
+            <div class="card-body mc-messages" id="mc-messages" aria-live="polite"></div>
+            <div class="card-footer">
+                <form id="mc-form" class="d-flex gap-2">
+                    <input type="text" id="mc-input" class="form-control" maxlength="2000"
+                           placeholder="{{ 'Ask about sales, inventory, pricing…'|trans }}" autocomplete="off">
+                    <button type="submit" id="mc-send" class="btn btn-primary">{{ 'Send'|trans }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts_extra %}
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/merchant-chat.js') }}"></script>
+{% endblock %}
