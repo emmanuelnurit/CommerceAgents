@@ -9,6 +9,7 @@ final readonly class ToolContext
     public function __construct(
         public bool $isAdmin = false,
         public ?int $customerId = null,
+        public ?int $adminId = null,
         public ?string $sessionId = null,
         public string $locale = 'fr_FR',
         public string $currencyCode = 'EUR',

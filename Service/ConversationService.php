@@ -14,7 +14,7 @@ use Propel\Runtime\ActiveQuery\Criteria;
 
 final readonly class ConversationService
 {
-    public function getOrCreate(string $type, string $sessionRef, ?int $customerId, string $locale): AgentConversation
+    public function getOrCreate(string $type, string $sessionRef, ?int $customerId, string $locale, ?int $adminId = null): AgentConversation
     {
         $conversation = AgentConversationQuery::create()
             ->filterByType($type)
@@ -30,6 +30,7 @@ final readonly class ConversationService
             ->setType($type)
             ->setSessionRef($sessionRef)
             ->setCustomerId($customerId)
+            ->setAdminId($adminId)
             ->setLocale($locale);
         $conversation->save();
 
