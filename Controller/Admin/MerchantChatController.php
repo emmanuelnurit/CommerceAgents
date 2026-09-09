@@ -12,6 +12,7 @@ use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
+use CommerceAgents\Service\SystemPromptFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,7 @@ final readonly class MerchantChatController
         private LlmClientFactory $llmClientFactory,
         private ToolRegistry $toolRegistry,
         private ChatStreamer $chatStreamer,
+        private SystemPromptFactory $systemPromptFactory,
         private Environment $twig,
     ) {
     }
@@ -93,18 +95,6 @@ final readonly class MerchantChatController
 
         $runtime = new AgentRuntime($this->llmClientFactory->create($llmConfig->provider), $this->toolRegistry);
 
-        return $this->chatStreamer->stream($runtime, $history, $this->buildSystemPrompt($locale), $toolContext, $llmConfig, $conversation);
-    }
-
-    private function buildSystemPrompt(string $locale): string
-    {
-        return sprintf(
-            'You are the merchant assistant of this online store back-office, working for the store staff. '
-            .'You are read-only in this phase: you can analyse sales, listings, inventory, pricing and campaigns '
-            .'through your tools, but you cannot change anything yet. '
-            .'Never invent figures: every number you give must come from a tool result. '
-            .'Answer in the language of this locale: %s.',
-            $locale,
-        );
+        return $this->chatStreamer->stream($runtime, $history, $this->systemPromptFactory->merchant($locale), $toolContext, $llmConfig, $conversation);
     }
 }

@@ -11,6 +11,7 @@ use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
+use CommerceAgents\Service\SystemPromptFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -28,6 +29,7 @@ final class ChatController extends BaseFrontController
         private readonly LlmClientFactory $llmClientFactory,
         private readonly ToolRegistry $toolRegistry,
         private readonly ChatStreamer $chatStreamer,
+        private readonly SystemPromptFactory $systemPromptFactory,
     ) {
     }
 
@@ -71,18 +73,8 @@ final class ChatController extends BaseFrontController
 
         $runtime = new AgentRuntime($this->llmClientFactory->create($llmConfig->provider), $this->toolRegistry);
 
-        return $this->chatStreamer->stream($runtime, $history, $this->buildSystemPrompt($locale), $toolContext, $llmConfig, $conversation);
-    }
+        $system = $this->systemPromptFactory->shopping($this->configService->getAssistantName(), $locale);
 
-    private function buildSystemPrompt(string $locale): string
-    {
-        return sprintf(
-            'You are %s, the shopping assistant of this online store. '
-            .'Only discuss topics related to this store and its products. '
-            .'Never invent prices or discounts, never ask for payment card details. '
-            .'Answer in the language of this locale: %s.',
-            $this->configService->getAssistantName(),
-            $locale,
-        );
+        return $this->chatStreamer->stream($runtime, $history, $system, $toolContext, $llmConfig, $conversation);
     }
 }
