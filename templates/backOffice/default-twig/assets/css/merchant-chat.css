@@ -25,6 +25,7 @@
 #merchant-chat .mc-assistant {
     align-self: flex-start;
     background: var(--bs-secondary-bg, #e9ecef);
+    white-space: normal;
 }
 
 #merchant-chat .mc-error {
@@ -53,4 +54,56 @@
     max-height: 240px;
     overflow: auto;
     font-size: 0.75rem;
+}
+
+#merchant-chat .mc-assistant .cam-p,
+#merchant-chat .mc-assistant .cam-heading,
+#merchant-chat .mc-assistant .cam-list {
+    margin: 0 0 0.5rem;
+}
+
+#merchant-chat .mc-assistant :last-child {
+    margin-bottom: 0;
+}
+
+#merchant-chat .mc-assistant .cam-heading {
+    font-weight: 600;
+}
+
+#merchant-chat .mc-assistant .cam-list {
+    padding-left: 1.25rem;
+}
+
+#merchant-chat .mc-assistant .cam-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 0.5rem;
+    background: #fff;
+}
+
+#merchant-chat .mc-assistant .cam-table th,
+#merchant-chat .mc-assistant .cam-table td {
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    padding: 0.25rem 0.5rem;
+    text-align: left;
+}
+
+#merchant-chat .mc-assistant .cam-table th {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+#merchant-chat .mc-assistant code {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    border-radius: 0.25rem;
+    padding: 0 0.25rem;
+}
+
+#merchant-chat .mc-assistant .cam-cta {
+    display: inline-block;
+    background: var(--bs-primary, #0d6efd);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.875rem;
+    font-weight: 600;
 }

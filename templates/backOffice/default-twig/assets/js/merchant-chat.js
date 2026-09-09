@@ -34,9 +34,13 @@
 
     function appendAssistantText(text) {
         if (streamingBubble === null) {
-            streamingBubble = addBubble('mc-assistant', '');
+            streamingBubble = document.createElement('div');
+            streamingBubble.className = 'mc-bubble mc-assistant';
+            streamingBubble.rawMarkdown = '';
+            messagesContainer.appendChild(streamingBubble);
         }
-        streamingBubble.textContent += text;
+        streamingBubble.rawMarkdown += text;
+        window.CommerceAgentsMarkdown.render(streamingBubble, streamingBubble.rawMarkdown);
         scrollDown();
     }
 
