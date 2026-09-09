@@ -29,6 +29,9 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->instanceof(Agent\Tool\ToolInterface::class)
             ->tag('commerce_agents.tool');
 
+        $servicesConfigurator->instanceof(StagedChange\ChangeApplierInterface::class)
+            ->tag('commerce_agents.change_applier');
+
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
             ->exclude([__DIR__.'/I18n/*', __DIR__.'/Config/*', __DIR__.'/Model/*', __DIR__.'/Tests/*'])
             ->autowire(true)
