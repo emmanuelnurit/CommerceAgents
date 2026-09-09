@@ -3,7 +3,12 @@
 <script src="{{ module_asset('CommerceAgents', 'assets/js/chat-widget.js') }}"></script>
 <script src="{{ module_asset('CommerceAgents', 'assets/js/alpine.min.js') }}" defer></script>
 
-<div id="commerce-agents-widget" x-data="commerceAgentsChat()" x-cloak>
+<div id="commerce-agents-widget"
+     x-data="commerceAgentsChat()"
+     data-cart-count="{{ cartItemCount }}"
+     data-cart-total="{{ cartTotal }}"
+     data-currency="{{ currencyCode }}"
+     x-cloak>
     <button type="button" class="caw-toggle" x-on:click="open = !open" x-bind:aria-expanded="open" aria-controls="caw-panel">
         <span x-show="!open">💬</span>
         <span x-show="open">✕</span>
@@ -14,7 +19,21 @@
             <strong>{{ assistantName }}</strong>
         </header>
 
+        <div class="caw-cart-banner" x-show="cartCount > 0">
+            <span x-text="cartBannerLabel()"></span>
+            <a class="caw-cta caw-cta-small" href="{{ checkoutUrl }}">{{ isFrench ? 'Finaliser ma commande' : 'Checkout' }}</a>
+        </div>
+
         <div class="caw-messages" x-ref="messages">
+            <div class="caw-suggestions" x-show="messages.length === 0">
+                <p class="caw-suggestions-title">{{ isFrench ? 'Comment puis-je vous aider ?' : 'How can I help you?' }}</p>
+                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Je cherche un produit…' : 'I am looking for a product…' }}</button>
+                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Où en est mon panier ?' : 'What is in my cart?' }}</button>
+                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Quelles sont vos conditions de livraison ?' : 'What are your shipping conditions?' }}</button>
+                {% if isCustomerLoggedIn %}
+                    <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ isFrench ? 'Où en sont mes commandes ?' : 'Where are my orders?' }}</button>
+                {% endif %}
+            </div>
             <template x-for="(message, index) in messages" x-bind:key="index">
                 <div>
                     <p x-show="message.kind === 'text' && message.role === 'user'" class="caw-message caw-user" x-text="message.text"></p>

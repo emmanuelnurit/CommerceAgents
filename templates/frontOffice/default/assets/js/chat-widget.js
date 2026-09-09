@@ -16,8 +16,17 @@ function commerceAgentsChat() {
         input: '',
         lastSent: '',
         messages: [],
+        cartCount: 0,
+        cartTotal: 0,
+        currency: 'EUR',
 
         init() {
+            const root = document.getElementById('commerce-agents-widget');
+            if (root) {
+                this.cartCount = parseInt(root.dataset.cartCount || '0', 10);
+                this.cartTotal = parseFloat(root.dataset.cartTotal || '0');
+                this.currency = root.dataset.currency || 'EUR';
+            }
             try {
                 const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_STORAGE_KEY) || 'null');
                 if (saved && Array.isArray(saved.messages)) {
@@ -58,6 +67,26 @@ function commerceAgentsChat() {
         retry() {
             if (this.lastSent !== '') {
                 this.streamMessage(this.lastSent);
+            }
+        },
+
+        cartBannerLabel() {
+            const isFrench = (document.documentElement.lang || '').toLowerCase().startsWith('fr');
+            return this.cartCount + (isFrench ? ' article(s)' : ' item(s)') + ' — ' + this.cartTotal + ' ' + this.currency;
+        },
+
+        sendSuggestion(text) {
+            this.input = text.trim();
+            this.send();
+        },
+
+        updateCartFromResult(cart) {
+            if (cart && typeof cart.itemCount === 'number') {
+                this.cartCount = cart.itemCount;
+                this.cartTotal = cart.totalTaxedAmount;
+                if (cart.currency) {
+                    this.currency = cart.currency;
+                }
             }
         },
 
@@ -166,6 +195,7 @@ function commerceAgentsChat() {
                 this.messages.push({ kind: 'products', role: 'assistant', data: result.products });
             } else if ((payload.name === 'get_cart' || payload.name === 'add_to_cart') && result.cart) {
                 this.messages.push({ kind: 'cart', role: 'assistant', data: result.cart });
+                this.updateCartFromResult(result.cart);
             }
         },
 
