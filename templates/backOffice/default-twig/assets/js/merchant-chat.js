@@ -137,14 +137,29 @@
         }
     }
 
-    form.addEventListener('submit', function (event) {
-        event.preventDefault();
-        const text = input.value.trim();
+    function submitText(text) {
         if (text === '' || sendButton.disabled) {
             return;
         }
-        input.value = '';
+        const suggestions = document.getElementById('mc-suggestions');
+        if (suggestions) {
+            suggestions.remove();
+        }
         addBubble('mc-user', text);
         streamMessage(text);
+    }
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const text = input.value.trim();
+        input.value = '';
+        submitText(text);
+    });
+
+    messagesContainer.addEventListener('click', function (event) {
+        const chip = event.target.closest('.mc-suggestion');
+        if (chip) {
+            submitText(chip.textContent.trim());
+        }
     });
 })();

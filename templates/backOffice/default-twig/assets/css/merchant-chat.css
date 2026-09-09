@@ -7,6 +7,13 @@
     gap: 0.5rem;
 }
 
+#merchant-chat .mc-suggestions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.375rem;
+}
+
 #merchant-chat .mc-bubble {
     margin: 0;
     padding: 0.5rem 0.75rem;

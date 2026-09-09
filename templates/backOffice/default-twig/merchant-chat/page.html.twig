@@ -32,7 +32,15 @@
         {% endif %}
 
         <div id="merchant-chat" class="card" data-endpoint="{{ path('commerceagents_merchant_chat') }}">
-            <div class="card-body mc-messages" id="mc-messages" aria-live="polite"></div>
+            <div class="card-body mc-messages" id="mc-messages" aria-live="polite">
+                <div class="mc-suggestions" id="mc-suggestions">
+                    <p class="fw-semibold mb-2">{{ 'Quick actions'|trans }}</p>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Which products are almost out of stock?'|trans }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'What should I take care of this morning?'|trans }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Revenue and top sellers over the last 7 days'|trans }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mc-suggestion">{{ 'Which campaigns are currently active?'|trans }}</button>
+                </div>
+            </div>
             <div class="card-footer">
                 <form id="mc-form" class="d-flex gap-2">
                     <input type="text" id="mc-input" class="form-control" maxlength="2000"
