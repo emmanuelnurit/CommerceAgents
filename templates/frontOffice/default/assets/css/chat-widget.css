@@ -79,6 +79,10 @@
     align-self: flex-start;
     background: #fdecea;
     color: #b3261e;
+    white-space: normal;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 #commerce-agents-widget .caw-retry {
