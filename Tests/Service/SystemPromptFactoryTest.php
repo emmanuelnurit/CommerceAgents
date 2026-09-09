@@ -38,8 +38,16 @@ class SystemPromptFactoryTest extends TestCase
         $prompt = $this->factory->merchant('fr_FR');
 
         $this->assertStringContainsString('French', $prompt);
-        $this->assertStringContainsString('read-only', $prompt);
         $this->assertStringContainsString('Never invent figures', $prompt);
+    }
+
+    public function testMerchantPromptExplainsStagedProposals(): void
+    {
+        $prompt = $this->factory->merchant('fr_FR');
+
+        $this->assertStringContainsString('NEVER applied directly', $prompt);
+        $this->assertStringContainsString('approval console', $prompt);
+        $this->assertStringNotContainsString('read-only', $prompt);
     }
 
     public function testUnknownLocaleFallsBackToRawCode(): void

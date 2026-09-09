@@ -76,19 +76,20 @@ final readonly class MerchantChatController
         $admin = $this->securityContext->getAdminUser();
         $locale = $admin->getLocale() ?: 'en_US';
 
-        $toolContext = new ToolContext(
-            isAdmin: true,
-            adminId: $admin->getId(),
-            sessionId: $request->getSession()->getId(),
-            locale: $locale,
-        );
-
         $conversation = $this->conversationService->getOrCreate(
             'merchant',
             $request->getSession()->getId(),
             null,
             $locale,
             $admin->getId(),
+        );
+
+        $toolContext = new ToolContext(
+            isAdmin: true,
+            adminId: $admin->getId(),
+            conversationId: $conversation->getId(),
+            sessionId: $request->getSession()->getId(),
+            locale: $locale,
         );
         $this->conversationService->appendMessage($conversation->getId(), 'user', $userMessage);
         $history = $this->conversationService->getHistory($conversation->getId());
