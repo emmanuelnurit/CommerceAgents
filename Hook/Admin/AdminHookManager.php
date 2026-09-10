@@ -37,7 +37,20 @@ class AdminHookManager extends BaseHook
             'main.in-top-menu-items' => [['type' => 'back', 'method' => 'onMainTopMenuItems']],
             'module.configuration' => [['type' => 'back', 'method' => 'onModuleConfiguration']],
             'module.config-js' => [['type' => 'back', 'method' => 'onModuleConfigJs']],
+            'main.footer-js' => [['type' => 'back', 'method' => 'onMainFooterJs']],
         ];
+    }
+
+    public function onMainFooterJs(HookRenderEvent $event): void
+    {
+        if (!$this->securityContext->isGranted(['ADMIN'], [], ['commerceagents'], [AccessManager::VIEW])) {
+            return;
+        }
+
+        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/bo-chat-widget.html.twig', [
+            'endpoint' => $this->urlGenerator->generate('commerceagents_merchant_chat'),
+            'fullPageUrl' => $this->urlGenerator->generate('commerceagents_merchant_page'),
+        ]));
     }
 
     public function onModuleConfigJs(HookRenderEvent $event): void

@@ -60,4 +60,13 @@ return [
     'Connection lost' => 'Connexion perdue',
     'Service unavailable' => 'Service indisponible',
     'Something went wrong' => 'Une erreur est survenue',
+    'Dashboard' => 'Tableau de bord',
+    'Customers' => 'Clients',
+    'Products' => 'Produits',
+    'Categories' => 'Catégories',
+    'Coupons' => 'Codes promo',
+    'Configuration' => 'Configuration',
+    'Modules' => 'Modules',
+    'Merchant assistant' => 'Assistant marchand',
+    'Open the full page' => 'Ouvrir la page complète',
 ];

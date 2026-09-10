@@ -60,4 +60,13 @@ return [
     'Connection lost' => 'Connection lost',
     'Service unavailable' => 'Service unavailable',
     'Something went wrong' => 'Something went wrong',
+    'Dashboard' => 'Dashboard',
+    'Customers' => 'Customers',
+    'Products' => 'Products',
+    'Categories' => 'Categories',
+    'Coupons' => 'Coupons',
+    'Configuration' => 'Configuration',
+    'Modules' => 'Modules',
+    'Merchant assistant' => 'Merchant assistant',
+    'Open the full page' => 'Open the full page',
 ];

@@ -1,0 +1,38 @@
+<link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/bo-chat-widget.css') }}">
+<div id="commerceagents-bo-widget"
+     data-endpoint="{{ endpoint }}"
+     data-full-page-url="{{ fullPageUrl }}"
+     data-i18n-connection-lost="{{ 'Connection lost'|trans({}, 'commerceagents') }}"
+     data-i18n-service-unavailable="{{ 'Service unavailable'|trans({}, 'commerceagents') }}"
+     data-i18n-error="{{ 'Something went wrong'|trans({}, 'commerceagents') }}"
+     hidden>
+    <button type="button" class="cabw-toggle" aria-controls="cabw-panel" aria-expanded="false" title="{{ 'Merchant assistant'|trans({}, 'commerceagents') }}">
+        <i class="bi bi-robot" aria-hidden="true"></i>
+    </button>
+
+    <section id="cabw-panel" class="cabw-panel" role="dialog" aria-label="{{ 'Merchant assistant'|trans({}, 'commerceagents') }}" hidden>
+        <header class="cabw-header">
+            <strong>{{ 'Merchant assistant'|trans({}, 'commerceagents') }}</strong>
+            <a class="cabw-full" href="{{ fullPageUrl }}">{{ 'Open the full page'|trans({}, 'commerceagents') }}</a>
+        </header>
+
+        <div class="cabw-messages" id="cabw-messages" aria-live="polite">
+            <div class="cabw-suggestions" id="cabw-suggestions">
+                <p class="cabw-suggestions-title">{{ 'Quick actions'|trans({}, 'commerceagents') }}</p>
+                <button type="button" class="cabw-chip">{{ 'Which products are almost out of stock?'|trans({}, 'commerceagents') }}</button>
+                <button type="button" class="cabw-chip">{{ 'What should I take care of this morning?'|trans({}, 'commerceagents') }}</button>
+                <button type="button" class="cabw-chip">{{ 'Revenue and top sellers over the last 7 days'|trans({}, 'commerceagents') }}</button>
+                <button type="button" class="cabw-chip">{{ 'Which campaigns are currently active?'|trans({}, 'commerceagents') }}</button>
+            </div>
+        </div>
+
+        <form class="cabw-form" id="cabw-form">
+            <input type="text" id="cabw-input" class="form-control form-control-sm" maxlength="2000"
+                   placeholder="{{ 'Ask about sales, inventory, pricing…'|trans({}, 'commerceagents') }}" autocomplete="off">
+            <button type="submit" id="cabw-send" class="btn btn-sm btn-primary">{{ 'Send'|trans({}, 'commerceagents') }}</button>
+        </form>
+    </section>
+</div>
+
+<script src="{{ module_asset('CommerceAgents', 'assets/js/chat-markdown.js') }}"></script>
+<script src="{{ module_asset('CommerceAgents', 'assets/js/bo-chat-widget.js') }}"></script>

@@ -73,6 +73,14 @@ class SystemPromptFactoryTest extends TestCase
         $this->assertStringContainsString('include its link', $prompt);
     }
 
+    public function testMerchantPromptExplainsBackOfficeNavigation(): void
+    {
+        $prompt = $this->factory->merchant('fr_FR');
+
+        $this->assertStringContainsString('open_admin_page', $prompt);
+        $this->assertStringContainsString('get_admin_pages', $prompt);
+    }
+
     public function testUnknownLocaleFallsBackToRawCode(): void
     {
         $prompt = $this->factory->shopping('Alex', 'xx_XX');

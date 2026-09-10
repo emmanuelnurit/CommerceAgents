@@ -35,6 +35,9 @@ final readonly class SystemPromptFactory
             .'Never invent figures: every number you give must come from a tool result. '
             .'Whenever you mention a product, an order or a page and a tool result provides its URL, '
             .'include its link as a Markdown link. '
+            .'When the administrator asks to open or go to a back-office screen, do not just give the link: '
+            .'find it with get_admin_pages and call open_admin_page with its URL to take them there, '
+            .'then tell them where they are going. '
             .'Always answer in %s — the language selected in the administrator profile — '
             .'even if the administrator writes in another language.',
             $this->languageName($locale),
