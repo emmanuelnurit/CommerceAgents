@@ -37,6 +37,7 @@ function commerceAgentsBootBoWidget() {
 
     var state = { open: false, messages: [] };
     var streamingBubble = null;
+    var streamingRenderFrame = 0;
     var pendingNavigationUrl = null;
 
     function persist() {
@@ -118,15 +119,65 @@ function commerceAgentsBootBoWidget() {
     function appendAssistantText(text) {
         if (streamingBubble === null) {
             var message = { kind: 'assistant', text: '' };
-            streamingBubble = { message: message, el: pushMessage(message) };
+            streamingBubble = { message: message, el: pushMessage(message), settledChars: 0, settledNodes: 0 };
         }
         streamingBubble.message.text += text;
-        window.CommerceAgentsMarkdown.render(streamingBubble.el, streamingBubble.message.text);
+        scheduleStreamingRender();
+    }
+
+    // Deltas arrive faster than the bubble can be rebuilt and laid out:
+    // paint at most once per animation frame, from the accumulated text.
+    function scheduleStreamingRender() {
+        if (streamingRenderFrame !== 0) {
+            return;
+        }
+        streamingRenderFrame = window.requestAnimationFrame(function () {
+            streamingRenderFrame = 0;
+            renderStreamingBubble();
+        });
+    }
+
+    function renderStreamingBubble() {
+        if (streamingBubble === null) {
+            return;
+        }
+        var bubble = streamingBubble;
+        var text = bubble.message.text;
+        // Blocks before the last blank line are final: render them once, then
+        // only the tail block is rebuilt on the following frames.
+        var boundary = text.lastIndexOf('\n\n');
+        if (boundary >= bubble.settledChars) {
+            truncateChildren(bubble.el, bubble.settledNodes);
+            window.CommerceAgentsMarkdown.append(bubble.el, text.slice(bubble.settledChars, boundary));
+            bubble.settledChars = boundary + 2;
+            bubble.settledNodes = bubble.el.childNodes.length;
+        }
+        truncateChildren(bubble.el, bubble.settledNodes);
+        window.CommerceAgentsMarkdown.append(bubble.el, text.slice(bubble.settledChars));
         scrollDown();
     }
 
-    function handleToolResult(payload) {
+    function truncateChildren(el, count) {
+        while (el.childNodes.length > count) {
+            el.removeChild(el.lastChild);
+        }
+    }
+
+    function closeStreamingBubble() {
+        if (streamingRenderFrame !== 0) {
+            window.cancelAnimationFrame(streamingRenderFrame);
+            streamingRenderFrame = 0;
+        }
+        if (streamingBubble !== null) {
+            // Final full render: the same DOM as a restore from sessionStorage.
+            window.CommerceAgentsMarkdown.render(streamingBubble.el, streamingBubble.message.text);
+            scrollDown();
+        }
         streamingBubble = null;
+    }
+
+    function handleToolResult(payload) {
+        closeStreamingBubble();
         pushMessage({ kind: 'tool', text: '⚙ ' + payload.name });
         var result = payload.result || {};
         if (payload.name === 'open_admin_page' && result.navigation && result.navigation.url) {
@@ -182,10 +233,10 @@ function commerceAgentsBootBoWidget() {
         } else if (event === 'tool_result') {
             handleToolResult(payload);
         } else if (event === 'error') {
-            streamingBubble = null;
+            closeStreamingBubble();
             pushMessage({ kind: 'error', text: payload.message || i18n.error });
         } else if (event === 'done') {
-            streamingBubble = null;
+            closeStreamingBubble();
             persist();
             navigateIfRequested();
         }
@@ -194,7 +245,7 @@ function commerceAgentsBootBoWidget() {
     async function streamMessage(text) {
         sendButton.disabled = true;
         input.disabled = true;
-        streamingBubble = null;
+        closeStreamingBubble();
 
         try {
             var response = await fetch(endpoint, {
@@ -227,7 +278,7 @@ function commerceAgentsBootBoWidget() {
         } catch (error) {
             pushMessage({ kind: 'error', text: i18n.connectionLost });
         } finally {
-            streamingBubble = null;
+            closeStreamingBubble();
             sendButton.disabled = false;
             input.disabled = false;
             persist();

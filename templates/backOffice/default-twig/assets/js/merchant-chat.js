@@ -23,6 +23,7 @@
     const sendButton = document.getElementById('mc-send');
 
     let streamingBubble = null;
+    let streamingRenderFrame = 0;
 
     function scrollDown() {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -39,18 +40,68 @@
 
     function appendAssistantText(text) {
         if (streamingBubble === null) {
-            streamingBubble = document.createElement('div');
-            streamingBubble.className = 'mc-bubble mc-assistant';
-            streamingBubble.rawMarkdown = '';
-            messagesContainer.appendChild(streamingBubble);
+            const el = document.createElement('div');
+            el.className = 'mc-bubble mc-assistant';
+            messagesContainer.appendChild(el);
+            streamingBubble = { el: el, rawMarkdown: '', settledChars: 0, settledNodes: 0 };
         }
         streamingBubble.rawMarkdown += text;
-        window.CommerceAgentsMarkdown.render(streamingBubble, streamingBubble.rawMarkdown);
+        scheduleStreamingRender();
+    }
+
+    // Deltas arrive faster than the bubble can be rebuilt and laid out:
+    // paint at most once per animation frame, from the accumulated text.
+    function scheduleStreamingRender() {
+        if (streamingRenderFrame !== 0) {
+            return;
+        }
+        streamingRenderFrame = window.requestAnimationFrame(() => {
+            streamingRenderFrame = 0;
+            renderStreamingBubble();
+        });
+    }
+
+    function renderStreamingBubble() {
+        if (streamingBubble === null) {
+            return;
+        }
+        const bubble = streamingBubble;
+        const text = bubble.rawMarkdown;
+        // Blocks before the last blank line are final: render them once, then
+        // only the tail block is rebuilt on the following frames.
+        const boundary = text.lastIndexOf('\n\n');
+        if (boundary >= bubble.settledChars) {
+            truncateChildren(bubble.el, bubble.settledNodes);
+            window.CommerceAgentsMarkdown.append(bubble.el, text.slice(bubble.settledChars, boundary));
+            bubble.settledChars = boundary + 2;
+            bubble.settledNodes = bubble.el.childNodes.length;
+        }
+        truncateChildren(bubble.el, bubble.settledNodes);
+        window.CommerceAgentsMarkdown.append(bubble.el, text.slice(bubble.settledChars));
         scrollDown();
     }
 
-    function addToolBlock(payload) {
+    function truncateChildren(el, count) {
+        while (el.childNodes.length > count) {
+            el.removeChild(el.lastChild);
+        }
+    }
+
+    function closeStreamingBubble() {
+        if (streamingRenderFrame !== 0) {
+            window.cancelAnimationFrame(streamingRenderFrame);
+            streamingRenderFrame = 0;
+        }
+        if (streamingBubble !== null) {
+            // Final full render, identical to a one-shot render of the reply.
+            window.CommerceAgentsMarkdown.render(streamingBubble.el, streamingBubble.rawMarkdown);
+            scrollDown();
+        }
         streamingBubble = null;
+    }
+
+    function addToolBlock(payload) {
+        closeStreamingBubble();
         const details = document.createElement('details');
         details.className = 'mc-tool';
 
@@ -92,7 +143,7 @@
         } else if (event === 'tool_result') {
             addToolBlock(payload);
         } else if (event === 'error') {
-            streamingBubble = null;
+            closeStreamingBubble();
             addBubble('mc-error', payload.message || i18n.error);
         }
     }
@@ -100,7 +151,7 @@
     async function streamMessage(text) {
         sendButton.disabled = true;
         input.disabled = true;
-        streamingBubble = null;
+        closeStreamingBubble();
 
         try {
             const response = await fetch(endpoint, {
@@ -135,7 +186,7 @@
         } catch (error) {
             addBubble('mc-error', i18n.connectionLost);
         } finally {
-            streamingBubble = null;
+            closeStreamingBubble();
             sendButton.disabled = false;
             input.disabled = false;
             input.focus();

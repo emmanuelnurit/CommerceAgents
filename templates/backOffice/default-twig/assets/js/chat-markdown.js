@@ -71,8 +71,22 @@
 
     function render(container, markdown) {
         container.textContent = '';
+        append(container, markdown);
+    }
+
+    // Renders after the existing children. No block ever spans a blank line,
+    // so appending two halves split on "\n\n" builds the same DOM as one
+    // render: the chat widgets rely on this to rebuild only the streaming tail.
+    function append(container, markdown) {
         var lines = String(markdown || '').split('\n');
         var i = 0;
+
+        // A table only starts on a row followed by its separator line. While the
+        // reply streams in, the header row arrives before the separator: it must
+        // fall through to the paragraph branch, otherwise nothing consumes it.
+        function isTableStart(index) {
+            return isTableRow(lines[index]) && index + 1 < lines.length && isTableSeparator(lines[index + 1]);
+        }
 
         while (i < lines.length) {
             var line = lines[i];
@@ -82,7 +96,7 @@
                 continue;
             }
 
-            if (isTableRow(line) && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+            if (isTableStart(i)) {
                 var table = document.createElement('table');
                 table.className = 'cam-table';
                 var thead = document.createElement('thead');
@@ -149,14 +163,20 @@
 
             var paragraph = document.createElement('p');
             paragraph.className = 'cam-p';
+            var paragraphStart = i;
             var first = true;
             while (i < lines.length && lines[i].trim() !== ''
-                && !/^\s*([-*]|\d+[.)]|#{1,4})\s+/.test(lines[i]) && !isTableRow(lines[i])) {
+                && !/^\s*([-*]|\d+[.)]|#{1,4})\s+/.test(lines[i]) && !isTableStart(i)) {
                 if (!first) {
                     paragraph.appendChild(document.createElement('br'));
                 }
                 appendInline(paragraph, lines[i]);
                 first = false;
+                i += 1;
+            }
+            if (i === paragraphStart) {
+                // Never stall: a line no branch claims is shown as plain text.
+                appendInline(paragraph, lines[i]);
                 i += 1;
             }
             if (paragraph.childNodes.length === 1 && paragraph.firstChild.nodeName === 'A') {
@@ -166,5 +186,5 @@
         }
     }
 
-    global.CommerceAgentsMarkdown = { render: render };
+    global.CommerceAgentsMarkdown = { render: render, append: append };
 })(window);
