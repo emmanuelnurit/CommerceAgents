@@ -27,9 +27,6 @@ use Thelia\Model\CurrencyQuery;
 )]
 final class McpServeCommand extends Command
 {
-    /** Browser navigation tools make no sense outside the back-office chat. */
-    private const HIDDEN_TOOLS = ['open_admin_page', 'open_page'];
-
     public function __construct(
         private readonly ToolRegistry $toolRegistry,
         private readonly ConversationService $conversationService,
@@ -86,7 +83,7 @@ final class McpServeCommand extends Command
             ? static fn (string $message) => $errorOutput->writeln('<comment>[mcp]</comment> '.$message)
             : null;
 
-        (new StdioTransport(logger: $logger))->serve(new McpServer($this->toolRegistry, $toolContext, self::HIDDEN_TOOLS));
+        (new StdioTransport(logger: $logger))->serve(new McpServer($this->toolRegistry, $toolContext));
 
         return Command::SUCCESS;
     }

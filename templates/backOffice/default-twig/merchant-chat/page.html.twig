@@ -21,7 +21,10 @@
     <div class="container-fluid" data-testid="merchant-chat-page">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1 class="h3 mb-0">{{ 'Merchant Agent'|trans({}, 'commerceagents') }}</h1>
-            <a class="btn btn-outline-primary" href="{{ path('commerceagents_changes') }}">{{ 'Proposed changes'|trans({}, 'commerceagents') }}</a>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary" href="{{ path('commerceagents_mcp_page') }}"><i class="bi bi-plug me-1" aria-hidden="true"></i>{{ 'MCP server'|trans({}, 'commerceagents') }}</a>
+                <a class="btn btn-outline-primary" href="{{ path('commerceagents_changes') }}">{{ 'Proposed changes'|trans({}, 'commerceagents') }}</a>
+            </div>
         </div>
 
         {% if not apiKeyConfigured %}

@@ -7,6 +7,7 @@ namespace CommerceAgents\Mcp\Server;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Agent\Tool\ToolRegistry;
+use CommerceAgents\Mcp\McpToolCatalog;
 use CommerceAgents\Mcp\Protocol\JsonRpc;
 use CommerceAgents\Mcp\Protocol\JsonRpcException;
 
@@ -22,7 +23,7 @@ final class McpServer
     public function __construct(
         private readonly ToolRegistry $toolRegistry,
         private readonly ToolContext $toolContext,
-        private readonly array $hiddenTools = [],
+        private readonly array $hiddenTools = McpToolCatalog::HIDDEN_TOOLS,
     ) {
     }
 

@@ -1,0 +1,135 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'Merchant Agent — MCP server'|trans({}, 'commerceagents') }}{% endblock %}
+{% block body_testid %}commerceagents-mcp{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('commerceagents_merchant_page') }}">{{ 'Merchant Agent'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'MCP server'|trans({}, 'commerceagents') }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid" data-testid="mcp-page">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="h3 mb-0">{{ 'MCP server'|trans({}, 'commerceagents') }}</h1>
+            <a class="btn btn-outline-primary" href="{{ path('commerceagents_merchant_page') }}">{{ 'Merchant Agent'|trans({}, 'commerceagents') }}</a>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold">{{ 'What it does'|trans({}, 'commerceagents') }}</div>
+                    <div class="card-body">
+                        <p>{{ 'The module exposes the Merchant Agent tools to any MCP client (Claude Desktop, Claude Code, another agent). The client brings its own model: the store makes no LLM call and pays nothing.'|trans({}, 'commerceagents') }}</p>
+                        <p>{{ 'The same tools, gates and approval rules as the chat apply: every price or stock change lands in the proposed changes console and waits for a human decision.'|trans({}, 'commerceagents') }}</p>
+                        <ul class="mb-0">
+                            <li>{{ 'Transport: stdio (the client starts the PHP process on the store machine or in its container).'|trans({}, 'commerceagents') }}</li>
+                            <li>{{ 'Server name'|trans({}, 'commerceagents') }} : <code>{{ serverName }}</code></li>
+                            <li>{{ 'Protocol versions'|trans({}, 'commerceagents') }} : <code>{{ protocolVersions|join('</code>, <code>')|raw }}</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card h-100 border-warning">
+                    <div class="card-header fw-semibold"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>{{ 'Security'|trans({}, 'commerceagents') }}</div>
+                    <div class="card-body">
+                        <p>{{ 'Whoever can run the command acts as the administrator given in --admin. Restrict shell access accordingly.'|trans({}, 'commerceagents') }}</p>
+                        <p class="mb-0">{{ 'Browser navigation tools are not exposed. There is no HTTP transport and no API key: remote access is out of scope.'|trans({}, 'commerceagents') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header fw-semibold">{{ 'Start the server'|trans({}, 'commerceagents') }}</div>
+            <div class="card-body">
+                <p>{{ 'Run from the Thelia root, as the current administrator, with the public URL of this store for generated links:'|trans({}, 'commerceagents') }}</p>
+                <pre class="bg-light p-3 rounded mb-3 text-wrap text-break" data-testid="mcp-command"><code>{{ command }}</code></pre>
+                <table class="table table-sm mb-0">
+                    <tbody>
+                        <tr><th scope="row" class="w-25"><code>--admin</code></th><td>{{ 'Required. Login of the administrator the client acts as (proposals are signed with this account).'|trans({}, 'commerceagents') }} <span class="text-muted">({{ adminLogin }})</span></td></tr>
+                        <tr><th scope="row"><code>--base-url</code></th><td>{{ 'Public base URL for links in results. Defaults to the url_site setting, then http://localhost.'|trans({}, 'commerceagents') }} <span class="text-muted">({{ baseUrl }})</span></td></tr>
+                        <tr><th scope="row"><code>--locale</code></th><td>{{ 'Locale of the results. Defaults to the administrator profile locale.'|trans({}, 'commerceagents') }}</td></tr>
+                        <tr><th scope="row"><code>--debug</code></th><td>{{ 'Logs every JSON-RPC message on stderr; stdout stays reserved for the protocol.'|trans({}, 'commerceagents') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold">Claude Desktop</div>
+                    <div class="card-body">
+                        <p>{{ 'Add this entry to claude_desktop_config.json, replacing /path/to/thelia with the store root:'|trans({}, 'commerceagents') }}</p>
+                        <pre class="bg-light p-3 rounded mb-0"><code>{{ claudeDesktopConfig }}</code></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header fw-semibold">Claude Code</div>
+                    <div class="card-body">
+                        <p>{{ 'Register the server once from any terminal:'|trans({}, 'commerceagents') }}</p>
+                        <pre class="bg-light p-3 rounded mb-0 text-wrap text-break"><code>{{ claudeCodeCommand }}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header fw-semibold">{{ 'Exposed tools'|trans({}, 'commerceagents') }} <span class="badge text-bg-secondary ms-1">{{ tools|length }}</span></div>
+            <div class="card-body p-0">
+                <table class="table table-hover align-middle mb-0" data-testid="mcp-tools" style="table-layout: fixed">
+                    <thead>
+                        <tr>
+                            <th style="width: 16%">{{ 'Tool'|trans({}, 'commerceagents') }}</th>
+                            <th style="width: 46%">{{ 'Description'|trans({}, 'commerceagents') }}</th>
+                            <th style="width: 38%">{{ 'Parameters'|trans({}, 'commerceagents') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tool in tools %}
+                            <tr data-tool="{{ tool.name }}">
+                                <td class="text-wrap text-break">
+                                    <code>{{ tool.name }}</code><br>
+                                    {% if tool.writes %}
+                                        <span class="badge text-bg-warning">{{ 'Proposal'|trans({}, 'commerceagents') }}</span>
+                                    {% else %}
+                                        <span class="badge text-bg-success">{{ 'Read'|trans({}, 'commerceagents') }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-wrap">{{ tool.description }}</td>
+                                <td class="text-wrap">
+                                    {% set properties = tool.inputSchema.properties|default({}) %}
+                                    {% if properties is iterable and properties is not empty %}
+                                        <ul class="list-unstyled mb-0 small">
+                                            {% for name, property in properties %}
+                                                <li>
+                                                    <code>{{ name }}</code>
+                                                    <span class="text-muted">{{ property.type|default('') }}{% if name in tool.inputSchema.required|default([]) %}, {{ 'required'|trans({}, 'commerceagents') }}{% endif %}</span>
+                                                    {% if property.description is defined %}: {{ property.description }}{% endif %}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <span class="text-muted">{{ 'None'|trans({}, 'commerceagents') }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <p class="text-muted small mt-3 mb-0">{{ 'Quick check from a terminal:'|trans({}, 'commerceagents') }}</p>
+        <pre class="bg-light p-3 rounded text-wrap text-break"><code>printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | {{ command }}</code></pre>
+    </div>
+{% endblock %}
