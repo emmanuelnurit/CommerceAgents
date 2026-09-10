@@ -45,19 +45,31 @@ final readonly class ChatStreamer
 
         $response = new StreamedResponse(function () use ($runtime, $history, $system, $toolContext, $llmConfig, $conversation): void {
             $assistantText = '';
+            // Usage reported by the provider for the LLM call in progress; it is
+            // credited to the next persisted assistant message (the runtime emits
+            // it before the tool calls of the same call).
+            $pendingTokensIn = 0;
+            $pendingTokensOut = 0;
 
             try {
                 foreach ($runtime->runTurn($history, $system, $toolContext, $llmConfig) as $event) {
                     if ($event->type === AgentEvent::TEXT_DELTA) {
                         $assistantText .= $event->payload['text'];
+                    } elseif ($event->type === AgentEvent::USAGE) {
+                        $pendingTokensIn += $event->payload['input_tokens'];
+                        $pendingTokensOut += $event->payload['output_tokens'];
                     } elseif ($event->type === AgentEvent::TOOL_CALL) {
                         $this->conversationService->appendMessage(
                             $conversation->getId(),
                             'assistant',
                             $assistantText,
                             [['id' => $event->payload['id'], 'name' => $event->payload['name'], 'arguments' => $event->payload['arguments']]],
+                            $pendingTokensIn,
+                            $pendingTokensOut,
                         );
                         $assistantText = '';
+                        $pendingTokensIn = 0;
+                        $pendingTokensOut = 0;
                     } elseif ($event->type === AgentEvent::TOOL_RESULT) {
                         $this->conversationService->appendMessage(
                             $conversation->getId(),
@@ -74,7 +86,9 @@ final readonly class ChatStreamer
             }
 
             if ($assistantText !== '') {
-                $this->conversationService->appendMessage($conversation->getId(), 'assistant', $assistantText);
+                $this->conversationService->appendMessage($conversation->getId(), 'assistant', $assistantText, null, $pendingTokensIn, $pendingTokensOut);
+            } elseif ($pendingTokensIn > 0 || $pendingTokensOut > 0) {
+                $this->conversationService->addTokensToLatestAssistantMessage($conversation->getId(), $pendingTokensIn, $pendingTokensOut);
             }
         });
 

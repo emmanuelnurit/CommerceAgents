@@ -6,9 +6,15 @@ namespace CommerceAgents\Agent\Llm;
 
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-final readonly class OpenAiCompatibleClient implements LlmClientInterface
+/**
+ * Mistral "La Plateforme" chat completions. The wire format is OpenAI-like,
+ * with two differences that make a dedicated client necessary: unknown request
+ * fields are rejected (no `stream_options`), and tool call ids must be
+ * 9 alphanumeric characters. Usage is sent in the last stream chunk.
+ */
+final readonly class MistralClient implements LlmClientInterface
 {
-    private const DEFAULT_BASE_URL = 'https://api.openai.com';
+    private const DEFAULT_BASE_URL = 'https://api.mistral.ai';
 
     public function __construct(
         private HttpClientInterface $httpClient,
@@ -24,17 +30,17 @@ final readonly class OpenAiCompatibleClient implements LlmClientInterface
             'max_tokens' => $config->maxTokens,
             'temperature' => $config->temperature,
             'stream' => true,
-            // Asks the provider for a final usage chunk (OpenAI, OpenRouter, Groq, vLLM...).
-            'stream_options' => ['include_usage' => true],
-            'messages' => OpenAiMessageConverter::convert($messages, $system),
+            'messages' => OpenAiMessageConverter::convert($messages, $system, MistralToolCallId::normalize(...)),
         ];
         if ($toolSpecs !== []) {
             $body['tools'] = OpenAiMessageConverter::convertTools($toolSpecs);
+            $body['tool_choice'] = 'auto';
         }
 
         $response = $this->httpClient->request('POST', $baseUrl.'/v1/chat/completions', [
             'headers' => [
                 'Authorization' => 'Bearer '.$config->apiKey,
+                'Accept' => 'text/event-stream',
                 'Content-Type' => 'application/json',
             ],
             'body' => json_encode($body, \JSON_THROW_ON_ERROR),

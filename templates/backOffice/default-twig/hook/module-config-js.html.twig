@@ -1,5 +1,17 @@
 <script>
 (function () {
+    const provider = document.getElementById('ca-provider');
+    const model = document.getElementById('ca-model');
+    const baseUrl = document.getElementById('ca-base-url');
+    if (provider && model && baseUrl) {
+        const applyHints = function () {
+            model.placeholder = provider.getAttribute('data-model-hint-' + provider.value) || '';
+            baseUrl.placeholder = provider.getAttribute('data-base-url-hint-' + provider.value) || '';
+        };
+        provider.addEventListener('change', applyHints);
+        applyHints();
+    }
+
     const button = document.getElementById('ca-test-connection');
     const result = document.getElementById('ca-test-result');
     if (!button || !result) {

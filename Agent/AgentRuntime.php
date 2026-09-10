@@ -38,6 +38,8 @@ final readonly class AgentRuntime
             $assistantText = '';
             $toolCalls = [];
             $stopReason = null;
+            $inputTokens = 0;
+            $outputTokens = 0;
 
             foreach ($this->llmClient->streamChat($messages, $toolSpecs, $system, $config) as $event) {
                 switch ($event->type) {
@@ -52,6 +54,8 @@ final readonly class AgentRuntime
 
                     case LlmEvent::TURN_END:
                         $stopReason = $event->stopReason;
+                        $inputTokens = $event->inputTokens;
+                        $outputTokens = $event->outputTokens;
                         break;
 
                     case LlmEvent::ERROR:
@@ -59,6 +63,10 @@ final readonly class AgentRuntime
 
                         return;
                 }
+            }
+
+            if ($inputTokens > 0 || $outputTokens > 0) {
+                yield AgentEvent::usage($inputTokens, $outputTokens);
             }
 
             if ($stopReason !== 'tool_use' || $toolCalls === []) {

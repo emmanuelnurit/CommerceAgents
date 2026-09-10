@@ -63,6 +63,28 @@ final readonly class ConversationService
     }
 
     /**
+     * Credits provider usage to the most recent assistant message of the
+     * conversation, for turns that end without any new assistant text.
+     */
+    public function addTokensToLatestAssistantMessage(int $conversationId, int $tokensIn, int $tokensOut): void
+    {
+        $message = AgentMessageQuery::create()
+            ->filterByConversationId($conversationId)
+            ->filterByRole('assistant')
+            ->orderById(Criteria::DESC)
+            ->findOne();
+
+        if ($message === null) {
+            return;
+        }
+
+        $message
+            ->setTokensIn((int) $message->getTokensIn() + $tokensIn)
+            ->setTokensOut((int) $message->getTokensOut() + $tokensOut)
+            ->save();
+    }
+
+    /**
      * @return LlmMessage[]
      */
     public function getHistory(int $conversationId, int $limit = 40): array

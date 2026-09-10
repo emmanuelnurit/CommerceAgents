@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Hook\Admin;
 
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\TokenUsageRepository;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
@@ -22,6 +23,7 @@ class AdminHookManager extends BaseHook
     public function __construct(
         private readonly SecurityContext $securityContext,
         private readonly AgentConfigService $configService,
+        private readonly TokenUsageRepository $tokenUsageRepository,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly Environment $twig,
@@ -97,6 +99,8 @@ class AdminHookManager extends BaseHook
             'saveUrl' => $this->urlGenerator->generate('commerceagents_config_save'),
             'testUrl' => $this->urlGenerator->generate('commerceagents_config_test'),
             'csrfToken' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
+            'tokenUsage' => $this->tokenUsageRepository->summarize(),
+            'agentTypes' => TokenUsageRepository::AGENT_TYPES,
         ]));
     }
 }

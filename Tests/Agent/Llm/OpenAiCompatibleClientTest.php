@@ -62,6 +62,7 @@ class OpenAiCompatibleClientTest extends TestCase
         $body = json_decode($capturedOptions['body'], true);
         $this->assertSame('mistral-large-latest', $body['model']);
         $this->assertTrue($body['stream']);
+        $this->assertTrue($body['stream_options']['include_usage']);
 
         $this->assertSame('function', $body['tools'][0]['type']);
         $this->assertSame('search_products', $body['tools'][0]['function']['name']);
@@ -106,6 +107,7 @@ class OpenAiCompatibleClientTest extends TestCase
             '{"object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"query\":"}}]},"finish_reason":null}]}',
             '{"object":"chat.completion.chunk","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"chaise\"}"}}]},"finish_reason":null}]}',
             '{"object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}',
+            '{"object":"chat.completion.chunk","choices":[],"usage":{"prompt_tokens":250,"completion_tokens":42,"total_tokens":292}}',
         ];
         $sse = '';
         foreach ($chunks as $chunk) {
@@ -128,5 +130,7 @@ class OpenAiCompatibleClientTest extends TestCase
 
         $this->assertSame(LlmEvent::TURN_END, $events[2]->type);
         $this->assertSame('tool_use', $events[2]->stopReason);
+        $this->assertSame(250, $events[2]->inputTokens);
+        $this->assertSame(42, $events[2]->outputTokens);
     }
 }

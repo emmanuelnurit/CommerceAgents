@@ -104,6 +104,8 @@ final readonly class AnthropicClient implements LlmClientInterface
 
         $buffer = '';
         $stopReason = null;
+        $inputTokens = 0;
+        $outputTokens = 0;
         $currentTool = null;
 
         foreach ($this->httpClient->stream($response) as $chunk) {
@@ -123,6 +125,14 @@ final readonly class AnthropicClient implements LlmClientInterface
                 }
 
                 switch ($payload['type'] ?? '') {
+                    case 'message_start':
+                        $usage = $payload['message']['usage'] ?? [];
+                        $inputTokens = (int) ($usage['input_tokens'] ?? 0)
+                            + (int) ($usage['cache_creation_input_tokens'] ?? 0)
+                            + (int) ($usage['cache_read_input_tokens'] ?? 0);
+                        $outputTokens = (int) ($usage['output_tokens'] ?? 0);
+                        break;
+
                     case 'content_block_start':
                         if (($payload['content_block']['type'] ?? '') === 'tool_use') {
                             $currentTool = [
@@ -156,6 +166,8 @@ final readonly class AnthropicClient implements LlmClientInterface
 
                     case 'message_delta':
                         $stopReason = $payload['delta']['stop_reason'] ?? $stopReason;
+                        // Cumulative output count for the whole message.
+                        $outputTokens = (int) ($payload['usage']['output_tokens'] ?? $outputTokens);
                         break;
 
                     case 'error':
@@ -166,6 +178,6 @@ final readonly class AnthropicClient implements LlmClientInterface
             }
         }
 
-        yield LlmEvent::turnEnd($stopReason);
+        yield LlmEvent::turnEnd($stopReason, $inputTokens, $outputTokens);
     }
 }

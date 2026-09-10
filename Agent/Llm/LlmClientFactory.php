@@ -8,6 +8,14 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class LlmClientFactory
 {
+    public const PROVIDERS = ['anthropic', 'mistral', 'openai-compatible'];
+
+    public const DEFAULT_MODELS = [
+        'anthropic' => 'claude-sonnet-5',
+        'mistral' => 'mistral-large-latest',
+        'openai-compatible' => 'gpt-4.1-mini',
+    ];
+
     public function __construct(
         private HttpClientInterface $httpClient,
     ) {
@@ -17,6 +25,7 @@ final readonly class LlmClientFactory
     {
         return match ($provider) {
             'anthropic' => new AnthropicClient($this->httpClient),
+            'mistral' => new MistralClient($this->httpClient),
             'openai-compatible' => new OpenAiCompatibleClient($this->httpClient),
             default => throw new \InvalidArgumentException(sprintf('Unknown LLM provider "%s"', $provider)),
         };

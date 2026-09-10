@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Controller\Admin;
 
 use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
+use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\CommerceAgents;
 use CommerceAgents\Hook\Admin\AdminHookManager;
 use CommerceAgents\Service\AgentConfigService;
@@ -60,7 +61,7 @@ final readonly class ConfigSaveController
         }
 
         $provider = (string) $request->request->get('provider', 'anthropic');
-        CommerceAgents::setConfigValue('provider', \in_array($provider, ['anthropic', 'openai-compatible'], true) ? $provider : 'anthropic');
+        CommerceAgents::setConfigValue('provider', \in_array($provider, LlmClientFactory::PROVIDERS, true) ? $provider : 'anthropic');
         CommerceAgents::setConfigValue('model', trim((string) $request->request->get('model')));
         CommerceAgents::setConfigValue('base_url', trim((string) $request->request->get('base_url')));
         CommerceAgents::setConfigValue('assistant_name', trim((string) $request->request->get('assistant_name')) ?: 'Alex');

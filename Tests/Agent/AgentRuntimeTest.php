@@ -150,6 +150,33 @@ class AgentRuntimeTest extends TestCase
         $this->assertArrayHasKey('error', $lastMessage->toolResult);
     }
 
+    public function testUsageIsYieldedPerLlmCallBeforeToolCalls(): void
+    {
+        $client = new ScriptedLlmClient([
+            [LlmEvent::toolCall(new LlmToolCall(id: 'tc_1', name: 'echo', arguments: ['text' => 'hi'])), LlmEvent::turnEnd('tool_use', 100, 20)],
+            [LlmEvent::textDelta('fait'), LlmEvent::turnEnd('end_turn', 150, 8)],
+        ]);
+        $registry = new ToolRegistry();
+        $registry->register(new RecordingEchoTool());
+
+        $events = $this->runTurn($client, $registry);
+
+        $this->assertSame(['usage', 'tool_call', 'tool_result', 'text_delta', 'usage', 'done'], array_column($events, 'type'));
+        $this->assertSame(['input_tokens' => 100, 'output_tokens' => 20], $events[0]->payload);
+        $this->assertSame(['input_tokens' => 150, 'output_tokens' => 8], $events[4]->payload);
+    }
+
+    public function testNoUsageEventWhenProviderReportsNothing(): void
+    {
+        $client = new ScriptedLlmClient([
+            [LlmEvent::textDelta('ok'), LlmEvent::turnEnd('end_turn')],
+        ]);
+
+        $events = $this->runTurn($client, new ToolRegistry());
+
+        $this->assertSame(['text_delta', 'done'], array_column($events, 'type'));
+    }
+
     public function testMaxIterationsGuard(): void
     {
         $client = new ScriptedLlmClient([

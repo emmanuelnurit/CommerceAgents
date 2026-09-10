@@ -11,6 +11,7 @@ final readonly class AgentEvent
     public const TEXT_DELTA = 'text_delta';
     public const TOOL_CALL = 'tool_call';
     public const TOOL_RESULT = 'tool_result';
+    public const USAGE = 'usage';
     public const DONE = 'done';
     public const ERROR = 'error';
 
@@ -40,6 +41,14 @@ final readonly class AgentEvent
             'id' => $toolCallId,
             'name' => $toolName,
             'result' => $result,
+        ]);
+    }
+
+    public static function usage(int $inputTokens, int $outputTokens): self
+    {
+        return new self(type: self::USAGE, payload: [
+            'input_tokens' => $inputTokens,
+            'output_tokens' => $outputTokens,
         ]);
     }
 

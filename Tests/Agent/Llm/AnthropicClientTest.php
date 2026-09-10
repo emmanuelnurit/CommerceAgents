@@ -95,7 +95,7 @@ class AnthropicClientTest extends TestCase
     {
         $sse = implode('', [
             "event: message_start\n",
-            'data: {"type":"message_start","message":{"id":"msg_1","role":"assistant"}}'."\n\n",
+            'data: {"type":"message_start","message":{"id":"msg_1","role":"assistant","usage":{"input_tokens":310,"cache_creation_input_tokens":0,"cache_read_input_tokens":40,"output_tokens":1}}}'."\n\n",
             "event: content_block_start\n",
             'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}'."\n\n",
             "event: content_block_delta\n",
@@ -111,7 +111,7 @@ class AnthropicClientTest extends TestCase
             "event: content_block_stop\n",
             'data: {"type":"content_block_stop","index":1}'."\n\n",
             "event: message_delta\n",
-            'data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}'."\n\n",
+            'data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":57}}'."\n\n",
             "event: message_stop\n",
             'data: {"type":"message_stop"}'."\n\n",
         ]);
@@ -131,5 +131,7 @@ class AnthropicClientTest extends TestCase
 
         $this->assertSame(LlmEvent::TURN_END, $events[2]->type);
         $this->assertSame('tool_use', $events[2]->stopReason);
+        $this->assertSame(350, $events[2]->inputTokens, 'input + cache read + cache creation');
+        $this->assertSame(57, $events[2]->outputTokens);
     }
 }

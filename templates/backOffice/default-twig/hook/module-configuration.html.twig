@@ -7,17 +7,25 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label" for="ca-provider">{{ 'LLM provider'|trans({}, 'commerceagents') }}</label>
-                    <select class="form-select" id="ca-provider" name="provider">
+                    <select class="form-select" id="ca-provider" name="provider"
+                            data-model-hint-anthropic="claude-sonnet-5"
+                            data-model-hint-mistral="mistral-large-latest"
+                            data-model-hint-openai-compatible="gpt-4.1-mini"
+                            data-base-url-hint-anthropic="https://api.anthropic.com"
+                            data-base-url-hint-mistral="https://api.mistral.ai"
+                            data-base-url-hint-openai-compatible="https://openrouter.ai/api">
                         <option value="anthropic" {{ provider == 'anthropic' ? 'selected' : '' }}>Anthropic</option>
-                        <option value="openai-compatible" {{ provider == 'openai-compatible' ? 'selected' : '' }}>{{ 'OpenAI-compatible (OpenRouter, Mistral…)'|trans({}, 'commerceagents') }}</option>
+                        <option value="mistral" {{ provider == 'mistral' ? 'selected' : '' }}>Mistral AI</option>
+                        <option value="openai-compatible" {{ provider == 'openai-compatible' ? 'selected' : '' }}>{{ 'OpenAI-compatible (OpenAI, OpenRouter…)'|trans({}, 'commerceagents') }}</option>
                     </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label" for="ca-model">{{ 'Model'|trans({}, 'commerceagents') }}</label>
                     <input class="form-control" id="ca-model" name="model" type="text" value="{{ model }}">
+                    <div class="form-text">{{ 'Leave empty to use the provider default model.'|trans({}, 'commerceagents') }}</div>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="ca-base-url">{{ 'Base URL (OpenAI-compatible only)'|trans({}, 'commerceagents') }}</label>
+                    <label class="form-label" for="ca-base-url">{{ 'Base URL (optional, defaults to the provider API)'|trans({}, 'commerceagents') }}</label>
                     <input class="form-control" id="ca-base-url" name="base_url" type="url" value="{{ baseUrl }}" placeholder="https://openrouter.ai/api">
                 </div>
 
@@ -68,5 +76,53 @@
                 <span id="ca-test-result" class="ms-2" role="status" aria-live="polite"></span>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="card mt-3" data-testid="commerceagents-token-usage">
+    <div class="card-header">{{ 'Token usage'|trans({}, 'commerceagents') }}</div>
+    <div class="card-body">
+        <p class="form-text mb-3">{{ 'Tokens billed by the LLM provider, as reported in its responses. One call is one request to the provider; a single user message may need several calls when tools are used.'|trans({}, 'commerceagents') }}</p>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>{{ 'Period'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Agent'|trans({}, 'commerceagents') }}</th>
+                        <th class="text-end">{{ 'LLM calls'|trans({}, 'commerceagents') }}</th>
+                        <th class="text-end">{{ 'Input tokens'|trans({}, 'commerceagents') }}</th>
+                        <th class="text-end">{{ 'Output tokens'|trans({}, 'commerceagents') }}</th>
+                        <th class="text-end">{{ 'Total tokens'|trans({}, 'commerceagents') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set periodLabels = {
+                        'today': 'Today'|trans({}, 'commerceagents'),
+                        'last_30_days': 'Last 30 days'|trans({}, 'commerceagents'),
+                        'all_time': 'All time'|trans({}, 'commerceagents'),
+                    } %}
+                    {% set agentLabels = {
+                        'shopping': 'Shopping assistant'|trans({}, 'commerceagents'),
+                        'merchant': 'Merchant assistant'|trans({}, 'commerceagents'),
+                        'all': 'All agents'|trans({}, 'commerceagents'),
+                    } %}
+                    {% for period, byAgent in tokenUsage %}
+                        {% for agent in agentTypes|merge(['all']) %}
+                            {% set counters = byAgent[agent] %}
+                            <tr class="{{ agent == 'all' ? 'table-light fw-semibold' : '' }}" data-period="{{ period }}" data-agent="{{ agent }}">
+                                {% if loop.first %}
+                                    <th scope="rowgroup" rowspan="{{ agentTypes|length + 1 }}" class="fw-semibold">{{ periodLabels[period] }}</th>
+                                {% endif %}
+                                <td>{{ agentLabels[agent] }}</td>
+                                <td class="text-end">{{ counters.calls|number_format(0, '.', ' ') }}</td>
+                                <td class="text-end">{{ counters.input|number_format(0, '.', ' ') }}</td>
+                                <td class="text-end">{{ counters.output|number_format(0, '.', ' ') }}</td>
+                                <td class="text-end">{{ counters.total|number_format(0, '.', ' ') }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>

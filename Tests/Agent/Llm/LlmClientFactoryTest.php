@@ -6,6 +6,7 @@ namespace CommerceAgents\Tests\Agent\Llm;
 
 use CommerceAgents\Agent\Llm\AnthropicClient;
 use CommerceAgents\Agent\Llm\LlmClientFactory;
+use CommerceAgents\Agent\Llm\MistralClient;
 use CommerceAgents\Agent\Llm\OpenAiCompatibleClient;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -25,6 +26,11 @@ class LlmClientFactoryTest extends TestCase
     public function testOpenAiCompatibleProvider(): void
     {
         $this->assertInstanceOf(OpenAiCompatibleClient::class, $this->factory()->create('openai-compatible'));
+    }
+
+    public function testMistralProvider(): void
+    {
+        $this->assertInstanceOf(MistralClient::class, $this->factory()->create('mistral'));
     }
 
     public function testUnknownProviderThrows(): void

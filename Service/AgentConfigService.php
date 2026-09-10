@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Service;
 
+use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Agent\Llm\LlmConfig;
 use CommerceAgents\CommerceAgents;
 
@@ -16,9 +17,12 @@ final readonly class AgentConfigService
 
     public function getLlmConfig(): LlmConfig
     {
+        $provider = $this->getProvider();
+        $defaultModel = LlmClientFactory::DEFAULT_MODELS[$provider] ?? LlmClientFactory::DEFAULT_MODELS['anthropic'];
+
         return new LlmConfig(
-            provider: $this->getProvider(),
-            model: (string) CommerceAgents::getConfigValue('model', 'claude-sonnet-5'),
+            provider: $provider,
+            model: (string) (CommerceAgents::getConfigValue('model') ?: $defaultModel),
             apiKey: (string) CommerceAgents::getConfigValue('api_key', ''),
             baseUrl: CommerceAgents::getConfigValue('base_url') ?: null,
         );

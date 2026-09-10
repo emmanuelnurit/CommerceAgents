@@ -16,6 +16,8 @@ final readonly class LlmEvent
         public string $text = '',
         public ?LlmToolCall $toolCall = null,
         public ?string $stopReason = null,
+        public int $inputTokens = 0,
+        public int $outputTokens = 0,
     ) {
     }
 
@@ -29,9 +31,13 @@ final readonly class LlmEvent
         return new self(type: self::TOOL_CALL, toolCall: $toolCall);
     }
 
-    public static function turnEnd(?string $stopReason): self
+    /**
+     * @param int $inputTokens  prompt tokens billed by the provider for this call (0 when unknown)
+     * @param int $outputTokens completion tokens billed by the provider for this call (0 when unknown)
+     */
+    public static function turnEnd(?string $stopReason, int $inputTokens = 0, int $outputTokens = 0): self
     {
-        return new self(type: self::TURN_END, stopReason: $stopReason);
+        return new self(type: self::TURN_END, stopReason: $stopReason, inputTokens: $inputTokens, outputTokens: $outputTokens);
     }
 
     public static function error(string $message): self
