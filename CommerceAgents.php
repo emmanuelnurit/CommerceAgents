@@ -6,6 +6,7 @@ namespace CommerceAgents;
 
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
+use Symfony\Component\Finder\Finder;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\expr;
 use Thelia\Core\Install\Database;
@@ -15,13 +16,42 @@ class CommerceAgents extends BaseModule
 {
     public const DOMAIN_NAME = 'commerceagents';
 
-    public function postActivation(ConnectionInterface $con = null): void
+    public function postActivation(?ConnectionInterface $con = null): void
     {
         if (!self::getConfigValue('is_initialized', false)) {
             $database = new Database($con);
             $database->insertSql(null, [__DIR__.'/Config/TheliaMain.sql']);
             self::setConfigValue('is_initialized', true);
         }
+
+        $this->seedModelCatalog();
+    }
+
+    public function update($currentVersion, $newVersion, ?ConnectionInterface $con = null): void
+    {
+        $finder = Finder::create()->name('*.sql')->depth(0)->sortByName()->in(__DIR__.'/Config/update');
+        $database = new Database($con);
+
+        foreach ($finder as $file) {
+            if (version_compare($currentVersion, $file->getBasename('.sql'), '<')) {
+                $database->insertSql(null, [$file->getPathname()]);
+            }
+        }
+
+        if (version_compare($currentVersion, '0.2.0', '<')) {
+            $this->getContainer()->get(Service\AgentConfigService::class)->migrateLegacySingleProviderSettings();
+        }
+
+        $this->seedModelCatalog();
+    }
+
+    private function seedModelCatalog(): void
+    {
+        if (!$this->hasContainer() || !$this->getContainer()->has(Service\ModelCatalog::class)) {
+            return;
+        }
+
+        $this->getContainer()->get(Service\ModelCatalog::class)->seedFromBundledCatalog();
     }
 
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void
@@ -51,6 +81,10 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Tool\Admin\Gateway\CampaignGatewayInterface::class, Service\Merchant\TheliaCampaignGateway::class);
         $servicesConfigurator->alias(Tool\Admin\Gateway\StagingGatewayInterface::class, Service\Merchant\TheliaStagingGateway::class);
         $servicesConfigurator->alias(StagedChange\StagedChangeRepositoryInterface::class, Service\Merchant\TheliaStagedChangeRepository::class);
+
+        // Reached from the module lifecycle (postActivation / update) through the container.
+        $servicesConfigurator->set(Service\ModelCatalog::class)->autowire(true)->autoconfigure(true)->public();
+        $servicesConfigurator->set(Service\AgentConfigService::class)->autowire(true)->autoconfigure(true)->public();
 
         $configServiceRef = str_replace('\\', '\\\\', Service\AgentConfigService::class);
         $servicesConfigurator->set(Tool\Shopping\AddToCartTool::class)

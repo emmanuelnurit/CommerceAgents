@@ -10,6 +10,7 @@ use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
 use CommerceAgents\Service\SystemPromptFactory;
@@ -29,6 +30,7 @@ final readonly class MerchantChatController
         private AdminAccessChecker $access,
         private SecurityContext $securityContext,
         private AgentConfigService $configService,
+        private BudgetGuard $budgetGuard,
         private ConversationService $conversationService,
         private LlmClientFactory $llmClientFactory,
         private ToolRegistry $toolRegistry,
@@ -71,6 +73,9 @@ final readonly class MerchantChatController
         $llmConfig = $this->configService->getLlmConfig();
         if ($llmConfig->apiKey === '') {
             return new JsonResponse(['error' => 'LLM provider is not configured'], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+        if ($this->budgetGuard->status()->isBlocked()) {
+            return new JsonResponse(['error' => 'Monthly LLM budget reached'], Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
         $admin = $this->securityContext->getAdminUser();

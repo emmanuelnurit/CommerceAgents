@@ -9,6 +9,7 @@ use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
 use CommerceAgents\Service\SystemPromptFactory;
@@ -26,6 +27,7 @@ final class ChatController extends BaseFrontController
 
     public function __construct(
         private readonly AgentConfigService $configService,
+        private readonly BudgetGuard $budgetGuard,
         private readonly ConversationService $conversationService,
         private readonly LlmClientFactory $llmClientFactory,
         private readonly ToolRegistry $toolRegistry,
@@ -55,6 +57,9 @@ final class ChatController extends BaseFrontController
         $llmConfig = $this->configService->getLlmConfig();
         if ($llmConfig->apiKey === '') {
             return new JsonResponse(['error' => 'LLM provider is not configured'], Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+        if ($this->budgetGuard->status()->isBlocked()) {
+            return new JsonResponse(['error' => 'Monthly LLM budget reached'], Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
         $session = $request->getSession();

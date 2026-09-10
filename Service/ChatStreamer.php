@@ -16,6 +16,7 @@ final readonly class ChatStreamer
     public function __construct(
         private ConversationService $conversationService,
         private SessionFreezer $sessionFreezer,
+        private ModelCatalog $modelCatalog,
     ) {
     }
 
@@ -42,8 +43,10 @@ final readonly class ChatStreamer
         AgentConversation $conversation,
     ): StreamedResponse {
         $this->sessionFreezer->freeze();
+        $prices = $this->modelCatalog->pricesFor($llmConfig->provider, $llmConfig->model);
+        $costOf = static fn (int $tokensIn, int $tokensOut): ?float => CostCalculator::cost($prices['input'], $prices['output'], $tokensIn, $tokensOut);
 
-        $response = new StreamedResponse(function () use ($runtime, $history, $system, $toolContext, $llmConfig, $conversation): void {
+        $response = new StreamedResponse(function () use ($runtime, $history, $system, $toolContext, $llmConfig, $conversation, $costOf): void {
             $assistantText = '';
             // Usage reported by the provider for the LLM call in progress; it is
             // credited to the next persisted assistant message (the runtime emits
@@ -66,6 +69,8 @@ final readonly class ChatStreamer
                             [['id' => $event->payload['id'], 'name' => $event->payload['name'], 'arguments' => $event->payload['arguments']]],
                             $pendingTokensIn,
                             $pendingTokensOut,
+                            $llmConfig->model,
+                            $costOf($pendingTokensIn, $pendingTokensOut),
                         );
                         $assistantText = '';
                         $pendingTokensIn = 0;
@@ -86,9 +91,9 @@ final readonly class ChatStreamer
             }
 
             if ($assistantText !== '') {
-                $this->conversationService->appendMessage($conversation->getId(), 'assistant', $assistantText, null, $pendingTokensIn, $pendingTokensOut);
+                $this->conversationService->appendMessage($conversation->getId(), 'assistant', $assistantText, null, $pendingTokensIn, $pendingTokensOut, $llmConfig->model, $costOf($pendingTokensIn, $pendingTokensOut));
             } elseif ($pendingTokensIn > 0 || $pendingTokensOut > 0) {
-                $this->conversationService->addTokensToLatestAssistantMessage($conversation->getId(), $pendingTokensIn, $pendingTokensOut);
+                $this->conversationService->addTokensToLatestAssistantMessage($conversation->getId(), $pendingTokensIn, $pendingTokensOut, $llmConfig->model, $costOf($pendingTokensIn, $pendingTokensOut));
             }
         });
 

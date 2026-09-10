@@ -49,6 +49,8 @@ final readonly class ConversationService
         ?array $toolCalls = null,
         int $tokensIn = 0,
         int $tokensOut = 0,
+        ?string $model = null,
+        ?float $cost = null,
     ): AgentMessage {
         $message = (new AgentMessage())
             ->setConversationId($conversationId)
@@ -56,7 +58,9 @@ final readonly class ConversationService
             ->setContent($content)
             ->setToolCalls($toolCalls !== null ? json_encode($toolCalls, \JSON_THROW_ON_ERROR) : null)
             ->setTokensIn($tokensIn)
-            ->setTokensOut($tokensOut);
+            ->setTokensOut($tokensOut)
+            ->setModel($tokensIn > 0 || $tokensOut > 0 ? $model : null)
+            ->setCost($cost !== null ? number_format($cost, 8, '.', '') : null);
         $message->save();
 
         return $message;
@@ -66,7 +70,7 @@ final readonly class ConversationService
      * Credits provider usage to the most recent assistant message of the
      * conversation, for turns that end without any new assistant text.
      */
-    public function addTokensToLatestAssistantMessage(int $conversationId, int $tokensIn, int $tokensOut): void
+    public function addTokensToLatestAssistantMessage(int $conversationId, int $tokensIn, int $tokensOut, ?string $model = null, ?float $cost = null): void
     {
         $message = AgentMessageQuery::create()
             ->filterByConversationId($conversationId)
@@ -81,7 +85,11 @@ final readonly class ConversationService
         $message
             ->setTokensIn((int) $message->getTokensIn() + $tokensIn)
             ->setTokensOut((int) $message->getTokensOut() + $tokensOut)
-            ->save();
+            ->setModel($message->getModel() ?? $model);
+        if ($cost !== null) {
+            $message->setCost(number_format((float) ($message->getCost() ?? 0) + $cost, 8, '.', ''));
+        }
+        $message->save();
     }
 
     /**

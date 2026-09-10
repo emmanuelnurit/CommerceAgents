@@ -1,44 +1,139 @@
 <script>
 (function () {
-    const provider = document.getElementById('ca-provider');
-    const model = document.getElementById('ca-model');
-    const baseUrl = document.getElementById('ca-base-url');
-    if (provider && model && baseUrl) {
-        const applyHints = function () {
-            model.placeholder = provider.getAttribute('data-model-hint-' + provider.value) || '';
-            baseUrl.placeholder = provider.getAttribute('data-base-url-hint-' + provider.value) || '';
-        };
-        provider.addEventListener('change', applyHints);
-        applyHints();
-    }
-
-    const button = document.getElementById('ca-test-connection');
-    const result = document.getElementById('ca-test-result');
-    if (!button || !result) {
+    const root = document.getElementById('ca-config');
+    if (!root) {
         return;
     }
+    const settingsForm = document.getElementById('ca-settings-form');
+    const token = settingsForm.querySelector('input[name="_token"]');
+    const tabInput = document.getElementById('ca-settings-tab');
 
-    button.addEventListener('click', async function () {
-        const token = document.querySelector('[data-testid="commerceagents-config"] input[name="_token"]');
-        button.disabled = true;
-        result.className = 'ms-2 text-muted';
-        result.textContent = '…';
+    // --- Tabs (no dependency on the theme's JS) ---
+    const tabButtons = root.querySelectorAll('[data-ca-tab]');
+    const panes = root.querySelectorAll('[data-ca-pane]');
+    function activateTab(name) {
+        let found = false;
+        panes.forEach(function (pane) {
+            const match = pane.dataset.caPane === name;
+            pane.classList.toggle('d-none', !match);
+            found = found || match;
+        });
+        if (!found) {
+            return activateTab('providers');
+        }
+        tabButtons.forEach(function (button) {
+            const match = button.dataset.caTab === name;
+            button.classList.toggle('active', match);
+            button.setAttribute('aria-selected', match ? 'true' : 'false');
+        });
+        tabInput.value = name;
+        if (window.location.hash !== '#' + name) {
+            history.replaceState(null, '', '#' + name);
+        }
+    }
+    tabButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            activateTab(button.dataset.caTab);
+        });
+    });
+    root.querySelectorAll('[data-ca-tab-link]').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            event.preventDefault();
+            activateTab(link.dataset.caTabLink);
+            root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    activateTab((window.location.hash || '#providers').substring(1));
 
-        try {
-            const response = await fetch(button.dataset.testUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ _token: token ? token.value : '' }),
+    // --- Active provider highlight ---
+    const activeSelect = document.getElementById('ca-provider');
+    function highlightActive() {
+        root.querySelectorAll('.ca-provider-panel').forEach(function (panel) {
+            panel.classList.toggle('border-primary', panel.dataset.provider === activeSelect.value);
+        });
+    }
+    activeSelect.addEventListener('change', highlightActive);
+    highlightActive();
+
+    // --- Price hint under each model field ---
+    root.querySelectorAll('.ca-model-input').forEach(function (input) {
+        const hint = input.parentElement.querySelector('.ca-model-hint');
+        const list = document.getElementById(input.getAttribute('list'));
+        const initial = hint.textContent;
+        function update() {
+            const option = list ? list.querySelector('option[value="' + CSS.escape(input.value.trim()) + '"]') : null;
+            if (!option) {
+                hint.textContent = input.value.trim() === '' ? initial : hint.dataset.unpriced;
+                return;
+            }
+            const priceIn = option.dataset.priceInput;
+            const priceOut = option.dataset.priceOutput;
+            hint.textContent = (priceIn !== '' && priceOut !== '')
+                ? '$' + priceIn + ' / $' + priceOut + ' ' + hint.dataset.per
+                : hint.dataset.unpriced;
+        }
+        input.addEventListener('input', update);
+        input.addEventListener('change', update);
+        update();
+    });
+
+    // --- Disabled models toggle ---
+    root.querySelectorAll('.ca-show-disabled').forEach(function (toggle) {
+        toggle.addEventListener('change', function () {
+            root.querySelectorAll('table[data-provider="' + toggle.dataset.provider + '"] tr.ca-disabled-row').forEach(function (row) {
+                row.classList.toggle('d-none', !toggle.checked);
             });
-            const payload = await response.json().catch(() => ({ success: false, message: 'HTTP ' + response.status }));
+        });
+    });
 
-            result.className = payload.success ? 'ms-2 text-success' : 'ms-2 text-danger';
-            result.textContent = payload.message || (payload.success ? 'OK' : 'Error');
-        } catch (error) {
-            result.className = 'ms-2 text-danger';
-            result.textContent = 'Connection failed';
-        } finally {
-            button.disabled = false;
+    // --- Provider actions ---
+    async function post(url, provider) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ _token: token ? token.value : '', provider: provider }),
+        });
+
+        return response.json().catch(() => ({ success: false, message: 'HTTP ' + response.status }));
+    }
+
+    function bind(selector, urlAttribute, onSuccess) {
+        root.querySelectorAll(selector).forEach(function (button) {
+            button.addEventListener('click', async function () {
+                const panel = button.closest('.ca-provider-panel');
+                const status = panel ? panel.querySelector('.ca-provider-status') : null;
+                button.disabled = true;
+                if (status) {
+                    status.className = 'ca-provider-status small text-muted';
+                    status.textContent = '…';
+                }
+
+                try {
+                    const payload = await post(button.dataset[urlAttribute], button.dataset.provider);
+                    if (status) {
+                        status.className = 'ca-provider-status small ' + (payload.success ? 'text-success' : 'text-danger');
+                        status.textContent = payload.message || (payload.success ? 'OK' : 'Error');
+                    }
+                    if (payload.success && onSuccess) {
+                        onSuccess(payload);
+                    }
+                } catch (error) {
+                    if (status) {
+                        status.className = 'ca-provider-status small text-danger';
+                        status.textContent = 'Request failed';
+                    }
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        });
+    }
+
+    bind('.ca-test-connection', 'testUrl', null);
+    bind('.ca-refresh-models', 'refreshUrl', function (payload) {
+        if (payload.added > 0) {
+            history.replaceState(null, '', '#models');
+            window.location.reload();
         }
     });
 })();

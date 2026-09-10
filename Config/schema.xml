@@ -24,6 +24,8 @@
         <column name="tool_calls" type="CLOB"/>
         <column name="tokens_in" type="INTEGER"/>
         <column name="tokens_out" type="INTEGER"/>
+        <column name="model" size="120" type="VARCHAR"/>
+        <column name="cost" scale="8" size="14" type="DECIMAL"/>
         <foreign-key foreignTable="agent_conversation" name="fk_agent_message_conversation" onDelete="CASCADE">
             <reference foreign="id" local="conversation_id"/>
         </foreign-key>
@@ -51,6 +53,25 @@
         <foreign-key foreignTable="agent_conversation" name="fk_agent_staged_change_conversation" onDelete="CASCADE">
             <reference foreign="id" local="conversation_id"/>
         </foreign-key>
+        <behavior name="timestampable"/>
+    </table>
+
+    <table name="agent_model" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="provider" required="true" size="40" type="VARCHAR"/>
+        <column name="model_id" required="true" size="120" type="VARCHAR"/>
+        <column name="name" size="150" type="VARCHAR"/>
+        <column name="price_input" scale="6" size="12" type="DECIMAL"/>
+        <column name="price_output" scale="6" size="12" type="DECIMAL"/>
+        <column name="context_window" type="INTEGER"/>
+        <column defaultValue="1" name="enabled" required="true" type="TINYINT"/>
+        <column defaultValue="catalog" name="source" required="true" size="20" type="VARCHAR"/>
+        <column name="priced_at" type="DATE"/>
+        <column name="last_seen_at" type="TIMESTAMP"/>
+        <unique name="uq_agent_model_provider_model">
+            <unique-column name="provider"/>
+            <unique-column name="model_id"/>
+        </unique>
         <behavior name="timestampable"/>
     </table>
 

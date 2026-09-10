@@ -38,6 +38,8 @@ CREATE TABLE `agent_message`
     `tool_calls` LONGTEXT,
     `tokens_in` INTEGER,
     `tokens_out` INTEGER,
+    `model` VARCHAR(120),
+    `cost` DECIMAL(14,8),
     `created_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`),
     INDEX `fi_agent_message_conversation` (`conversation_id`),
@@ -76,6 +78,31 @@ CREATE TABLE `agent_staged_change`
         FOREIGN KEY (`conversation_id`)
         REFERENCES `agent_conversation` (`id`)
         ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+-- agent_model
+-- ---------------------------------------------------------------------
+
+DROP TABLE IF EXISTS `agent_model`;
+
+CREATE TABLE `agent_model`
+(
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `provider` VARCHAR(40) NOT NULL,
+    `model_id` VARCHAR(120) NOT NULL,
+    `name` VARCHAR(150),
+    `price_input` DECIMAL(12,6),
+    `price_output` DECIMAL(12,6),
+    `context_window` INTEGER,
+    `enabled` TINYINT DEFAULT 1 NOT NULL,
+    `source` VARCHAR(20) DEFAULT 'catalog' NOT NULL,
+    `priced_at` DATE,
+    `last_seen_at` TIMESTAMP NULL,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uq_agent_model_provider_model` (`provider`, `model_id`)
 ) ENGINE=InnoDB;
 
 # This restores the fkey checks, after having unset them earlier
