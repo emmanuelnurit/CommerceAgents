@@ -66,6 +66,15 @@ class SystemPromptFactoryTest extends TestCase
         $this->assertStringContainsString('take them there', $prompt);
     }
 
+    public function testShoppingPromptGuidesToolUsage(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringContainsString('search_products', $prompt);
+        $this->assertStringContainsString('repeat a tool call', $prompt);
+        $this->assertStringContainsString('product name or category', $prompt);
+    }
+
     public function testMerchantPromptRequiresLinks(): void
     {
         $prompt = $this->factory->merchant('fr_FR');
