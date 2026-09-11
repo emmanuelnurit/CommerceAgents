@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Service\Merchant;
 
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Service\Catalog\ProductThumbnailProvider;
 use CommerceAgents\Tool\Admin\Gateway\CatalogAdminGatewayInterface;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Thelia\Model\CategoryQuery;
@@ -15,6 +16,11 @@ use Thelia\Model\ProductSaleElementsQuery;
 
 final readonly class TheliaCatalogAdminGateway implements CatalogAdminGatewayInterface
 {
+    public function __construct(
+        private ProductThumbnailProvider $thumbnailProvider,
+    ) {
+    }
+
     public function getListings(?string $search, int $limit, int $offset, ToolContext $ctx): array
     {
         $query = ProductQuery::create()->orderByPosition()->limit($limit)->offset($offset);
@@ -46,6 +52,7 @@ final readonly class TheliaCatalogAdminGateway implements CatalogAdminGatewayInt
                 'position' => $product->getPosition(),
                 'categoryTitles' => $categoryTitles,
                 'publicUrl' => $product->getUrl($ctx->locale),
+                'imageUrl' => $this->thumbnailProvider->urlFor($product->getId()),
             ];
         }
 
@@ -74,6 +81,7 @@ final readonly class TheliaCatalogAdminGateway implements CatalogAdminGatewayInt
                 'title' => $product->setLocale($ctx->locale)->getTitle(),
                 'quantity' => (float) $pse->getQuantity(),
                 'isDefault' => (bool) $pse->getIsDefault(),
+                'imageUrl' => $this->thumbnailProvider->urlFor($product->getId()),
             ];
         }
 

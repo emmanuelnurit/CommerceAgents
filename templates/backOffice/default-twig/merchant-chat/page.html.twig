@@ -37,7 +37,9 @@
         <div id="merchant-chat" class="card" data-endpoint="{{ path('commerceagents_merchant_chat') }}"
              data-i18n-connection-lost="{{ 'Connection lost'|trans({}, 'commerceagents') }}"
              data-i18n-service-unavailable="{{ 'Service unavailable'|trans({}, 'commerceagents') }}"
-             data-i18n-error="{{ 'Something went wrong'|trans({}, 'commerceagents') }}">
+             data-i18n-error="{{ 'Something went wrong'|trans({}, 'commerceagents') }}"
+             data-i18n-hidden="{{ 'Hidden'|trans({}, 'commerceagents') }}"
+             data-i18n-stock="{{ 'Stock'|trans({}, 'commerceagents') }}">
             <div class="card-body mc-messages" id="mc-messages" aria-live="polite">
                 <div class="mc-suggestions" id="mc-suggestions">
                     <p class="fw-semibold mb-2">{{ 'Quick actions'|trans({}, 'commerceagents') }}</p>
@@ -60,5 +62,6 @@
 
 {% block scripts_extra %}
     <script src="{{ module_asset('CommerceAgents', 'assets/js/chat-markdown.js') }}"></script>
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/product-cards.js') }}"></script>
     <script src="{{ module_asset('CommerceAgents', 'assets/js/merchant-chat.js') }}"></script>
 {% endblock %}

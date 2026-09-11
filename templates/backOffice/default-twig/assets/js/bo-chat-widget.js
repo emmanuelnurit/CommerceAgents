@@ -24,7 +24,9 @@ function commerceAgentsBootBoWidget() {
     var i18n = {
         connectionLost: root.dataset.i18nConnectionLost || 'Connection lost',
         serviceUnavailable: root.dataset.i18nServiceUnavailable || 'Service unavailable',
-        error: root.dataset.i18nError || 'Something went wrong'
+        error: root.dataset.i18nError || 'Something went wrong',
+        hidden: root.dataset.i18nHidden || 'Hidden',
+        stock: root.dataset.i18nStock || 'Stock'
     };
 
     var toggle = root.querySelector('.cabw-toggle');
@@ -92,6 +94,10 @@ function commerceAgentsBootBoWidget() {
             el = document.createElement('div');
             el.className = 'cabw-tool';
             el.textContent = message.text;
+        } else if (message.kind === 'products') {
+            el = document.createElement('div');
+            el.className = 'cabw-products-wrap';
+            window.CommerceAgentsProductCards.render(el, message.items);
         } else {
             el = document.createElement('p');
             el.className = 'cabw-bubble cabw-error';
@@ -180,6 +186,12 @@ function commerceAgentsBootBoWidget() {
         closeStreamingBubble();
         pushMessage({ kind: 'tool', text: '⚙ ' + payload.name });
         var result = payload.result || {};
+
+        var cards = window.CommerceAgentsProductCards.fromToolResult(payload.name, result, i18n);
+        if (cards) {
+            pushMessage({ kind: 'products', items: cards });
+        }
+
         if (payload.name === 'open_admin_page' && result.navigation && result.navigation.url) {
             pendingNavigationUrl = result.navigation.url;
         }

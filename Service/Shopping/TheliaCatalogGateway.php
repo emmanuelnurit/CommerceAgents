@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Service\Shopping;
 
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Service\Catalog\ProductThumbnailProvider;
 use CommerceAgents\Tool\Shopping\Gateway\CatalogGatewayInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Api\Service\DataAccess\DataAccessService;
@@ -21,6 +22,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         private TaxEngine $taxEngine,
         private SecurityContext $securityContext,
         private RequestStack $requestStack,
+        private ProductThumbnailProvider $thumbnailProvider,
     ) {
     }
 
@@ -103,7 +105,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             'promoPrice' => $pricing['promoPrice'] ?? null,
             'currency' => $this->session()?->getCurrency()->getCode(),
             'url' => $member['publicUrl'] ?? null,
-            'imageUrl' => $this->firstImageUrl($productId),
+            'imageUrl' => $this->thumbnailProvider->urlFor($productId),
             'inStock' => $inStock,
         ];
     }
@@ -153,17 +155,6 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             'price' => round($pse->getTaxedPrice($taxCountry), 2),
             'promoPrice' => round($pse->getTaxedPromoPrice($taxCountry), 2),
         ];
-    }
-
-    private function firstImageUrl(int $productId): ?string
-    {
-        $response = $this->dataAccessService->resources(
-            '/api/front/product_images',
-            ['product.id' => $productId, 'visible' => true, 'itemsPerPage' => 1],
-            'jsonld',
-        );
-
-        return $response['hydra:member'][0]['fileUrl'] ?? null;
     }
 
     private function session(): ?\Thelia\Core\HttpFoundation\Session\Session

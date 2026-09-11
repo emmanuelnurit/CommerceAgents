@@ -16,6 +16,8 @@
         connectionLost: root.dataset.i18nConnectionLost || 'Connection lost',
         serviceUnavailable: root.dataset.i18nServiceUnavailable || 'Service unavailable',
         error: root.dataset.i18nError || 'Something went wrong',
+        hidden: root.dataset.i18nHidden || 'Hidden',
+        stock: root.dataset.i18nStock || 'Stock',
     };
     const messagesContainer = document.getElementById('mc-messages');
     const form = document.getElementById('mc-form');
@@ -102,6 +104,12 @@
 
     function addToolBlock(payload) {
         closeStreamingBubble();
+
+        const cards = window.CommerceAgentsProductCards.fromToolResult(payload.name, payload.result || {}, i18n);
+        if (cards) {
+            window.CommerceAgentsProductCards.render(messagesContainer, cards);
+        }
+
         const details = document.createElement('details');
         details.className = 'mc-tool';
 

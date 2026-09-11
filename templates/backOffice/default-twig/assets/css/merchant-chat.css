@@ -114,3 +114,62 @@
     padding: 0.375rem 0.875rem;
     font-weight: 600;
 }
+
+#merchant-chat .cam-cards {
+    align-self: flex-start;
+    width: 100%;
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding: 0.25rem 0 0.5rem;
+}
+
+#merchant-chat .cam-card {
+    flex: 0 0 130px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.5rem;
+    background: #fff;
+    text-decoration: none;
+    color: var(--bs-body-color, #212529);
+}
+
+#merchant-chat a.cam-card:hover {
+    border-color: var(--bs-primary, #0d6efd);
+}
+
+#merchant-chat .cam-card-media,
+#merchant-chat .cam-card-media img {
+    width: 100%;
+    height: 100px;
+    border-radius: 0.25rem;
+    object-fit: cover;
+    display: block;
+}
+
+#merchant-chat .cam-card-media-empty {
+    background: var(--bs-tertiary-bg, #f8f9fa);
+    border: 1px dashed var(--bs-border-color, #dee2e6);
+}
+
+#merchant-chat .cam-card-title {
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+#merchant-chat .cam-card-meta {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+#merchant-chat .cam-card-meta-warn {
+    color: var(--bs-danger, #dc3545);
+    font-weight: 600;
+}

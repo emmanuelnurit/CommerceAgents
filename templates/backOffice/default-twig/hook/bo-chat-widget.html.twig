@@ -5,6 +5,8 @@
      data-i18n-connection-lost="{{ 'Connection lost'|trans({}, 'commerceagents') }}"
      data-i18n-service-unavailable="{{ 'Service unavailable'|trans({}, 'commerceagents') }}"
      data-i18n-error="{{ 'Something went wrong'|trans({}, 'commerceagents') }}"
+     data-i18n-hidden="{{ 'Hidden'|trans({}, 'commerceagents') }}"
+     data-i18n-stock="{{ 'Stock'|trans({}, 'commerceagents') }}"
      hidden>
     <button type="button" class="cabw-toggle" aria-controls="cabw-panel" aria-expanded="false" title="{{ 'Merchant assistant'|trans({}, 'commerceagents') }}">
         <i class="bi bi-robot" aria-hidden="true"></i>
@@ -35,4 +37,5 @@
 </div>
 
 <script src="{{ module_asset('CommerceAgents', 'assets/js/chat-markdown.js') }}"></script>
+<script src="{{ module_asset('CommerceAgents', 'assets/js/product-cards.js') }}"></script>
 <script src="{{ module_asset('CommerceAgents', 'assets/js/bo-chat-widget.js') }}"></script>

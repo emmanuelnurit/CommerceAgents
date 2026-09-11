@@ -9,12 +9,12 @@ use CommerceAgents\Agent\Tool\ToolContext;
 interface CatalogAdminGatewayInterface
 {
     /**
-     * @return array[] {id, ref, title, visible, position, categoryTitles}
+     * @return array[] {id, ref, title, visible, position, categoryTitles, publicUrl, imageUrl}
      */
     public function getListings(?string $search, int $limit, int $offset, ToolContext $ctx): array;
 
     /**
-     * @return array[] {productId, productRef, pseId, pseRef, title, quantity, isDefault} sorted by ascending stock
+     * @return array[] {productId, productRef, pseId, pseRef, title, quantity, isDefault, imageUrl} sorted by ascending stock
      */
     public function getInventory(?float $lowStockThreshold, int $limit, ToolContext $ctx): array;
 

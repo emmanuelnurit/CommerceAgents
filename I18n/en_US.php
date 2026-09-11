@@ -26,6 +26,7 @@ return [
     'Actions' => 'Actions',
     'Price' => 'Price',
     'Stock' => 'Stock',
+    'Hidden' => 'Hidden',
     'Pending' => 'Pending',
     'Applied' => 'Applied',
     'Rejected' => 'Rejected',

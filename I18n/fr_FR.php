@@ -26,6 +26,7 @@ return [
     'Actions' => 'Actions',
     'Price' => 'Prix',
     'Stock' => 'Stock',
+    'Hidden' => 'Masqué',
     'Pending' => 'En attente',
     'Applied' => 'Appliquée',
     'Rejected' => 'Rejetée',
