@@ -15,6 +15,17 @@ use Twig\Environment;
 
 final readonly class ChatWidgetThemeHook implements ThemeHookInterface
 {
+    /**
+     * module_asset() serves the published copy under a stable URL and nginx sends
+     * no Cache-Control, so a browser keeps yesterday's widget until a hard
+     * refresh. Stamp the URLs with the source mtimes instead.
+     */
+    private const VERSIONED_ASSETS = [
+        'assets/css/chat-widget.css',
+        'assets/js/chat-markdown.js',
+        'assets/js/chat-widget.js',
+    ];
+
     public function __construct(
         private AgentConfigService $configService,
         private TheliaCartGateway $cartGateway,
@@ -84,10 +95,26 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'addToCartPrompt' => $translate('Add this product to my cart:'),
                 'subtitle' => $translate('Shopping assistant powered by AI'),
             ],
+            'assetVersion' => self::assetVersion(),
             'cart' => $this->cartGateway->snapshot(),
             'locale' => $locale,
             'checkoutUrl' => $this->urlGenerator->generate('checkout_cart'),
             'isCustomerLoggedIn' => $theliaSession?->getCustomerUser() !== null,
         ]);
+    }
+
+    private static function assetVersion(): string
+    {
+        $latest = 0;
+
+        foreach (self::VERSIONED_ASSETS as $asset) {
+            $path = \dirname(__DIR__, 2).'/templates/frontOffice/default/'.$asset;
+            $mtime = is_file($path) ? filemtime($path) : false;
+            if ($mtime !== false) {
+                $latest = max($latest, $mtime);
+            }
+        }
+
+        return $latest === 0 ? '0' : dechex($latest);
     }
 }
