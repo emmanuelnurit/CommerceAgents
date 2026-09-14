@@ -17,6 +17,7 @@ interface CatalogGatewayInterface
     public function searchProducts(
         ?string $query,
         ?int $categoryId,
+        ?int $featureAvId,
         ?float $minPrice,
         ?float $maxPrice,
         bool $promoOnly,

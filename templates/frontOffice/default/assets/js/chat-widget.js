@@ -378,6 +378,13 @@ function commerceAgentsChat() {
             this.sendSuggestion(this.i18n.addToCartPrompt + ' ' + title + label + ' (' + variant.ref + ')');
         },
 
+        productsCaption(message) {
+            if (message.feature) {
+                return message.feature.feature + ': ' + message.feature.title;
+            }
+            return message.category ? this.i18n.inCategory + ' ' + message.category.title : '';
+        },
+
         variantsHeading(message) {
             if (message.option) {
                 return this.i18n.optionResults + ' ' + message.option.title;
@@ -577,6 +584,7 @@ function commerceAgentsChat() {
                     // back to the closest category: say so instead of pretending
                     // the visitor's word was found as such.
                     category: result.matched_category || null,
+                    feature: result.matched_feature || null,
                 });
                 this.highlights = result.products.slice(0, COMMERCE_AGENTS_MAX_HIGHLIGHTS);
             } else if (payload.name === 'get_product_details' && result.product) {
@@ -587,7 +595,7 @@ function commerceAgentsChat() {
                 if (variants.length > 1) {
                     this.messages.push({ kind: 'variants', role: 'assistant', product: product, option: null, data: variants });
                 } else {
-                    this.messages.push({ kind: 'products', role: 'assistant', data: [product], category: null });
+                    this.messages.push({ kind: 'products', role: 'assistant', data: [product], category: null, feature: null });
                 }
                 this.highlights = [product];
             } else if ((payload.name === 'get_cart' || payload.name === 'add_to_cart') && result.cart) {

@@ -17,7 +17,7 @@ class FakeDetailsCatalogGateway implements CatalogGatewayInterface
     {
     }
 
-    public function searchProducts(?string $query, ?int $categoryId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, ToolContext $ctx): array
+    public function searchProducts(?string $query, ?int $categoryId, ?int $featureAvId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, ToolContext $ctx): array
     {
         return ['products' => [], 'matchedCategory' => null];
     }

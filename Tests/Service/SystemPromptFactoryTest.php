@@ -7,6 +7,7 @@ namespace CommerceAgents\Tests\Service;
 use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Tool\Admin\Gateway\AdminPagesGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CategoryGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\FeatureGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\OptionGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\SitePagesGatewayInterface;
 use PHPUnit\Framework\TestCase;
@@ -92,13 +93,33 @@ class FakePromptOptionGateway implements OptionGatewayInterface
     }
 }
 
+class FakePromptFeatureGateway implements FeatureGatewayInterface
+{
+    /** @param array[] $values */
+    public function __construct(private readonly array $values = [
+        ['id' => 1, 'title' => 'Tissu', 'feature' => 'Matière', 'productCount' => 17],
+        ['id' => 2, 'title' => 'Bois', 'feature' => 'Matière', 'productCount' => 12],
+    ]) {
+    }
+
+    public function getValues(string $locale, int $limit): array
+    {
+        return \array_slice($this->values, 0, $limit);
+    }
+
+    public function findValueByName(string $term, string $locale): ?array
+    {
+        return $this->values[0] ?? null;
+    }
+}
+
 class SystemPromptFactoryTest extends TestCase
 {
     private SystemPromptFactory $factory;
 
     protected function setUp(): void
     {
-        $this->factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway(), new FakePromptOptionGateway());
+        $this->factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway(), new FakePromptOptionGateway(), new FakePromptFeatureGateway());
     }
 
     public function testShoppingPromptEnforcesSelectedLanguage(): void
@@ -201,7 +222,7 @@ class SystemPromptFactoryTest extends TestCase
 
     public function testMerchantPromptStaysReadableWithoutAnyPage(): void
     {
-        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway([]), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway(), new FakePromptOptionGateway());
+        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway([]), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway(), new FakePromptOptionGateway(), new FakePromptFeatureGateway());
 
         $prompt = $factory->merchant('fr_FR');
 
@@ -276,7 +297,7 @@ class SystemPromptFactoryTest extends TestCase
 
     public function testShoppingPromptStaysReadableWithoutAnyCategory(): void
     {
-        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway([]), new FakePromptOptionGateway());
+        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway([]), new FakePromptOptionGateway(), new FakePromptFeatureGateway());
 
         $prompt = $factory->shopping('Alex', 'fr_FR');
 
@@ -339,6 +360,7 @@ class SystemPromptFactoryTest extends TestCase
             new FakePromptSitePagesGateway(),
             new FakePromptCategoryGateway(),
             new FakePromptOptionGateway([]),
+            new FakePromptFeatureGateway(),
         );
 
         $prompt = $factory->shopping('Alex', 'fr_FR');
@@ -350,5 +372,42 @@ class SystemPromptFactoryTest extends TestCase
     public function testMerchantPromptDoesNotCarryTheOptionVocabulary(): void
     {
         $this->assertStringNotContainsString('Option values:', $this->factory->merchant('fr_FR'));
+    }
+
+    public function testShoppingPromptListsTheFeatureVocabulary(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringContainsString('Feature values:', $prompt);
+        $this->assertStringContainsString('- Matière: Tissu (17 products)', $prompt);
+        $this->assertStringContainsString('feature="tissu"', $prompt);
+    }
+
+    public function testShoppingPromptForbidsAnsweringAMaterialWithACategory(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringContainsString('a sofa is not made of fabric because it is a sofa', $prompt);
+    }
+
+    public function testShoppingPromptStaysReadableWithoutAnyFeature(): void
+    {
+        $factory = new SystemPromptFactory(
+            new FakePromptAdminPagesGateway(),
+            new FakePromptSitePagesGateway(),
+            new FakePromptCategoryGateway(),
+            new FakePromptOptionGateway(),
+            new FakePromptFeatureGateway([]),
+        );
+
+        $prompt = $factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringNotContainsString('Feature values:', $prompt);
+        $this->assertStringContainsString('Always answer in French', $prompt);
+    }
+
+    public function testMerchantPromptDoesNotCarryTheFeatureVocabulary(): void
+    {
+        $this->assertStringNotContainsString('Feature values:', $this->factory->merchant('fr_FR'));
     }
 }

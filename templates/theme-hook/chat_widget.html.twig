@@ -157,8 +157,8 @@
 
                                 <template x-if="message.kind === 'products'">
                                     <div class="caw-products">
-                                        <p class="caw-products-caption" x-show="message.category"
-                                           x-text="i18n.inCategory + ' ' + (message.category ? message.category.title : '')"></p>
+                                        <p class="caw-products-caption" x-show="productsCaption(message)"
+                                           x-text="productsCaption(message)"></p>
 
                                         <article class="caw-product caw-product-hero">
                                             <a class="caw-product-media" x-bind:href="message.data[0].url">

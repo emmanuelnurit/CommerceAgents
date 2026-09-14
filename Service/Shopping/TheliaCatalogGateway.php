@@ -35,6 +35,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
     public function searchProducts(
         ?string $query,
         ?int $categoryId,
+        ?int $featureAvId,
         ?float $minPrice,
         ?float $maxPrice,
         bool $promoOnly,
@@ -44,13 +45,14 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         $query = trim((string) $query);
         [$minPrice, $maxPrice] = PriceRange::sane($minPrice, $maxPrice);
 
-        $hasCriterion = $query !== '' || $categoryId !== null || $promoOnly || $minPrice !== null || $maxPrice !== null;
+        $hasCriterion = $query !== '' || $categoryId !== null || $featureAvId !== null || $promoOnly
+            || $minPrice !== null || $maxPrice !== null;
 
         if (!$hasCriterion) {
             return ['products' => [], 'matchedCategory' => null];
         }
 
-        $products = $this->runSearch($query, $categoryId, $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale);
+        $products = $this->runSearch($query, $categoryId, $featureAvId, $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale);
 
         if ($products !== [] || $query === '') {
             return ['products' => $products, 'matchedCategory' => null];
@@ -69,7 +71,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         }
 
         return [
-            'products' => $this->runSearch('', $category['id'], $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale),
+            'products' => $this->runSearch('', $category['id'], $featureAvId, $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale),
             'matchedCategory' => $category,
         ];
     }
@@ -176,7 +178,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
     /**
      * @return list<array>
      */
-    private function runSearch(string $query, ?int $categoryId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, string $locale): array
+    private function runSearch(string $query, ?int $categoryId, ?int $featureAvId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, string $locale): array
     {
         $filters = [
             'visible' => true,
@@ -190,6 +192,9 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         }
         if ($categoryId !== null) {
             $filters['productCategories.category.id'] = $categoryId;
+        }
+        if ($featureAvId !== null) {
+            $filters['featureProducts.featureAv.id'] = $featureAvId;
         }
         if ($promoOnly) {
             $filters['productSaleElements.promo'] = true;

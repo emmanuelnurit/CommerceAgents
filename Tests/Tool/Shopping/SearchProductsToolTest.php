@@ -6,6 +6,7 @@ namespace CommerceAgents\Tests\Tool\Shopping;
 
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Tool\Shopping\Gateway\CatalogGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\FeatureGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\OptionGatewayInterface;
 use CommerceAgents\Tool\Shopping\SearchProductsTool;
 use PHPUnit\Framework\TestCase;
@@ -22,11 +23,12 @@ class FakeCatalogGateway implements CatalogGatewayInterface
     ) {
     }
 
-    public function searchProducts(?string $query, ?int $categoryId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, ToolContext $ctx): array
+    public function searchProducts(?string $query, ?int $categoryId, ?int $featureAvId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, ToolContext $ctx): array
     {
         $this->lastSearch = [
             'query' => $query,
             'categoryId' => $categoryId,
+            'featureAvId' => $featureAvId,
             'minPrice' => $minPrice,
             'maxPrice' => $maxPrice,
             'promoOnly' => $promoOnly,
@@ -74,12 +76,29 @@ class FakeOptionGateway implements OptionGatewayInterface
     }
 }
 
+class FakeFeatureGateway implements FeatureGatewayInterface
+{
+    public function __construct(private readonly ?array $value = ['id' => 1, 'title' => 'Tissu', 'feature' => 'Matière', 'productCount' => 17])
+    {
+    }
+
+    public function getValues(string $locale, int $limit): array
+    {
+        return $this->value === null ? [] : [$this->value];
+    }
+
+    public function findValueByName(string $term, string $locale): ?array
+    {
+        return $this->value;
+    }
+}
+
 class SearchProductsToolTest extends TestCase
 {
     public function testSearchDelegatesToGateway(): void
     {
         $gateway = new FakeCatalogGateway([['id' => 1, 'title' => 'Chaise']]);
-        $tool = new SearchProductsTool($gateway, new FakeOptionGateway());
+        $tool = new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway());
 
         $result = $tool->execute(['query' => 'chaise', 'limit' => 3], new ToolContext());
 
@@ -92,7 +111,7 @@ class SearchProductsToolTest extends TestCase
     public function testLimitDefaultsAndCaps(): void
     {
         $gateway = new FakeCatalogGateway();
-        $tool = new SearchProductsTool($gateway, new FakeOptionGateway());
+        $tool = new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway());
 
         $tool->execute(['query' => 'x'], new ToolContext());
         $this->assertSame(5, $gateway->lastSearch['limit']);
@@ -104,7 +123,7 @@ class SearchProductsToolTest extends TestCase
     public function testOptionalFiltersArePassed(): void
     {
         $gateway = new FakeCatalogGateway();
-        $tool = new SearchProductsTool($gateway, new FakeOptionGateway());
+        $tool = new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway());
 
         $tool->execute(['query' => 'chaise', 'category_id' => 4, 'min_price' => 10.5, 'max_price' => 99.0], new ToolContext());
 
@@ -115,7 +134,7 @@ class SearchProductsToolTest extends TestCase
 
     public function testAllowedForFrontDeniedForAdmin(): void
     {
-        $tool = new SearchProductsTool(new FakeCatalogGateway(), new FakeOptionGateway());
+        $tool = new SearchProductsTool(new FakeCatalogGateway(), new FakeOptionGateway(), new FakeFeatureGateway());
 
         $this->assertTrue($tool->isAllowed(new ToolContext(isAdmin: false)));
         $this->assertFalse($tool->isAllowed(new ToolContext(isAdmin: true)));
@@ -123,7 +142,7 @@ class SearchProductsToolTest extends TestCase
 
     public function testSchemaRequiresNothingSoDealsAndCategoriesCanBeListed(): void
     {
-        $schema = (new SearchProductsTool(new FakeCatalogGateway(), new FakeOptionGateway()))->getInputSchema();
+        $schema = (new SearchProductsTool(new FakeCatalogGateway(), new FakeOptionGateway(), new FakeFeatureGateway()))->getInputSchema();
 
         $this->assertSame([], $schema['required']);
         $this->assertSame('string', $schema['properties']['query']['type']);
@@ -137,7 +156,7 @@ class SearchProductsToolTest extends TestCase
     public function testPromoOnlySearchNeedsNoQuery(): void
     {
         $gateway = new FakeCatalogGateway();
-        $tool = new SearchProductsTool($gateway, new FakeOptionGateway());
+        $tool = new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway());
 
         $tool->execute(['promo' => true], new ToolContext());
 
@@ -148,7 +167,7 @@ class SearchProductsToolTest extends TestCase
     public function testPromoDefaultsToFalse(): void
     {
         $gateway = new FakeCatalogGateway();
-        $tool = new SearchProductsTool($gateway, new FakeOptionGateway());
+        $tool = new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway());
 
         $tool->execute(['query' => 'stacy'], new ToolContext());
 
@@ -162,7 +181,7 @@ class SearchProductsToolTest extends TestCase
             ['id' => 3, 'title' => 'Chairs', 'url' => 'https://shop.example/chairs.html', 'productCount' => 14],
         );
 
-        $result = (new SearchProductsTool($gateway, new FakeOptionGateway()))->execute(['query' => 'chairs'], new ToolContext());
+        $result = (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway()))->execute(['query' => 'chairs'], new ToolContext());
 
         $this->assertSame('Chairs', $result['matched_category']['title']);
         $this->assertSame(1, $result['count']);
@@ -170,7 +189,7 @@ class SearchProductsToolTest extends TestCase
 
     public function testNoFallbackIsReportedOnADirectHit(): void
     {
-        $result = (new SearchProductsTool(new FakeCatalogGateway([['id' => 3, 'title' => 'Stacy']]), new FakeOptionGateway()))
+        $result = (new SearchProductsTool(new FakeCatalogGateway([['id' => 3, 'title' => 'Stacy']]), new FakeOptionGateway(), new FakeFeatureGateway()))
             ->execute(['query' => 'stacy'], new ToolContext());
 
         $this->assertNull($result['matched_category']);
@@ -182,7 +201,7 @@ class SearchProductsToolTest extends TestCase
             ['id' => 12, 'ref' => 'PROD003-2', 'productId' => 3, 'productTitle' => 'Stacy', 'label' => 'Couleur: Orange'],
         ]);
 
-        $result = (new SearchProductsTool($gateway, new FakeOptionGateway()))
+        $result = (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway()))
             ->execute(['option' => 'orange'], new ToolContext());
 
         $this->assertSame(1, $result['count']);
@@ -196,7 +215,7 @@ class SearchProductsToolTest extends TestCase
     {
         $gateway = new FakeCatalogGateway();
 
-        (new SearchProductsTool($gateway, new FakeOptionGateway()))->execute(
+        (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway()))->execute(
             ['option' => 'orange', 'query' => 'stacy', 'category_id' => 5, 'max_price' => 300, 'promo' => true, 'limit' => 4],
             new ToolContext(),
         );
@@ -212,7 +231,7 @@ class SearchProductsToolTest extends TestCase
     {
         $gateway = new FakeCatalogGateway();
 
-        $result = (new SearchProductsTool($gateway, new FakeOptionGateway(null)))
+        $result = (new SearchProductsTool($gateway, new FakeOptionGateway(null), new FakeFeatureGateway()))
             ->execute(['option' => 'fluo'], new ToolContext());
 
         $this->assertSame(0, $result['count']);
@@ -225,10 +244,56 @@ class SearchProductsToolTest extends TestCase
     {
         $gateway = new FakeCatalogGateway([['id' => 3, 'title' => 'Stacy']]);
 
-        $result = (new SearchProductsTool($gateway, new FakeOptionGateway()))
+        $result = (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway()))
             ->execute(['option' => '   ', 'query' => 'stacy'], new ToolContext());
 
         $this->assertArrayHasKey('products', $result);
         $this->assertSame('stacy', $gateway->lastSearch['query']);
+    }
+
+    public function testAMaterialGoesThroughTheFeatureFilter(): void
+    {
+        $gateway = new FakeCatalogGateway([['id' => 3, 'title' => 'Stacy']]);
+
+        $result = (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway()))
+            ->execute(['feature' => 'tissu'], new ToolContext());
+
+        $this->assertSame(1, $gateway->lastSearch['featureAvId']);
+        $this->assertSame('Tissu', $result['matched_feature']['title']);
+        $this->assertSame('Matière', $result['matched_feature']['feature']);
+    }
+
+    public function testAnUnknownFeatureSaysSoRatherThanGuessingACategory(): void
+    {
+        $gateway = new FakeCatalogGateway([['id' => 3, 'title' => 'Stacy']]);
+
+        $result = (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway(null)))
+            ->execute(['feature' => 'velours martien'], new ToolContext());
+
+        $this->assertSame(0, $result['count']);
+        $this->assertSame([], $result['products']);
+        $this->assertSame('velours martien', $result['unknown_feature']);
+        $this->assertSame([], $gateway->lastSearch);
+    }
+
+    public function testASearchWithoutFeatureLeavesTheFilterOut(): void
+    {
+        $gateway = new FakeCatalogGateway();
+
+        (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway()))
+            ->execute(['query' => 'stacy'], new ToolContext());
+
+        $this->assertNull($gateway->lastSearch['featureAvId']);
+    }
+
+    public function testAFeatureCombinesWithACategory(): void
+    {
+        $gateway = new FakeCatalogGateway();
+
+        (new SearchProductsTool($gateway, new FakeOptionGateway(), new FakeFeatureGateway()))
+            ->execute(['feature' => 'tissu', 'category_id' => 6], new ToolContext());
+
+        $this->assertSame(1, $gateway->lastSearch['featureAvId']);
+        $this->assertSame(6, $gateway->lastSearch['categoryId']);
     }
 }

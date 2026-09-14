@@ -7,6 +7,7 @@ namespace CommerceAgents\Tool\Shopping;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CatalogGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\FeatureGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\OptionGatewayInterface;
 
 final readonly class SearchProductsTool implements ToolInterface
@@ -17,6 +18,7 @@ final readonly class SearchProductsTool implements ToolInterface
     public function __construct(
         private CatalogGatewayInterface $catalogGateway,
         private OptionGatewayInterface $optionGateway,
+        private FeatureGatewayInterface $featureGateway,
     ) {
     }
 
@@ -37,7 +39,9 @@ final readonly class SearchProductsTool implements ToolInterface
             .'max_price=200 with no min_price. Price filters apply to pre-tax prices. '
             .'A colour, a size or any other option lives on the variants, never in a title: pass it '
             .'as option ("orange", "taille M") and the answer lists the matching variants under '
-            .'"variants" instead of whole products, each with its own reference and price.';
+            .'"variants" instead of whole products, each with its own reference and price. '
+            .'A material, a style or any property of the product itself is a feature, not a category: '
+            .'pass it as feature ("tissu", "bois") rather than guessing a category_id.';
     }
 
     public function getInputSchema(): array
@@ -48,6 +52,7 @@ final readonly class SearchProductsTool implements ToolInterface
                 'query' => ['type' => 'string', 'description' => 'Keywords matched against product titles, then against category names'],
                 'category_id' => ['type' => 'integer', 'description' => 'Restrict to one category, as returned by get_categories'],
                 'option' => ['type' => 'string', 'description' => 'An option value such as a colour or a size. Returns the variants carrying it, not whole products.'],
+                'feature' => ['type' => 'string', 'description' => 'A feature value of the product itself, such as a material ("tissu", "bois", "cuir") or a style.'],
                 'promo' => ['type' => 'boolean', 'description' => 'Only products currently on sale'],
                 'min_price' => ['type' => 'number', 'description' => 'Cheapest acceptable pre-tax price. Use it for "at least", "more than", "from X". Leave it out for "under X".'],
                 'max_price' => ['type' => 'number', 'description' => 'Dearest acceptable pre-tax price. Use it for "under", "less than", "up to", "cheap", "budget". Leave it out for "over X".'],
@@ -71,9 +76,20 @@ final readonly class SearchProductsTool implements ToolInterface
             return $this->searchByOption($option, $args, $limit, $ctx);
         }
 
+        $feature = trim((string) ($args['feature'] ?? ''));
+        $matchedFeature = null;
+        if ($feature !== '') {
+            $matchedFeature = $this->featureGateway->findValueByName($feature, $ctx->locale);
+            if ($matchedFeature === null) {
+                // Saying so beats falling back on whatever category looks close.
+                return ['count' => 0, 'products' => [], 'matched_category' => null, 'unknown_feature' => $feature];
+            }
+        }
+
         $search = $this->catalogGateway->searchProducts(
             query: isset($args['query']) ? (string) $args['query'] : null,
             categoryId: isset($args['category_id']) ? (int) $args['category_id'] : null,
+            featureAvId: $matchedFeature['id'] ?? null,
             minPrice: isset($args['min_price']) ? (float) $args['min_price'] : null,
             maxPrice: isset($args['max_price']) ? (float) $args['max_price'] : null,
             promoOnly: (bool) ($args['promo'] ?? false),
@@ -85,6 +101,7 @@ final readonly class SearchProductsTool implements ToolInterface
             'count' => \count($search['products']),
             'products' => $search['products'],
             'matched_category' => $search['matchedCategory'],
+            'matched_feature' => $matchedFeature,
         ];
     }
 

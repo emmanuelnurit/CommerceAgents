@@ -557,3 +557,38 @@ test('a plain product card falls back to the product-level prompt', () => {
 
     assert.equal(sent[0], 'Ajoute : Stacy');
 });
+
+test('a feature search is captioned by its material, not by a category', () => {
+    const widget = component({ i18n: { inCategory: 'Dans la catégorie' } });
+
+    widget.pushToolBlock({
+        name: 'search_products',
+        result: {
+            count: 1,
+            products: [{ id: 3, title: 'Stacy' }],
+            matched_category: null,
+            matched_feature: { id: 1, title: 'Tissu', feature: 'Matière', productCount: 17 },
+        },
+    });
+
+    assert.equal(widget.productsCaption(widget.messages[0]), 'Matière: Tissu');
+});
+
+test('a category fallback keeps its own caption', () => {
+    const widget = component({ i18n: { inCategory: 'Dans la catégorie' } });
+
+    widget.pushToolBlock({
+        name: 'search_products',
+        result: { products: [{ id: 3, title: 'Stacy' }], matched_category: { id: 3, title: 'Chaises' }, matched_feature: null },
+    });
+
+    assert.equal(widget.productsCaption(widget.messages[0]), 'Dans la catégorie Chaises');
+});
+
+test('a plain search has no caption', () => {
+    const widget = component({});
+
+    widget.pushToolBlock({ name: 'search_products', result: { products: [{ id: 3, title: 'Stacy' }] } });
+
+    assert.equal(widget.productsCaption(widget.messages[0]), '');
+});
