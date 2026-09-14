@@ -51,7 +51,8 @@
                 <span></span><span></span><span></span>
             </p>
 
-            <p class="caw-collapsed-reply" x-show="!pending && lastReply" x-text="lastReply"></p>
+            <div class="caw-collapsed-reply" x-show="!pending && lastReply"
+                 x-effect="window.CommerceAgentsMarkdown.render($el, lastReply)"></div>
 
             <div class="caw-collapsed-products" x-show="highlights.length > 0">
                 <template x-for="product in highlights" x-bind:key="product.id">

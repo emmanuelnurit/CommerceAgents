@@ -197,11 +197,12 @@ body.caw-body-locked {
     margin: 0;
     color: var(--caw-ink);
     font-size: 0.875rem;
-    white-space: pre-wrap;
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
+    /* Rendered Markdown is a stack of blocks, which line clamping cannot cut:
+       bound the height and fade the overflow instead. */
+    max-height: 8rem;
     overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 5.5rem, transparent 8rem);
+    mask-image: linear-gradient(to bottom, #000 5.5rem, transparent 8rem);
 }
 
 #commerce-agents-widget .caw-collapsed-typing {
@@ -989,20 +990,21 @@ body.caw-body-locked {
 
 /* -------------------------------------------------------- markdown content */
 
-#commerce-agents-widget .caw-assistant .cam-p,
-#commerce-agents-widget .caw-assistant .cam-heading {
+#commerce-agents-widget .cam-p,
+#commerce-agents-widget .cam-heading {
     margin: 0 0 0.5rem;
 }
 
-#commerce-agents-widget .caw-assistant :last-child {
+#commerce-agents-widget .caw-assistant :last-child,
+#commerce-agents-widget .caw-collapsed-reply :last-child {
     margin-bottom: 0;
 }
 
-#commerce-agents-widget .caw-assistant .cam-heading {
+#commerce-agents-widget .cam-heading {
     font-weight: 700;
 }
 
-#commerce-agents-widget .caw-assistant ul.cam-list {
+#commerce-agents-widget ul.cam-list {
     /* The Flexy toolkit resets list-style on every ul/ol; inside the bubble a
        list without its markers reads as indented prose. */
     list-style: disc;
@@ -1010,64 +1012,68 @@ body.caw-body-locked {
     padding-left: 1.25rem;
 }
 
-#commerce-agents-widget .caw-assistant ol.cam-list {
+#commerce-agents-widget ol.cam-list {
     list-style: decimal;
     margin: 0 0 0.5rem;
     padding-left: 1.5rem;
 }
 
-#commerce-agents-widget .caw-assistant ul.cam-list ul.cam-list {
+#commerce-agents-widget ul.cam-list ul.cam-list {
     list-style: circle;
 }
 
-#commerce-agents-widget .caw-assistant .cam-list li {
+#commerce-agents-widget .cam-list li {
     margin-bottom: 0.25rem;
 }
 
-#commerce-agents-widget .caw-assistant .cam-table {
+#commerce-agents-widget .cam-table {
     width: 100%;
     border-collapse: collapse;
     margin: 0 0 0.5rem;
     font-size: 0.8125rem;
 }
 
-#commerce-agents-widget .caw-assistant .cam-table th,
-#commerce-agents-widget .caw-assistant .cam-table td {
+#commerce-agents-widget .cam-table th,
+#commerce-agents-widget .cam-table td {
     border: 1px solid #dcdce6;
     padding: 0.3125rem 0.5rem;
     text-align: left;
 }
 
-#commerce-agents-widget .caw-assistant .cam-table th {
+#commerce-agents-widget .cam-table th {
     background: #e9e9f0;
 }
 
-#commerce-agents-widget .caw-assistant code {
+#commerce-agents-widget .cam-p code,
+#commerce-agents-widget .cam-list code,
+#commerce-agents-widget .cam-heading code,
+#commerce-agents-widget .cam-table code,
+#commerce-agents-widget .cam-quote code {
     background: #e9e9f0;
     border-radius: 0.25rem;
     padding: 0 0.25rem;
     font-size: 0.8125rem;
 }
 
-#commerce-agents-widget .caw-assistant .cam-list .cam-list {
+#commerce-agents-widget .cam-list .cam-list {
     margin: 0.25rem 0 0;
 }
 
-#commerce-agents-widget .caw-assistant .cam-rule {
+#commerce-agents-widget .cam-rule {
     height: 0;
     margin: 0.625rem 0;
     border: none;
     border-top: 1px solid #dcdce6;
 }
 
-#commerce-agents-widget .caw-assistant .cam-quote {
+#commerce-agents-widget .cam-quote {
     margin: 0 0 0.5rem;
     padding: 0.25rem 0 0.25rem 0.75rem;
     border-left: 3px solid #c9c9d2;
     color: var(--caw-muted);
 }
 
-#commerce-agents-widget .caw-assistant .cam-code {
+#commerce-agents-widget .cam-code {
     margin: 0 0 0.5rem;
     padding: 0.5rem 0.625rem;
     border-radius: 0.5rem;
@@ -1077,18 +1083,18 @@ body.caw-body-locked {
     white-space: pre;
 }
 
-#commerce-agents-widget .caw-assistant .cam-code code {
+#commerce-agents-widget .cam-code code {
     background: none;
     padding: 0;
     font-size: inherit;
 }
 
-#commerce-agents-widget .caw-assistant .cam-link {
+#commerce-agents-widget .cam-link {
     color: var(--caw-accent);
     text-decoration: underline;
 }
 
-#commerce-agents-widget .caw-assistant .cam-cta {
+#commerce-agents-widget .cam-cta {
     display: inline-block;
     background: var(--caw-strong);
     color: #fff;
