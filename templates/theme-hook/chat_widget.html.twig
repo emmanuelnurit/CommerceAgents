@@ -5,80 +5,246 @@
 
 <div id="commerce-agents-widget"
      x-data="commerceAgentsChat()"
-     data-cart-count="{{ cartItemCount }}"
-     data-cart-total="{{ cartTotal }}"
-     data-currency="{{ currencyCode }}"
-     data-i18n-items="{{ i18n.itemsLabel }}"
-     data-i18n-connection-lost="{{ i18n.connectionLost }}"
-     data-i18n-service-unavailable="{{ i18n.serviceUnavailable }}"
-     data-i18n-error="{{ i18n.error }}"
+     data-config="{{ { cart: cart, locale: locale, i18n: i18n }|json_encode|e('html_attr') }}"
      x-cloak>
-    <button type="button" class="caw-toggle" x-on:click="open = !open" x-bind:aria-expanded="open" aria-controls="caw-panel">
-        <span x-show="!open">💬</span>
-        <span x-show="open">✕</span>
-    </button>
 
-    <section id="caw-panel" class="caw-panel" x-show="open" x-transition role="dialog" aria-label="{{ assistantName }}">
-        <header class="caw-header">
-            <strong>{{ assistantName }}</strong>
-        </header>
-
-        <div class="caw-cart-banner" x-show="cartCount > 0">
-            <span x-text="cartBannerLabel()"></span>
-            <a class="caw-cta caw-cta-small" href="{{ checkoutUrl }}">{{ i18n.completeOrder }}</a>
-        </div>
-
-        <div class="caw-messages" x-ref="messages">
-            <div class="caw-suggestions" x-show="messages.length === 0">
-                <p class="caw-suggestions-title">{{ i18n.helpTitle }}</p>
-                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestProduct }}</button>
-                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestCart }}</button>
-                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestShipping }}</button>
-                {% if isCustomerLoggedIn %}
-                    <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestOrders }}</button>
-                {% endif %}
+    {# ---------- Dock: slim bar anchored at the bottom, grows into the overlay ---------- #}
+    <div class="caw-dock" x-show="!open" x-transition.opacity>
+        <form class="caw-glow caw-glow-dock" x-on:submit.prevent="expand(true)">
+            <div class="caw-dock-inner">
+                <span class="caw-avatar" aria-hidden="true">✦</span>
+                <input type="text"
+                       class="caw-dock-input"
+                       x-model="input"
+                       x-on:focus="expand()"
+                       maxlength="2000"
+                       autocomplete="off"
+                       aria-label="{{ i18n.openAssistant }}"
+                       placeholder="{{ i18n.askPlaceholder }}">
+                <button type="button"
+                        class="caw-dock-cart"
+                        x-show="cart.itemCount > 0"
+                        x-on:click="expand()"
+                        x-bind:aria-label="cart.itemCount + ' ' + i18n.itemsLabel">
+                    <span class="caw-dock-cart-icon" aria-hidden="true">🛒</span>
+                    <span class="caw-dock-cart-count" x-text="cart.itemCount"></span>
+                    <span class="caw-dock-cart-total" x-text="money(cart.totalTaxedAmount)"></span>
+                </button>
+                <button type="submit" class="caw-dock-send" aria-label="{{ i18n.send }}">➤</button>
             </div>
-            <template x-for="(message, index) in messages" x-bind:key="index">
-                <div>
-                    <p x-show="message.kind === 'text' && message.role === 'user'" class="caw-message caw-user" x-text="message.text"></p>
-                    <div x-show="message.kind === 'text' && message.role === 'assistant'" class="caw-message caw-assistant"
-                         x-effect="if (message.kind === 'text' && message.role === 'assistant') window.CommerceAgentsMarkdown.render($el, message.text)"></div>
+        </form>
+    </div>
 
-                    <div x-show="message.kind === 'products'" class="caw-products">
-                        <template x-for="product in message.data" x-bind:key="product.id">
-                            <a class="caw-product" x-bind:href="product.url">
-                                <img x-show="product.imageUrl" x-bind:src="product.imageUrl" x-bind:alt="product.title" loading="lazy">
-                                <span class="caw-product-title" x-text="product.title"></span>
-                                <span class="caw-product-price" x-text="formatPrice(product)"></span>
-                            </a>
-                        </template>
+    {# ---------- Overlay ---------- #}
+    <div class="caw-backdrop" x-show="open" x-transition.opacity x-on:click="close()"></div>
+
+    <section class="caw-shell"
+             x-show="open"
+             x-transition
+             role="dialog"
+             aria-modal="true"
+             aria-label="{{ assistantName }}"
+             x-on:keydown.escape.window="close()">
+        <div class="caw-glow caw-glow-shell">
+            <div class="caw-shell-inner">
+
+                <div class="caw-main" x-bind:class="messages.length === 0 && 'is-hero'">
+                    <header class="caw-header">
+                        <span class="caw-avatar" aria-hidden="true">✦</span>
+                        <span class="caw-header-titles">
+                            <strong>{{ assistantName }}</strong>
+                            <small>{{ i18n.subtitle }}</small>
+                        </span>
+                        <button type="button" class="caw-icon-button" x-show="messages.length > 0"
+                                x-on:click="reset()" title="{{ i18n.clearConversation }}"
+                                aria-label="{{ i18n.clearConversation }}">↺</button>
+                        <button type="button" class="caw-icon-button" x-on:click="close()"
+                                title="{{ i18n.closeAssistant }}" aria-label="{{ i18n.closeAssistant }}">✕</button>
+                    </header>
+
+                    <div class="caw-spacer"></div>
+
+                    <div class="caw-hero" x-show="messages.length === 0">
+                        <p class="caw-hero-title">{{ i18n.helpTitle }}</p>
+                        <div class="caw-chips">
+                            <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestProduct }}</button>
+                            <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestCart }}</button>
+                            <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestShipping }}</button>
+                            {% if isCustomerLoggedIn %}
+                                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestOrders }}</button>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <div x-show="message.kind === 'cart'" class="caw-cart">
-                        <template x-for="item in (message.data.items || [])" x-bind:key="item.productId">
-                            <p class="caw-cart-line">
-                                <span x-text="item.quantity + ' × ' + item.title"></span>
-                                <span x-text="item.totalTaxedPrice + ' ' + message.data.currency"></span>
-                            </p>
+                    <div class="caw-messages" x-ref="messages" x-show="messages.length > 0">
+                        <template x-for="(message, index) in messages" x-bind:key="index">
+                            <div class="caw-row">
+                                {# x-if, not x-show: Alpine evaluates the expressions of a hidden
+                                   subtree, and message.data only exists on the rich blocks. #}
+                                <template x-if="message.kind === 'text' && message.role === 'user'">
+                                    <p class="caw-message caw-user" x-text="message.text"></p>
+                                </template>
+
+                                <template x-if="message.kind === 'text' && message.role === 'assistant'">
+                                    <div class="caw-message caw-assistant"
+                                         x-effect="window.CommerceAgentsMarkdown.render($el, message.text)"></div>
+                                </template>
+
+                                <template x-if="message.kind === 'products'">
+                                    <div class="caw-products">
+                                        <article class="caw-product caw-product-hero">
+                                            <a class="caw-product-media" x-bind:href="message.data[0].url">
+                                                <img x-show="message.data[0].imageUrl" x-bind:src="message.data[0].imageUrl" x-bind:alt="message.data[0].title" loading="lazy">
+                                                <span class="caw-product-flag" x-text="i18n.featured"></span>
+                                            </a>
+                                            <div class="caw-product-body">
+                                                <a class="caw-product-title" x-bind:href="message.data[0].url" x-text="message.data[0].title"></a>
+                                                <p class="caw-product-desc" x-show="message.data[0].description" x-text="message.data[0].description"></p>
+                                                <p class="caw-product-price">
+                                                    <span class="caw-price-now" x-text="money(bestPrice(message.data[0]), message.data[0].currency)"></span>
+                                                    <s class="caw-price-was" x-show="hasPromo(message.data[0])" x-text="money(message.data[0].price, message.data[0].currency)"></s>
+                                                    <span class="caw-stock" x-bind:class="message.data[0].inStock ? 'is-in' : 'is-out'"
+                                                          x-text="message.data[0].inStock ? i18n.inStock : i18n.outOfStock"></span>
+                                                </p>
+                                                <div class="caw-product-actions">
+                                                    <button type="button" class="caw-btn caw-btn-primary" x-show="message.data[0].inStock"
+                                                            x-on:click="askAddToCart(message.data[0])" x-text="i18n.addToCart"></button>
+                                                    <a class="caw-btn caw-btn-ghost" x-bind:href="message.data[0].url" x-text="i18n.viewProduct"></a>
+                                                </div>
+                                            </div>
+                                        </article>
+
+                                        <div class="caw-product-grid" x-show="message.data.length > 1">
+                                            <template x-for="product in message.data.slice(1)" x-bind:key="product.id">
+                                                <article class="caw-product">
+                                                    <a class="caw-product-media" x-bind:href="product.url">
+                                                        <img x-show="product.imageUrl" x-bind:src="product.imageUrl" x-bind:alt="product.title" loading="lazy">
+                                                    </a>
+                                                    <div class="caw-product-body">
+                                                        <a class="caw-product-title" x-bind:href="product.url" x-text="product.title"></a>
+                                                        <p class="caw-product-price">
+                                                            <span class="caw-price-now" x-text="money(bestPrice(product), product.currency)"></span>
+                                                            <s class="caw-price-was" x-show="hasPromo(product)" x-text="money(product.price, product.currency)"></s>
+                                                        </p>
+                                                        <div class="caw-product-actions">
+                                                            <button type="button" class="caw-btn caw-btn-primary" x-show="product.inStock"
+                                                                    x-on:click="askAddToCart(product)" x-text="i18n.addToCart"></button>
+                                                            <a class="caw-btn caw-btn-ghost" x-bind:href="product.url" x-text="i18n.viewProduct"></a>
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <template x-if="message.kind === 'cart'">
+                                    <div class="caw-cart-block">
+                                        <template x-for="item in (message.data.items || [])" x-bind:key="item.productId">
+                                            <p class="caw-cart-line">
+                                                <span class="caw-cart-thumb">
+                                                    <img x-show="item.imageUrl" x-bind:src="item.imageUrl" x-bind:alt="item.title" loading="lazy">
+                                                </span>
+                                                <span class="caw-cart-name" x-text="item.title"></span>
+                                                <span class="caw-cart-qty" x-text="'\u00d7' + item.quantity"></span>
+                                                <span class="caw-cart-price" x-text="money(item.totalTaxedPrice, message.data.currency)"></span>
+                                            </p>
+                                        </template>
+                                        <p class="caw-cart-total">
+                                            <span>{{ i18n.total }}</span>
+                                            <strong x-text="money(message.data.totalTaxedAmount, message.data.currency)"></strong>
+                                        </p>
+                                    </div>
+                                </template>
+
+                                <template x-if="message.kind === 'error'">
+                                    <p class="caw-message caw-error">
+                                        <span x-text="message.text"></span>
+                                        <button type="button" class="caw-retry" x-on:click="retry()">↻</button>
+                                    </p>
+                                </template>
+                            </div>
                         </template>
-                        <p class="caw-cart-total">
-                            <span>Total</span>
-                            <span x-text="message.data.totalTaxedAmount + ' ' + message.data.currency"></span>
+
+                        <p class="caw-typing" x-show="pending" aria-live="polite">
+                            <span></span><span></span><span></span>
                         </p>
                     </div>
 
-                    <p x-show="message.kind === 'error'" class="caw-message caw-error">
-                        <span x-text="message.text"></span>
-                        <button type="button" class="caw-retry" x-on:click="retry()">↻</button>
-                    </p>
-                </div>
-            </template>
-            <p class="caw-message caw-assistant caw-pending" x-show="pending">…</p>
-        </div>
+                    <form class="caw-composer" x-on:submit.prevent="send()">
+                        <div class="caw-glow caw-glow-composer">
+                            <div class="caw-composer-inner">
+                                <input type="text"
+                                       x-ref="composerInput"
+                                       x-model="input"
+                                       maxlength="2000"
+                                       autocomplete="off"
+                                       aria-label="{{ i18n.askPlaceholder }}"
+                                       placeholder="{{ i18n.askPlaceholder }}"
+                                       x-bind:disabled="pending">
+                                <button type="submit" x-bind:disabled="pending || !input.trim()" aria-label="{{ i18n.send }}">➤</button>
+                            </div>
+                        </div>
+                    </form>
 
-        <form class="caw-form" x-on:submit.prevent="send()">
-            <input type="text" x-model="input" maxlength="2000" x-bind:disabled="pending" autocomplete="off">
-            <button type="submit" x-bind:disabled="pending || !input.trim()">➤</button>
-        </form>
+                    <div class="caw-spacer caw-spacer-bottom"></div>
+                </div>
+
+                <aside class="caw-aside">
+                    <section class="caw-card">
+                        <h3 class="caw-card-title">
+                            {{ i18n.yourCart }}
+                            <span class="caw-pill" x-show="cart.itemCount > 0" x-text="cart.itemCount"></span>
+                        </h3>
+                        <p class="caw-card-empty" x-show="cart.itemCount === 0">{{ i18n.cartEmpty }}</p>
+                        <template x-for="item in cart.items.slice(0, 3)" x-bind:key="item.productId">
+                            <p class="caw-cart-line">
+                                <span class="caw-cart-thumb">
+                                    <img x-show="item.imageUrl" x-bind:src="item.imageUrl" x-bind:alt="item.title" loading="lazy">
+                                </span>
+                                <span class="caw-cart-name" x-text="item.title"></span>
+                                <span class="caw-cart-qty" x-text="'×' + item.quantity"></span>
+                                <span class="caw-cart-price" x-text="money(item.totalTaxedPrice, cart.currency)"></span>
+                            </p>
+                        </template>
+                        <p class="caw-card-more" x-show="cart.items.length > 3"
+                           x-text="'+ ' + (cart.items.length - 3) + ' ' + i18n.otherLines"></p>
+                        <p class="caw-cart-total" x-show="cart.itemCount > 0">
+                            <span>{{ i18n.total }}</span>
+                            <strong x-text="money(cart.totalTaxedAmount, cart.currency)"></strong>
+                        </p>
+                        <a class="caw-btn caw-btn-primary caw-btn-block" href="{{ checkoutUrl }}" x-show="cart.itemCount > 0">{{ i18n.completeOrder }}</a>
+                    </section>
+
+                    <section class="caw-card" x-show="highlights.length > 0">
+                        <h3 class="caw-card-title">{{ i18n.highlightsTitle }}</h3>
+                        <template x-for="product in highlights" x-bind:key="product.id">
+                            <a class="caw-mini-product" x-bind:href="product.url">
+                                <span class="caw-cart-thumb">
+                                    <img x-show="product.imageUrl" x-bind:src="product.imageUrl" x-bind:alt="product.title" loading="lazy">
+                                </span>
+                                <span class="caw-mini-body">
+                                    <span class="caw-mini-title" x-text="product.title"></span>
+                                    <span class="caw-mini-price" x-text="money(bestPrice(product), product.currency)"></span>
+                                </span>
+                            </a>
+                        </template>
+                    </section>
+
+                    <section class="caw-card" x-show="messages.length > 0">
+                        <h3 class="caw-card-title">{{ i18n.suggestionsTitle }}</h3>
+                        <div class="caw-chips">
+                            <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestProduct }}</button>
+                            <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestCart }}</button>
+                            <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestShipping }}</button>
+                            {% if isCustomerLoggedIn %}
+                                <button type="button" class="caw-chip" x-on:click="sendSuggestion($el.textContent)">{{ i18n.suggestOrders }}</button>
+                            {% endif %}
+                        </div>
+                    </section>
+                </aside>
+
+            </div>
+        </div>
     </section>
 </div>

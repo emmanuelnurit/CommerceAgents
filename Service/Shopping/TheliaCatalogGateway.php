@@ -16,6 +16,8 @@ use Thelia\Model\ProductSaleElements;
 
 final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
 {
+    private const EXCERPT_LENGTH = 200;
+
     public function __construct(
         private DataAccessService $dataAccessService,
         private PSEFacade $pseFacade,
@@ -100,7 +102,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             'id' => $productId,
             'ref' => (string) ($member['ref'] ?? ''),
             'title' => (string) ($member['i18ns']['title'] ?? ''),
-            'description' => mb_substr(trim(strip_tags((string) ($member['i18ns']['description'] ?? ''))), 0, 200),
+            'description' => $this->excerpt((string) ($member['i18ns']['description'] ?? '')),
             'price' => $pricing['price'] ?? null,
             'promoPrice' => $pricing['promoPrice'] ?? null,
             'currency' => $this->session()?->getCurrency()->getCode(),
@@ -108,6 +110,17 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             'imageUrl' => $this->thumbnailProvider->urlFor($productId),
             'inStock' => $inStock,
         ];
+    }
+
+    private function excerpt(string $html): string
+    {
+        $text = trim(preg_replace('/\s+/u', ' ', strip_tags($html)) ?? '');
+
+        if (mb_strlen($text) <= self::EXCERPT_LENGTH) {
+            return $text;
+        }
+
+        return rtrim(mb_substr($text, 0, self::EXCERPT_LENGTH), " \t\n\r,;:.").'…';
     }
 
     private function mapPse(ProductSaleElements $pse, string $locale): array

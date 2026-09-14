@@ -2,102 +2,303 @@
     display: none !important;
 }
 
-#commerce-agents-widget {
-    position: fixed;
-    right: 1.25rem;
-    bottom: 1.25rem;
-    z-index: 1050;
-    font-size: 0.9375rem;
-}
-
-#commerce-agents-widget .caw-toggle {
-    width: 3.25rem;
-    height: 3.25rem;
-    border: 1px solid #d0d0d0;
-    border-radius: 50%;
-    background: #1a1a1a;
-    color: #fff;
-    font-size: 1.25rem;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-#commerce-agents-widget .caw-panel {
-    position: absolute;
-    right: 0;
-    bottom: 4.25rem;
-    width: 380px;
-    max-height: 560px;
-    display: flex;
-    flex-direction: column;
-    background: #fff;
-    border: 1px solid #d0d0d0;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+body.caw-body-locked {
     overflow: hidden;
 }
 
-#commerce-agents-widget .caw-header {
-    padding: 0.75rem 1rem;
-    background: #1a1a1a;
-    color: #fff;
+#commerce-agents-widget {
+    /* AI palette: violet to orange, the orange end is aligned on the Flexy
+       theme accent (--color-base) so the widget stays part of the store. */
+    --caw-violet: #7c3aed;
+    --caw-violet-light: #a855f7;
+    --caw-orange: #ff7036;
+    --caw-magenta: #c026d3;
+    /* Static ramp: violet to orange is always visible in full on a fill. */
+    --caw-gradient: linear-gradient(110deg, var(--caw-violet) 0%, var(--caw-magenta) 45%, var(--caw-orange) 100%);
+    /* Travelling ramp: the same colours, mirrored so the loop has no seam. */
+    --caw-gradient-flow: linear-gradient(110deg, var(--caw-violet), var(--caw-magenta), var(--caw-orange), var(--caw-magenta), var(--caw-violet));
+    --caw-ink: #26262e;
+    --caw-muted: #6b6b78;
+    --caw-line: #ececf1;
+    --caw-surface: #ffffff;
+    --caw-surface-soft: #fbfbfd;
+    --caw-border: 2px;
+
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--caw-ink);
 }
 
-#commerce-agents-widget .caw-cart-banner {
+#commerce-agents-widget *,
+#commerce-agents-widget *::before,
+#commerce-agents-widget *::after {
+    box-sizing: border-box;
+}
+
+/* ---------------------------------------------------------------- gradient */
+
+#commerce-agents-widget .caw-glow {
+    padding: var(--caw-border);
+    background: var(--caw-gradient-flow);
+    background-size: 250% 100%;
+    animation: caw-flow 9s linear infinite;
+}
+
+#commerce-agents-widget .caw-glow > * {
+    background: var(--caw-surface);
+}
+
+@keyframes caw-flow {
+    from { background-position: 0% 50%; }
+    to { background-position: 300% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #commerce-agents-widget .caw-glow {
+        animation: none;
+    }
+}
+
+#commerce-agents-widget .caw-avatar {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: var(--caw-gradient);
+    color: #fff;
+    font-size: 0.875rem;
+}
+
+/* -------------------------------------------------------------------- dock */
+
+#commerce-agents-widget .caw-dock {
+    position: fixed;
+    left: 50%;
+    bottom: 1.25rem;
+    transform: translateX(-50%);
+    width: min(620px, calc(100vw - 2rem));
+    z-index: 1050;
+}
+
+#commerce-agents-widget .caw-glow-dock {
+    display: block;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px -8px rgba(124, 58, 237, 0.45), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+#commerce-agents-widget .caw-dock-inner {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    background: #f7f7f7;
-    border-bottom: 1px solid #e0e0e0;
-    font-size: 0.8125rem;
+    padding: 0.375rem 0.375rem 0.375rem 0.75rem;
+    border-radius: 999px;
 }
 
-#commerce-agents-widget .caw-cta-small {
-    padding: 0.25rem 0.625rem;
+#commerce-agents-widget .caw-dock-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    padding: 0.5rem 0;
+}
+
+#commerce-agents-widget .caw-dock-cart {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    border: 1px solid var(--caw-line);
+    border-radius: 999px;
+    background: var(--caw-surface-soft);
+    color: var(--caw-ink);
+    font: inherit;
     font-size: 0.8125rem;
-    background: #1a1a1a;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 0.375rem;
-    font-weight: 600;
+    padding: 0.25rem 0.625rem;
+    cursor: pointer;
     white-space: nowrap;
 }
 
-#commerce-agents-widget .caw-suggestions {
+#commerce-agents-widget .caw-dock-cart-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: var(--caw-gradient);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+}
+
+#commerce-agents-widget .caw-dock-send {
+    flex: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: none;
+    border-radius: 50%;
+    background: var(--caw-gradient);
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.9375rem;
+}
+
+/* ----------------------------------------------------------------- overlay */
+
+#commerce-agents-widget .caw-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1055;
+    background: rgba(24, 20, 36, 0.55);
+    backdrop-filter: blur(3px);
+}
+
+#commerce-agents-widget .caw-shell {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(1100px, calc(100vw - 3rem));
+    height: min(760px, calc(100vh - 4rem));
+    z-index: 1060;
+}
+
+#commerce-agents-widget .caw-glow-shell {
+    height: 100%;
+    border-radius: 1.125rem;
+    box-shadow: 0 30px 80px -20px rgba(60, 20, 120, 0.55);
+}
+
+#commerce-agents-widget .caw-shell-inner {
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    border-radius: calc(1.125rem - var(--caw-border));
+    overflow: hidden;
+}
+
+/* ----------------------------------------------------------- main column */
+
+#commerce-agents-widget .caw-main {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    min-width: 0;
+    min-height: 0;
+}
+
+#commerce-agents-widget .caw-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--caw-line);
+}
+
+#commerce-agents-widget .caw-header-titles {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    margin-right: auto;
+}
+
+#commerce-agents-widget .caw-header-titles small {
+    color: var(--caw-muted);
+    font-size: 0.75rem;
+}
+
+#commerce-agents-widget .caw-icon-button {
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--caw-line);
+    border-radius: 0.5rem;
+    background: var(--caw-surface);
+    color: var(--caw-muted);
+    cursor: pointer;
+    font-size: 0.9375rem;
+}
+
+#commerce-agents-widget .caw-icon-button:hover {
+    color: var(--caw-violet);
+    border-color: var(--caw-violet-light);
+}
+
+#commerce-agents-widget .caw-spacer {
+    flex: 0 0 0;
+}
+
+#commerce-agents-widget .caw-main.is-hero .caw-spacer {
+    flex: 1 1 auto;
+}
+
+#commerce-agents-widget .caw-main.is-hero .caw-spacer-bottom {
+    flex: 1.4 1 auto;
+}
+
+/* -------------------------------------------------------------- hero state */
+
+#commerce-agents-widget .caw-hero {
+    flex: none;
+    padding: 0 2.5rem 0.75rem;
+    text-align: center;
+}
+
+#commerce-agents-widget .caw-hero-title {
+    margin: 0 0 0.875rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    background: var(--caw-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+#commerce-agents-widget .caw-chips {
+    display: flex;
+    flex-wrap: wrap;
     gap: 0.375rem;
 }
 
-#commerce-agents-widget .caw-suggestions-title {
-    margin: 0 0 0.25rem;
-    font-weight: 600;
+#commerce-agents-widget .caw-hero .caw-chips {
+    justify-content: center;
 }
 
 #commerce-agents-widget .caw-chip {
-    border: 1px solid #d0d0d0;
-    background: #fff;
-    color: #1a1a1a;
-    border-radius: 1rem;
-    padding: 0.3125rem 0.75rem;
+    border: 1px solid var(--caw-line);
+    background: var(--caw-surface);
+    color: var(--caw-ink);
+    border-radius: 999px;
+    padding: 0.375rem 0.75rem;
+    font: inherit;
     font-size: 0.8125rem;
     cursor: pointer;
     text-align: left;
 }
 
 #commerce-agents-widget .caw-chip:hover {
-    background: #f0f0f0;
+    border-color: var(--caw-violet-light);
+    color: var(--caw-violet);
 }
 
+/* ---------------------------------------------------------------- messages */
+
 #commerce-agents-widget .caw-messages {
-    flex: 1;
-    min-height: 200px;
-    max-height: 380px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    padding: 0.75rem;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#commerce-agents-widget .caw-row {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -105,31 +306,31 @@
 
 #commerce-agents-widget .caw-message {
     margin: 0;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    max-width: 85%;
-    white-space: pre-wrap;
+    padding: 0.5625rem 0.875rem;
+    border-radius: 0.875rem;
+    max-width: 80%;
     word-break: break-word;
 }
 
 #commerce-agents-widget .caw-user {
     align-self: flex-end;
-    background: #1a1a1a;
+    border-bottom-right-radius: 0.25rem;
+    background: var(--caw-gradient);
     color: #fff;
+    white-space: pre-wrap;
 }
 
 #commerce-agents-widget .caw-assistant {
     align-self: flex-start;
-    background: #f0f0f0;
-    color: #1a1a1a;
-    white-space: normal;
+    border-bottom-left-radius: 0.25rem;
+    background: #f4f4f8;
+    color: var(--caw-ink);
 }
 
 #commerce-agents-widget .caw-error {
     align-self: flex-start;
-    background: #fdecea;
-    color: #b3261e;
-    white-space: normal;
+    background: #ffe1e1;
+    color: #b70101;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -143,95 +344,438 @@
     font-size: 1rem;
 }
 
+#commerce-agents-widget .caw-typing {
+    align-self: flex-start;
+    display: flex;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0.6875rem 0.875rem;
+    border-radius: 0.875rem;
+    background: #f4f4f8;
+}
+
+#commerce-agents-widget .caw-typing span {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: var(--caw-violet-light);
+    animation: caw-bounce 1.2s infinite ease-in-out;
+}
+
+#commerce-agents-widget .caw-typing span:nth-child(2) { animation-delay: 0.15s; background: #c4629b; }
+#commerce-agents-widget .caw-typing span:nth-child(3) { animation-delay: 0.3s; background: var(--caw-orange); }
+
+@keyframes caw-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+    30% { transform: translateY(-0.25rem); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #commerce-agents-widget .caw-typing span {
+        animation: none;
+    }
+}
+
+/* ---------------------------------------------------------------- products */
+
 #commerce-agents-widget .caw-products {
     display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding: 0.25rem 0;
+    flex-direction: column;
+    gap: 0.625rem;
+    width: 100%;
 }
 
 #commerce-agents-widget .caw-product {
-    flex: 0 0 130px;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.5rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 0.5rem;
-    text-decoration: none;
-    color: #1a1a1a;
-    background: #fff;
+    border: 1px solid var(--caw-line);
+    border-radius: 0.75rem;
+    background: var(--caw-surface);
+    overflow: hidden;
 }
 
-#commerce-agents-widget .caw-product img {
+#commerce-agents-widget .caw-product-hero {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    border-color: transparent;
+    box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25), 0 8px 24px -12px rgba(124, 58, 237, 0.5);
+}
+
+#commerce-agents-widget .caw-product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.625rem;
+}
+
+#commerce-agents-widget .caw-product-media {
+    position: relative;
+    display: block;
+    background: #f4f4f8;
+}
+
+#commerce-agents-widget .caw-product-media img {
+    display: block;
     width: 100%;
-    height: 90px;
+    height: 110px;
     object-fit: cover;
-    border-radius: 0.25rem;
+}
+
+#commerce-agents-widget .caw-product-hero .caw-product-media img {
+    height: 100%;
+    min-height: 170px;
+}
+
+#commerce-agents-widget .caw-product-flag {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--caw-gradient);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+#commerce-agents-widget .caw-product-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 0.625rem 0.75rem;
+}
+
+#commerce-agents-widget .caw-product-hero .caw-product-body {
+    padding: 0.875rem 1rem;
 }
 
 #commerce-agents-widget .caw-product-title {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+#commerce-agents-widget .caw-product-title:hover {
+    color: var(--caw-violet);
+}
+
+#commerce-agents-widget .caw-product-hero .caw-product-title {
+    font-size: 1.0625rem;
+}
+
+#commerce-agents-widget .caw-product-desc {
+    margin: 0;
+    color: var(--caw-muted);
     font-size: 0.8125rem;
-    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 #commerce-agents-widget .caw-product-price {
-    font-weight: 600;
-}
-
-#commerce-agents-widget .caw-cart {
-    align-self: flex-start;
-    width: 100%;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 0.5rem;
-    background: #fafafa;
-}
-
-#commerce-agents-widget .caw-cart-line,
-#commerce-agents-widget .caw-cart-total {
+    margin: 0;
     display: flex;
-    justify-content: space-between;
-    margin: 0.25rem 0;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.4375rem;
 }
 
-#commerce-agents-widget .caw-cart-total {
+#commerce-agents-widget .caw-price-now {
+    font-weight: 700;
+}
+
+#commerce-agents-widget .caw-product-hero .caw-price-now {
+    font-size: 1.25rem;
+}
+
+#commerce-agents-widget .caw-price-was {
+    color: #8a8a96;
+    font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-stock {
+    font-size: 0.75rem;
     font-weight: 600;
-    border-top: 1px solid #e0e0e0;
+}
+
+#commerce-agents-widget .caw-stock.is-in { color: #08a65a; }
+#commerce-agents-widget .caw-stock.is-out { color: #b70101; }
+
+#commerce-agents-widget .caw-product-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    margin-top: auto;
     padding-top: 0.25rem;
 }
 
-#commerce-agents-widget .caw-form {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.75rem;
-    border-top: 1px solid #e0e0e0;
-}
+/* ----------------------------------------------------------------- buttons */
 
-#commerce-agents-widget .caw-form input {
-    flex: 1;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #d0d0d0;
-    border-radius: 0.375rem;
-}
-
-#commerce-agents-widget .caw-form button {
-    border: none;
-    border-radius: 0.375rem;
-    background: #1a1a1a;
-    color: #fff;
-    padding: 0.5rem 0.875rem;
+#commerce-agents-widget .caw-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    padding: 0.4375rem 0.75rem;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
     cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
 }
 
-#commerce-agents-widget .caw-form button:disabled {
-    opacity: 0.5;
+#commerce-agents-widget .caw-btn-primary {
+    background: var(--caw-gradient);
+    color: #fff;
+    transition: filter 0.25s ease;
+}
+
+#commerce-agents-widget .caw-btn-primary:hover {
+    filter: brightness(1.08) saturate(1.1);
+}
+
+#commerce-agents-widget .caw-btn-ghost {
+    border-color: #dcdce6;
+    background: var(--caw-surface);
+    color: var(--caw-ink);
+}
+
+#commerce-agents-widget .caw-btn-ghost:hover {
+    border-color: var(--caw-violet-light);
+    color: var(--caw-violet);
+}
+
+#commerce-agents-widget .caw-btn-block {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+/* -------------------------------------------------------------------- cart */
+
+#commerce-agents-widget .caw-cart-block {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--caw-line);
+    border-radius: 0.75rem;
+    background: var(--caw-surface-soft);
+}
+
+#commerce-agents-widget .caw-cart-line {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.375rem 0;
+    font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-cart-thumb {
+    display: block;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.375rem;
+    background: #f0f0f5;
+    overflow: hidden;
+}
+
+#commerce-agents-widget .caw-cart-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#commerce-agents-widget .caw-cart-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#commerce-agents-widget .caw-cart-qty {
+    color: var(--caw-muted);
+}
+
+#commerce-agents-widget .caw-cart-price {
+    font-weight: 600;
+}
+
+#commerce-agents-widget .caw-cart-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 0.5rem 0 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--caw-line);
+    font-size: 0.875rem;
+}
+
+#commerce-agents-widget .caw-cart-total strong {
+    font-size: 1.0625rem;
+}
+
+/* ------------------------------------------------------------- aside column */
+
+#commerce-agents-widget .caw-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem;
+    border-left: 1px solid var(--caw-line);
+    background: var(--caw-surface-soft);
+}
+
+#commerce-agents-widget .caw-card {
+    border: 1px solid var(--caw-line);
+    border-radius: 0.75rem;
+    background: var(--caw-surface);
+    padding: 0.875rem;
+}
+
+#commerce-agents-widget .caw-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--caw-muted);
+}
+
+#commerce-agents-widget .caw-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 0.3125rem;
+    border-radius: 999px;
+    background: var(--caw-gradient);
+    color: #fff;
+    font-size: 0.6875rem;
+}
+
+#commerce-agents-widget .caw-card-empty,
+#commerce-agents-widget .caw-card-more {
+    margin: 0;
+    color: var(--caw-muted);
+    font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-card-more {
+    margin-top: 0.375rem;
+}
+
+#commerce-agents-widget .caw-mini-product {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3125rem 0;
+    color: inherit;
+    text-decoration: none;
+}
+
+#commerce-agents-widget .caw-mini-product:hover .caw-mini-title {
+    color: var(--caw-violet);
+}
+
+#commerce-agents-widget .caw-mini-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+#commerce-agents-widget .caw-mini-title {
+    font-size: 0.8125rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#commerce-agents-widget .caw-mini-price {
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- composer */
+
+#commerce-agents-widget .caw-composer {
+    flex: none;
+    padding: 0.75rem 1.25rem 1rem;
+}
+
+#commerce-agents-widget .caw-main.is-hero .caw-composer {
+    padding: 0 2.5rem;
+}
+
+#commerce-agents-widget .caw-glow-composer {
+    border-radius: 999px;
+    box-shadow: 0 8px 24px -10px rgba(124, 58, 237, 0.5);
+}
+
+#commerce-agents-widget .caw-composer-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3125rem 0.3125rem 0.3125rem 0.875rem;
+    border-radius: 999px;
+}
+
+#commerce-agents-widget .caw-composer-inner input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    padding: 0.5rem 0;
+}
+
+#commerce-agents-widget .caw-main.is-hero .caw-composer-inner {
+    padding: 0.4375rem 0.4375rem 0.4375rem 1.25rem;
+}
+
+#commerce-agents-widget .caw-main.is-hero .caw-composer-inner input {
+    font-size: 1.125rem;
+    padding: 0.625rem 0;
+}
+
+#commerce-agents-widget .caw-composer-inner button {
+    flex: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: none;
+    border-radius: 50%;
+    background: var(--caw-gradient);
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.9375rem;
+}
+
+#commerce-agents-widget .caw-main.is-hero .caw-composer-inner button {
+    width: 2.75rem;
+    height: 2.75rem;
+}
+
+#commerce-agents-widget .caw-composer-inner button:disabled {
+    opacity: 0.45;
     cursor: default;
 }
 
-#commerce-agents-widget .caw-pending {
-    opacity: 0.6;
-}
+/* -------------------------------------------------------- markdown content */
 
 #commerce-agents-widget .caw-assistant .cam-p,
 #commerce-agents-widget .caw-assistant .cam-heading {
@@ -243,7 +787,7 @@
 }
 
 #commerce-agents-widget .caw-assistant .cam-heading {
-    font-weight: 600;
+    font-weight: 700;
 }
 
 #commerce-agents-widget .caw-assistant .cam-list {
@@ -264,48 +808,107 @@
 
 #commerce-agents-widget .caw-assistant .cam-table th,
 #commerce-agents-widget .caw-assistant .cam-table td {
-    border: 1px solid #d0d0d0;
-    padding: 0.25rem 0.5rem;
+    border: 1px solid #dcdce6;
+    padding: 0.3125rem 0.5rem;
     text-align: left;
 }
 
 #commerce-agents-widget .caw-assistant .cam-table th {
-    background: #e6e6e6;
+    background: #e9e9f0;
 }
 
 #commerce-agents-widget .caw-assistant code {
-    background: #e6e6e6;
+    background: #e9e9f0;
     border-radius: 0.25rem;
     padding: 0 0.25rem;
     font-size: 0.8125rem;
 }
 
 #commerce-agents-widget .caw-assistant .cam-link {
-    color: inherit;
+    color: var(--caw-violet);
     text-decoration: underline;
 }
 
 #commerce-agents-widget .caw-assistant .cam-cta {
     display: inline-block;
-    background: #1a1a1a;
+    background: var(--caw-gradient);
     color: #fff;
     text-decoration: none;
-    border-radius: 0.375rem;
+    border-radius: 0.5rem;
     padding: 0.375rem 0.875rem;
     font-weight: 600;
 }
 
-@media (max-width: 640px) {
-    #commerce-agents-widget .caw-panel {
-        position: fixed;
-        inset: 0;
-        width: auto;
-        max-height: none;
-        border-radius: 0;
-        bottom: 0;
+/* ------------------------------------------------------------- responsive */
+
+@media (max-width: 1023px) {
+    #commerce-agents-widget .caw-shell {
+        width: calc(100vw - 1.5rem);
+        height: calc(100vh - 2rem);
     }
 
-    #commerce-agents-widget .caw-messages {
-        max-height: none;
+    #commerce-agents-widget .caw-shell-inner {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    #commerce-agents-widget .caw-aside {
+        order: -1;
+        flex-direction: row;
+        overflow-x: auto;
+        max-height: 30vh;
+        border-left: none;
+        border-bottom: 1px solid var(--caw-line);
+    }
+
+    #commerce-agents-widget .caw-aside .caw-card {
+        flex: 0 0 15rem;
+    }
+
+    #commerce-agents-widget .caw-product-hero {
+        grid-template-columns: 120px minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 639px) {
+    #commerce-agents-widget .caw-dock {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        width: auto;
+        transform: none;
+    }
+
+    #commerce-agents-widget .caw-dock-cart-total {
+        display: none;
+    }
+
+    #commerce-agents-widget .caw-shell {
+        width: 100%;
+        height: 100%;
+    }
+
+    #commerce-agents-widget .caw-glow-shell,
+    #commerce-agents-widget .caw-shell-inner {
+        border-radius: 0;
+    }
+
+    #commerce-agents-widget .caw-hero,
+    #commerce-agents-widget .caw-main.is-hero .caw-composer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    #commerce-agents-widget .caw-product-hero {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #commerce-agents-widget .caw-product-hero .caw-product-media img {
+        height: 150px;
+        min-height: 0;
+    }
+
+    #commerce-agents-widget .caw-message {
+        max-width: 92%;
     }
 }

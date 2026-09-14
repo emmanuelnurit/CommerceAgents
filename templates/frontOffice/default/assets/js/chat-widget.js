@@ -8,6 +8,7 @@
  */
 var COMMERCE_AGENTS_STORAGE_KEY = 'commerceagents.chat';
 var COMMERCE_AGENTS_MAX_PERSISTED = 50;
+var COMMERCE_AGENTS_MAX_HIGHLIGHTS = 3;
 
 function commerceAgentsChat() {
     return {
@@ -16,48 +17,71 @@ function commerceAgentsChat() {
         input: '',
         lastSent: '',
         messages: [],
-        cartCount: 0,
-        cartTotal: 0,
-        currency: 'EUR',
+        highlights: [],
+        cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 },
+        locale: 'en-US',
         pendingNavigationUrl: null,
         i18n: {
-            items: 'item(s)',
+            itemsLabel: 'item(s)',
+            otherLines: 'other line(s)',
+            inStock: 'In stock',
+            outOfStock: 'Out of stock',
+            addToCartPrompt: 'Add this product to my cart:',
             connectionLost: 'Connection lost',
             serviceUnavailable: 'Service unavailable',
             error: 'Something went wrong',
         },
 
         init() {
-            const root = document.getElementById('commerce-agents-widget');
-            if (root) {
-                this.cartCount = parseInt(root.dataset.cartCount || '0', 10);
-                this.cartTotal = parseFloat(root.dataset.cartTotal || '0');
-                this.currency = root.dataset.currency || 'EUR';
-                this.i18n.items = root.dataset.i18nItems || this.i18n.items;
-                this.i18n.connectionLost = root.dataset.i18nConnectionLost || this.i18n.connectionLost;
-                this.i18n.serviceUnavailable = root.dataset.i18nServiceUnavailable || this.i18n.serviceUnavailable;
-                this.i18n.error = root.dataset.i18nError || this.i18n.error;
-            }
-            try {
-                const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_STORAGE_KEY) || 'null');
-                if (saved && Array.isArray(saved.messages)) {
-                    this.messages = saved.messages;
-                    this.open = !!saved.open;
-                }
-            } catch (error) {
-                sessionStorage.removeItem(COMMERCE_AGENTS_STORAGE_KEY);
-            }
+            this.readConfig();
+            this.restore();
 
             this.$watch('messages', () => this.persist());
             this.$watch('open', (isOpen) => {
                 this.persist();
+                document.body.classList.toggle('caw-body-locked', isOpen);
                 if (isOpen) {
                     this.scrollDownSoon();
                 }
             });
 
             if (this.open) {
+                document.body.classList.add('caw-body-locked');
                 this.scrollDownSoon();
+            }
+        },
+
+        readConfig() {
+            const root = document.getElementById('commerce-agents-widget');
+            if (!root) {
+                return;
+            }
+            let config = {};
+            try {
+                config = JSON.parse(root.dataset.config || '{}');
+            } catch (error) {
+                return;
+            }
+            if (config.cart) {
+                this.cart = config.cart;
+            }
+            if (config.i18n) {
+                this.i18n = Object.assign({}, this.i18n, config.i18n);
+            }
+            // The server speaks Thelia locales (fr_FR), Intl speaks BCP 47 (fr-FR).
+            this.locale = (config.locale || 'en_US').replace('_', '-');
+        },
+
+        restore() {
+            try {
+                const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_STORAGE_KEY) || 'null');
+                if (saved && Array.isArray(saved.messages)) {
+                    this.messages = saved.messages;
+                    this.open = !!saved.open;
+                    this.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
+                }
+            } catch (error) {
+                sessionStorage.removeItem(COMMERCE_AGENTS_STORAGE_KEY);
             }
         },
 
@@ -74,20 +98,72 @@ function commerceAgentsChat() {
                     delete copy.streaming;
                     return copy;
                 });
-                sessionStorage.setItem(COMMERCE_AGENTS_STORAGE_KEY, JSON.stringify({ open: this.open, messages: messages }));
+                sessionStorage.setItem(COMMERCE_AGENTS_STORAGE_KEY, JSON.stringify({
+                    open: this.open,
+                    messages: messages,
+                    highlights: this.highlights,
+                }));
             } catch (error) {
                 // storage full or unavailable: the chat still works, it just won't survive navigation
             }
         },
 
-        formatPrice(product) {
-            if (product.price === null || product.price === undefined) {
+        expand(submitAfter) {
+            this.open = true;
+            this.$nextTick(() => {
+                const field = this.$refs.composerInput;
+                if (field && !this.pending) {
+                    field.focus();
+                }
+                if (submitAfter) {
+                    this.send();
+                }
+            });
+        },
+
+        close() {
+            this.open = false;
+        },
+
+        reset() {
+            this.messages = [];
+            this.highlights = [];
+            this.lastSent = '';
+            this.input = '';
+            this.persist();
+        },
+
+        money(amount, currencyCode) {
+            // Number(null) is 0: a product without a price must stay blank,
+            // never read as free.
+            if (amount === null || amount === undefined || amount === '') {
                 return '';
             }
-            const price = product.promoPrice && product.promoPrice < product.price
-                ? product.promoPrice
-                : product.price;
-            return price + ' ' + (product.currency || '');
+            const value = Number(amount);
+            if (!isFinite(value)) {
+                return '';
+            }
+            const currency = currencyCode || this.cart.currency || 'EUR';
+            try {
+                return new Intl.NumberFormat(this.locale, { style: 'currency', currency: currency }).format(value);
+            } catch (error) {
+                return value.toFixed(2) + ' ' + currency;
+            }
+        },
+
+        hasPromo(product) {
+            return typeof product.promoPrice === 'number'
+                && typeof product.price === 'number'
+                && product.promoPrice > 0
+                && product.promoPrice < product.price;
+        },
+
+        bestPrice(product) {
+            return this.hasPromo(product) ? product.promoPrice : product.price;
+        },
+
+        askAddToCart(product) {
+            this.sendSuggestion(this.i18n.addToCartPrompt + ' ' + product.title);
         },
 
         retry() {
@@ -96,22 +172,20 @@ function commerceAgentsChat() {
             }
         },
 
-        cartBannerLabel() {
-            return this.cartCount + ' ' + this.i18n.items + ' — ' + this.cartTotal + ' ' + this.currency;
-        },
-
         sendSuggestion(text) {
-            this.input = text.trim();
+            this.input = String(text).trim();
+            this.open = true;
             this.send();
         },
 
         updateCartFromResult(cart) {
             if (cart && typeof cart.itemCount === 'number') {
-                this.cartCount = cart.itemCount;
-                this.cartTotal = cart.totalTaxedAmount;
-                if (cart.currency) {
-                    this.currency = cart.currency;
-                }
+                this.cart = {
+                    items: Array.isArray(cart.items) ? cart.items : [],
+                    totalTaxedAmount: cart.totalTaxedAmount,
+                    currency: cart.currency || this.cart.currency,
+                    itemCount: cart.itemCount,
+                };
             }
         },
 
@@ -243,6 +317,10 @@ function commerceAgentsChat() {
 
             if (payload.name === 'search_products' && Array.isArray(result.products) && result.products.length > 0) {
                 this.messages.push({ kind: 'products', role: 'assistant', data: result.products });
+                this.highlights = result.products.slice(0, COMMERCE_AGENTS_MAX_HIGHLIGHTS);
+            } else if (payload.name === 'get_product_details' && result.product) {
+                this.messages.push({ kind: 'products', role: 'assistant', data: [result.product] });
+                this.highlights = [result.product];
             } else if ((payload.name === 'get_cart' || payload.name === 'add_to_cart') && result.cart) {
                 this.messages.push({ kind: 'cart', role: 'assistant', data: result.cart });
                 this.updateCartFromResult(result.cart);

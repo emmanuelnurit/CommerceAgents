@@ -5,21 +5,19 @@ declare(strict_types=1);
 namespace CommerceAgents\Hook\Theme;
 
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\Shopping\TheliaCartGateway;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Thelia\Core\Hook\Theme\ThemeHookInterface;
 use Thelia\Core\HttpFoundation\Session\Session;
 use Thelia\Core\Translation\Translator;
-use Thelia\Domain\Cart\CartFacade;
-use Thelia\Domain\Taxation\TaxEngine\TaxEngine;
 use Twig\Environment;
 
 final readonly class ChatWidgetThemeHook implements ThemeHookInterface
 {
     public function __construct(
         private AgentConfigService $configService,
-        private CartFacade $cartFacade,
-        private TaxEngine $taxEngine,
+        private TheliaCartGateway $cartGateway,
         private RequestStack $requestStack,
         private UrlGeneratorInterface $urlGenerator,
         private Translator $translator,
@@ -41,18 +39,6 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
         $session = $this->requestStack->getMainRequest()?->getSession();
         $theliaSession = $session instanceof Session ? $session : null;
 
-        $cartItemCount = 0;
-        $cartTotal = 0.0;
-        $cart = $this->cartFacade->getCartFromSession();
-        if ($cart !== null) {
-            foreach ($cart->getCartItems() as $cartItem) {
-                $cartItemCount += (int) $cartItem->getQuantity();
-            }
-            if ($cartItemCount > 0) {
-                $cartTotal = round($cart->getTaxedAmount($this->taxEngine->getDeliveryCountry()), 2);
-            }
-        }
-
         // The Twig |trans filter resolves against the Symfony translator, which
         // never carries module catalogues on front requests (the BO bundle only
         // bridges module domains under /admin). Translate here with the Thelia
@@ -60,8 +46,10 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
         $locale = $theliaSession?->getLang()->getLocale() ?? 'en_US';
         $translate = fn (string $id): string => $this->translator->trans($id, [], 'commerceagents', $locale);
 
+        $assistantName = $this->configService->getAssistantName();
+
         return $this->twig->render('@CommerceAgentsModule/theme-hook/chat_widget.html.twig', [
-            'assistantName' => $this->configService->getAssistantName(),
+            'assistantName' => $assistantName,
             'i18n' => [
                 'itemsLabel' => $translate('item(s)'),
                 'connectionLost' => $translate('Connection lost'),
@@ -73,10 +61,27 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'suggestCart' => $translate('What is in my cart?'),
                 'suggestShipping' => $translate('What are your shipping conditions?'),
                 'suggestOrders' => $translate('Where are my orders?'),
+                'askPlaceholder' => $translate('Ask me for a product, your cart, a delivery…'),
+                'openAssistant' => $translate('Open the shopping assistant'),
+                'closeAssistant' => $translate('Close the assistant'),
+                'clearConversation' => $translate('Start a new conversation'),
+                'send' => $translate('Send'),
+                'yourCart' => $translate('Your cart'),
+                'cartEmpty' => $translate('Your cart is empty for now.'),
+                'otherLines' => $translate('other line(s)'),
+                'total' => $translate('Total'),
+                'featured' => $translate('Best match'),
+                'highlightsTitle' => $translate('Products discussed'),
+                'suggestionsTitle' => $translate('Keep going'),
+                'addToCart' => $translate('Add to cart'),
+                'viewProduct' => $translate('View product'),
+                'inStock' => $translate('In stock'),
+                'outOfStock' => $translate('Out of stock'),
+                'addToCartPrompt' => $translate('Add this product to my cart:'),
+                'subtitle' => $translate('Shopping assistant powered by AI'),
             ],
-            'cartItemCount' => $cartItemCount,
-            'cartTotal' => $cartTotal,
-            'currencyCode' => $theliaSession?->getCurrency()->getCode() ?? 'EUR',
+            'cart' => $this->cartGateway->snapshot(),
+            'locale' => $locale,
             'checkoutUrl' => $this->urlGenerator->generate('checkout_cart'),
             'isCustomerLoggedIn' => $theliaSession?->getCustomerUser() !== null,
         ]);

@@ -6,6 +6,7 @@ namespace CommerceAgents\Service\Shopping;
 
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolException;
+use CommerceAgents\Service\Catalog\ProductThumbnailProvider;
 use CommerceAgents\Tool\Shopping\Gateway\CartGatewayInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Domain\Cart\CartFacade;
@@ -22,6 +23,7 @@ final readonly class TheliaCartGateway implements CartGatewayInterface
         private PSEFacade $pseFacade,
         private TaxEngine $taxEngine,
         private RequestStack $requestStack,
+        private ProductThumbnailProvider $thumbnailProvider,
     ) {
     }
 
@@ -49,6 +51,15 @@ final readonly class TheliaCartGateway implements CartGatewayInterface
 
     public function getCart(ToolContext $ctx): array
     {
+        return $this->snapshot();
+    }
+
+    /**
+     * Same payload as getCart(), without a tool context: the front chat widget
+     * paints its cart preview on the very first render, before any agent call.
+     */
+    public function snapshot(): array
+    {
         $cart = $this->cartFacade->getCartFromSession();
 
         if ($cart === null) {
@@ -66,13 +77,17 @@ final readonly class TheliaCartGateway implements CartGatewayInterface
         $items = [];
         $itemCount = 0;
         foreach ($cart->getCartItems() as $cartItem) {
+            $productId = (int) $cartItem->getProductId();
             $itemCount += (int) $cartItem->getQuantity();
             $items[] = [
-                'productId' => $cartItem->getProductId(),
+                'productId' => $productId,
                 'title' => $cartItem->getProduct()->setLocale($locale)->getTitle(),
                 'quantity' => (int) $cartItem->getQuantity(),
-                'unitTaxedPrice' => round($cartItem->getTaxedPrice($country), 2),
-                'totalTaxedPrice' => round($cartItem->getTotalTaxedPrice($country), 2),
+                // getTaxedPrice() ignores the promo flag, while Cart::getTaxedAmount()
+                // honours it: mixing both showed lines above the cart total.
+                'unitTaxedPrice' => round($cartItem->getRealTaxedPrice($country), 2),
+                'totalTaxedPrice' => round($cartItem->getTotalRealTaxedPrice($country), 2),
+                'imageUrl' => $this->thumbnailProvider->urlFor($productId),
             ];
         }
 
