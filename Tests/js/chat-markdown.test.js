@@ -101,3 +101,30 @@ test('append on both sides of a blank line builds the same DOM as one render', (
     }
     assert.ok(checked >= 6);
 });
+
+test('a Markdown image is dropped, not turned into a link to a JPEG', () => {
+    const blocks = renderBlocks('![Horatio](https://shop.test/cache/prod001.jpg)');
+
+    // Without the strip the link syntax inside would yield an anchor labelled
+    // "Horatio" pointing at the raw image, preceded by a stray "!".
+    const anchors = blocks.flatMap((block) => (block.childNodes || []).filter((node) => node.nodeName === 'A'));
+    assert.equal(anchors.length, 0);
+    assert.equal(blocks.map(text).join('').trim(), '');
+});
+
+test('an image sitting inside a sentence leaves the sentence readable', () => {
+    const blocks = renderBlocks('Le ![photo](/img/a.png) fauteuil Stacy est en promo.');
+
+    const rendered = blocks.map(text).join('');
+    assert.equal(rendered.includes('photo'), false);
+    assert.ok(rendered.includes('fauteuil Stacy est en promo.'));
+});
+
+test('a real link is still a link', () => {
+    // The DOM stub drops attributes, so assert on the anchor and its label.
+    const blocks = renderBlocks('Voir la [page livraison](https://shop.test/delivery.html).');
+    const anchors = blocks[0].childNodes.filter((node) => node.nodeName === 'A');
+
+    assert.equal(anchors.length, 1);
+    assert.equal(text(anchors[0]), 'page livraison');
+});

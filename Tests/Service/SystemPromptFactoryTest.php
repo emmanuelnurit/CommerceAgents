@@ -54,6 +54,17 @@ class FakePromptCategoryGateway implements CategoryGatewayInterface
         return \array_slice($this->categories, 0, $limit);
     }
 
+    public function findById(int $id, string $locale): ?array
+    {
+        foreach ($this->categories as $category) {
+            if ($category['id'] === $id) {
+                return $category;
+            }
+        }
+
+        return null;
+    }
+
     public function findByName(string $name, string $locale): ?array
     {
         return $this->categories[0] ?? null;
@@ -235,6 +246,8 @@ class SystemPromptFactoryTest extends TestCase
         $prompt = $this->factory->shopping('Alex', 'fr_FR');
 
         $this->assertStringContainsString('never re-list the products', $prompt);
+        $this->assertStringContainsString('no Markdown image ever', $prompt);
+        $this->assertStringContainsString('a bullet list that repeats the cards is not', $prompt);
     }
 
     public function testShoppingPromptStaysReadableWithoutAnyCategory(): void

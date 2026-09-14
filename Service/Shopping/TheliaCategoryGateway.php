@@ -31,6 +31,17 @@ final class TheliaCategoryGateway implements CategoryGatewayInterface
         return CategoryMatcher::best($name, $this->all($locale));
     }
 
+    public function findById(int $id, string $locale): ?array
+    {
+        foreach ($this->all($locale) as $category) {
+            if ($category['id'] === $id) {
+                return $category;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return list<array{id: int, title: string, url: string|null, productCount: int}>
      */

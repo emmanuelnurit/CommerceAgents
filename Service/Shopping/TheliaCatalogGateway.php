@@ -40,6 +40,8 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         ToolContext $ctx,
     ): array {
         $query = trim((string) $query);
+        [$minPrice, $maxPrice] = PriceRange::sane($minPrice, $maxPrice);
+
         $hasCriterion = $query !== '' || $categoryId !== null || $promoOnly || $minPrice !== null || $maxPrice !== null;
 
         if (!$hasCriterion) {
@@ -48,14 +50,18 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
 
         $products = $this->runSearch($query, $categoryId, $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale);
 
-        if ($products !== [] || $query === '' || $categoryId !== null) {
+        if ($products !== [] || $query === '') {
             return ['products' => $products, 'matchedCategory' => null];
         }
 
-        // Store catalogues title products after a model name, never after their
-        // type: "chair" or "sofa" can only ever match a category. Retry once
-        // through the closest category rather than returning nothing.
-        $category = $this->categoryGateway->findByName($query, $ctx->locale);
+        // The keyword matched no title. Store catalogues title products after a
+        // model name, so a type word ("chair", "sofa") only ever exists as a
+        // category: drop the keyword and search the category instead — the one
+        // that was asked for, or the closest one to the keyword itself.
+        $category = $categoryId !== null
+            ? $this->categoryGateway->findById($categoryId, $ctx->locale)
+            : $this->categoryGateway->findByName($query, $ctx->locale);
+
         if ($category === null) {
             return ['products' => [], 'matchedCategory' => null];
         }

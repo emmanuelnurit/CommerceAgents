@@ -17,6 +17,11 @@
     function appendInline(parent, text) {
         // Fresh regex per call: appendInline recurses into bold/italic/strike
         // and link labels, and a shared lastIndex would corrupt the outer scan.
+        // A Markdown image never belongs in chat text: products carry their own
+        // card, and the link syntax below would otherwise turn it into a bare
+        // link to a JPEG.
+        text = text.replace(/!\[[^\]]*\]\([^\s)]*\)/g, '');
+
         var inline = /(\*\*([^*]+)\*\*)|(\*([^*\s][^*]*)\*)|(~~([^~]+)~~)|(`([^`]+)`)|(\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]*)\))/g;
         var last = 0;
         var match;

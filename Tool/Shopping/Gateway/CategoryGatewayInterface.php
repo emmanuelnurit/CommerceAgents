@@ -19,4 +19,9 @@ interface CategoryGatewayInterface
      * @return array{id: int, title: string, url: string|null, productCount: int}|null
      */
     public function findByName(string $name, string $locale): ?array;
+
+    /**
+     * @return array{id: int, title: string, url: string|null, productCount: int}|null
+     */
+    public function findById(int $id, string $locale): ?array;
 }

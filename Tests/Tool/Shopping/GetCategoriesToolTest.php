@@ -26,6 +26,17 @@ class FakeCategoryGateway implements CategoryGatewayInterface
         return \array_slice($this->categories, 0, $limit);
     }
 
+    public function findById(int $id, string $locale): ?array
+    {
+        foreach ($this->categories as $category) {
+            if ($category['id'] === $id) {
+                return $category;
+            }
+        }
+
+        return null;
+    }
+
     public function findByName(string $name, string $locale): ?array
     {
         return null;

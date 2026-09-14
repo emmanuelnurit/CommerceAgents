@@ -31,7 +31,8 @@ final readonly class SearchProductsTool implements ToolInterface
             .'product types, so a type word ("chair", "sofa") is matched against category names: '
             .'when that happens the answer carries matched_category. Combine filters freely — call '
             .'it with promo=true and no query to list current deals, or with category_id alone to '
-            .'browse a category. Price filters apply to pre-tax prices.';
+            .'browse a category. min_price is a floor and max_price is a ceiling: "under 200" is '
+            .'max_price=200 with no min_price. Price filters apply to pre-tax prices.';
     }
 
     public function getInputSchema(): array
@@ -42,8 +43,8 @@ final readonly class SearchProductsTool implements ToolInterface
                 'query' => ['type' => 'string', 'description' => 'Keywords matched against product titles, then against category names'],
                 'category_id' => ['type' => 'integer', 'description' => 'Restrict to one category, as returned by get_categories'],
                 'promo' => ['type' => 'boolean', 'description' => 'Only products currently on sale'],
-                'min_price' => ['type' => 'number', 'description' => 'Minimum pre-tax price'],
-                'max_price' => ['type' => 'number', 'description' => 'Maximum pre-tax price'],
+                'min_price' => ['type' => 'number', 'description' => 'Cheapest acceptable pre-tax price. Use it for "at least", "more than", "from X". Leave it out for "under X".'],
+                'max_price' => ['type' => 'number', 'description' => 'Dearest acceptable pre-tax price. Use it for "under", "less than", "up to", "cheap", "budget". Leave it out for "over X".'],
                 'limit' => ['type' => 'integer', 'description' => 'Max results (default 5, max 10)'],
             ],
             'required' => [],

@@ -44,6 +44,8 @@ final readonly class SystemPromptFactory
             .'cards with the picture, the price and an add-to-cart button. Introduce them in one or '
             .'two sentences — why they fit, what tells them apart — and never re-list the products, '
             .'their prices, their links or their pictures in your text: no Markdown image ever. '
+            .'Naming one or two of them inside a sentence is fine; a bullet list that repeats the '
+            .'cards is not. '
             .'Whenever you mention a store page, include its link as a Markdown link '
             .'using the URLs returned by your tools. '
             .'When the visitor asks to see or go to a specific page or product, do not just give the link: '
