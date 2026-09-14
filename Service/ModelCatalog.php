@@ -62,6 +62,11 @@ final readonly class ModelCatalog
                         ++$written;
                     }
                     continue;
+                } elseif ($model->getSource() === self::SOURCE_API) {
+                    // An API-discovered row waits disabled for curation;
+                    // entering the bundled catalog is that curation. A row
+                    // already "catalog" keeps the merchant's enabled flag.
+                    $model->setEnabled(1);
                 }
 
                 $model
@@ -244,9 +249,8 @@ final readonly class ModelCatalog
             }
         }
 
-        usort($choices, static fn (ModelChoice $a, ModelChoice $b): int =>
-            [array_search($a->tier, ModelChoice::TIERS, true), (float) $a->priceInput, $a->modelId]
-            <=> [array_search($b->tier, ModelChoice::TIERS, true), (float) $b->priceInput, $b->modelId]);
+        $rank = static fn (ModelChoice $c): array => [array_search($c->tier, ModelChoice::TIERS, true), (float) $c->priceInput, $c->modelId];
+        usort($choices, static fn (ModelChoice $a, ModelChoice $b): int => $rank($a) <=> $rank($b));
 
         return $choices;
     }
