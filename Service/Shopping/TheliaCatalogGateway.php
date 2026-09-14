@@ -7,6 +7,7 @@ namespace CommerceAgents\Service\Shopping;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Service\Catalog\ProductThumbnailProvider;
 use CommerceAgents\Tool\Shopping\Gateway\CatalogGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\CategoryGatewayInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Api\Service\DataAccess\DataAccessService;
 use Thelia\Core\Security\SecurityContext;
@@ -25,41 +26,44 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         private SecurityContext $securityContext,
         private RequestStack $requestStack,
         private ProductThumbnailProvider $thumbnailProvider,
+        private CategoryGatewayInterface $categoryGateway,
     ) {
     }
 
-    public function searchProducts(string $query, ?int $categoryId, ?float $minPrice, ?float $maxPrice, int $limit, ToolContext $ctx): array
-    {
-        if (trim($query) === '') {
-            return [];
+    public function searchProducts(
+        ?string $query,
+        ?int $categoryId,
+        ?float $minPrice,
+        ?float $maxPrice,
+        bool $promoOnly,
+        int $limit,
+        ToolContext $ctx,
+    ): array {
+        $query = trim((string) $query);
+        $hasCriterion = $query !== '' || $categoryId !== null || $promoOnly || $minPrice !== null || $maxPrice !== null;
+
+        if (!$hasCriterion) {
+            return ['products' => [], 'matchedCategory' => null];
         }
 
-        $filters = [
-            'title' => trim($query),
-            'visible' => true,
-            'itemsPerPage' => $limit,
-            'page' => 1,
-            'order[position]' => 'asc',
-            'order[ref]' => 'asc',
+        $products = $this->runSearch($query, $categoryId, $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale);
+
+        if ($products !== [] || $query === '' || $categoryId !== null) {
+            return ['products' => $products, 'matchedCategory' => null];
+        }
+
+        // Store catalogues title products after a model name, never after their
+        // type: "chair" or "sofa" can only ever match a category. Retry once
+        // through the closest category rather than returning nothing.
+        $category = $this->categoryGateway->findByName($query, $ctx->locale);
+        if ($category === null) {
+            return ['products' => [], 'matchedCategory' => null];
+        }
+
+        return [
+            'products' => $this->runSearch('', $category['id'], $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale),
+            'matchedCategory' => $category,
         ];
-        if ($categoryId !== null) {
-            $filters['productCategories.category.id'] = $categoryId;
-        }
-        if ($minPrice !== null) {
-            $filters['productSaleElements.productPrices.price[gte]'] = $minPrice;
-        }
-        if ($maxPrice !== null) {
-            $filters['productSaleElements.productPrices.price[lte]'] = $maxPrice;
-        }
-
-        $response = $this->dataAccessService->resources('/api/front/products', $filters, 'jsonld');
-
-        $products = [];
-        foreach ($response['hydra:member'] ?? [] as $member) {
-            $products[] = $this->mapMember($member);
-        }
-
-        return $products;
     }
 
     public function getProductDetails(int $productId, ToolContext $ctx): ?array
@@ -75,7 +79,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             return null;
         }
 
-        $product = $this->mapMember($member);
+        $product = $this->mapMember($member, $ctx->locale);
         $product['pses'] = array_map(
             fn (ProductSaleElements $pse): array => $this->mapPse($pse, $ctx->locale),
             $this->pseFacade->getByProduct($productId),
@@ -84,11 +88,52 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         return $product;
     }
 
-    private function mapMember(array $member): array
+    /**
+     * @return list<array>
+     */
+    private function runSearch(string $query, ?int $categoryId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, string $locale): array
+    {
+        $filters = [
+            'visible' => true,
+            'itemsPerPage' => $limit,
+            'page' => 1,
+            'order[position]' => 'asc',
+            'order[ref]' => 'asc',
+        ];
+        if ($query !== '') {
+            $filters['title'] = $query;
+        }
+        if ($categoryId !== null) {
+            $filters['productCategories.category.id'] = $categoryId;
+        }
+        if ($promoOnly) {
+            $filters['productSaleElements.promo'] = true;
+        }
+        if ($minPrice !== null) {
+            $filters['productSaleElements.productPrices.price[gte]'] = $minPrice;
+        }
+        if ($maxPrice !== null) {
+            $filters['productSaleElements.productPrices.price[lte]'] = $maxPrice;
+        }
+
+        $response = $this->dataAccessService->resources('/api/front/products', $filters, 'jsonld');
+
+        $products = [];
+        foreach ($response['hydra:member'] ?? [] as $member) {
+            $products[] = $this->mapMember($member, $locale);
+        }
+
+        return $products;
+    }
+
+    private function mapMember(array $member, string $locale): array
     {
         $productId = (int) ($member['id'] ?? 0);
         $defaultPse = $this->pseFacade->getDefaultPSE($productId);
         $pricing = $defaultPse !== null ? $this->taxedPricing($defaultPse) : null;
+        // product_price.promo_price stays filled (often 0) on products that are
+        // not discounted: without this guard the assistant announces fake deals.
+        $isPromo = $defaultPse !== null && (bool) $defaultPse->getPromo();
 
         $inStock = false;
         foreach ($member['productSaleElements'] ?? [] as $pse) {
@@ -98,18 +143,47 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             }
         }
 
+        $categories = [];
+        foreach ($member['productCategories'] ?? [] as $productCategory) {
+            $title = self::i18nValue($productCategory['category'] ?? [], 'title', $locale);
+            if ($title !== '') {
+                $categories[] = $title;
+            }
+        }
+
         return [
             'id' => $productId,
             'ref' => (string) ($member['ref'] ?? ''),
-            'title' => (string) ($member['i18ns']['title'] ?? ''),
-            'description' => $this->excerpt((string) ($member['i18ns']['description'] ?? '')),
+            'title' => self::i18nValue($member, 'title', $locale),
+            'description' => $this->excerpt(self::i18nValue($member, 'description', $locale)),
+            'categories' => array_values(array_unique($categories)),
             'price' => $pricing['price'] ?? null,
-            'promoPrice' => $pricing['promoPrice'] ?? null,
+            'promoPrice' => $isPromo ? ($pricing['promoPrice'] ?? null) : null,
             'currency' => $this->session()?->getCurrency()->getCode(),
             'url' => $member['publicUrl'] ?? null,
             'imageUrl' => $this->thumbnailProvider->urlFor($productId),
             'inStock' => $inStock,
         ];
+    }
+
+    /**
+     * DataAccessService flattens i18ns onto the request locale; the raw API keeps
+     * one entry per locale. Read both shapes so neither caller silently gets ''.
+     */
+    private static function i18nValue(array $node, string $field, string $locale): string
+    {
+        $i18ns = $node['i18ns'] ?? [];
+        if (!\is_array($i18ns) || $i18ns === []) {
+            return '';
+        }
+
+        if (\array_key_exists($field, $i18ns)) {
+            return (string) ($i18ns[$field] ?? '');
+        }
+
+        $translation = $i18ns[$locale] ?? reset($i18ns);
+
+        return \is_array($translation) ? (string) ($translation[$field] ?? '') : '';
     }
 
     private function excerpt(string $html): string

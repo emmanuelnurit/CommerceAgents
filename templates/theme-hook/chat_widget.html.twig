@@ -45,7 +45,7 @@
              aria-modal="true"
              aria-label="{{ assistantName }}"
              x-on:keydown.escape.window="close()">
-        <div class="caw-glow caw-glow-shell">
+        <div class="caw-shell-frame">
             <div class="caw-shell-inner">
 
                 <div class="caw-main" x-bind:class="messages.length === 0 && 'is-hero'">
@@ -92,10 +92,15 @@
 
                                 <template x-if="message.kind === 'products'">
                                     <div class="caw-products">
+                                        <p class="caw-products-caption" x-show="message.category"
+                                           x-text="i18n.inCategory + ' ' + (message.category ? message.category.title : '')"></p>
+
                                         <article class="caw-product caw-product-hero">
                                             <a class="caw-product-media" x-bind:href="message.data[0].url">
                                                 <img x-show="message.data[0].imageUrl" x-bind:src="message.data[0].imageUrl" x-bind:alt="message.data[0].title" loading="lazy">
                                                 <span class="caw-product-flag" x-text="i18n.featured"></span>
+                                                <span class="caw-product-deal" x-show="hasPromo(message.data[0])"
+                                                      x-text="'-' + discountPercent(message.data[0]) + '%'"></span>
                                             </a>
                                             <div class="caw-product-body">
                                                 <a class="caw-product-title" x-bind:href="message.data[0].url" x-text="message.data[0].title"></a>
@@ -119,6 +124,8 @@
                                                 <article class="caw-product">
                                                     <a class="caw-product-media" x-bind:href="product.url">
                                                         <img x-show="product.imageUrl" x-bind:src="product.imageUrl" x-bind:alt="product.title" loading="lazy">
+                                                        <span class="caw-product-deal" x-show="hasPromo(product)"
+                                                              x-text="'-' + discountPercent(product) + '%'"></span>
                                                     </a>
                                                     <div class="caw-product-body">
                                                         <a class="caw-product-title" x-bind:href="product.url" x-text="product.title"></a>

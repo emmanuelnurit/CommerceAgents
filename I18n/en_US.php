@@ -74,6 +74,7 @@ return [
     'View product' => 'View product',
     'In stock' => 'In stock',
     'Out of stock' => 'Out of stock',
+    'In the category' => 'In the category',
     'Add this product to my cart:' => 'Add this product to my cart:',
     'Dashboard' => 'Dashboard',
     'Customers' => 'Customers',

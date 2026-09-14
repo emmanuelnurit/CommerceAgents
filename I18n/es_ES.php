@@ -30,5 +30,6 @@ return [
     'View product' => 'Ver el producto',
     'In stock' => 'En stock',
     'Out of stock' => 'Agotado',
+    'In the category' => 'En la categoría',
     'Add this product to my cart:' => 'Añade este producto a mi cesta:',
 ];

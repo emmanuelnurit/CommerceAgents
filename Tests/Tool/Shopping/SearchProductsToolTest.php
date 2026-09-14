@@ -13,21 +13,22 @@ class FakeCatalogGateway implements CatalogGatewayInterface
 {
     public array $lastSearch = [];
 
-    public function __construct(private readonly array $results = [])
+    public function __construct(private readonly array $results = [], private readonly ?array $matchedCategory = null)
     {
     }
 
-    public function searchProducts(string $query, ?int $categoryId, ?float $minPrice, ?float $maxPrice, int $limit, ToolContext $ctx): array
+    public function searchProducts(?string $query, ?int $categoryId, ?float $minPrice, ?float $maxPrice, bool $promoOnly, int $limit, ToolContext $ctx): array
     {
         $this->lastSearch = [
             'query' => $query,
             'categoryId' => $categoryId,
             'minPrice' => $minPrice,
             'maxPrice' => $maxPrice,
+            'promoOnly' => $promoOnly,
             'limit' => $limit,
         ];
 
-        return $this->results;
+        return ['products' => $this->results, 'matchedCategory' => $this->matchedCategory];
     }
 
     public function getProductDetails(int $productId, ToolContext $ctx): ?array
@@ -83,15 +84,58 @@ class SearchProductsToolTest extends TestCase
         $this->assertFalse($tool->isAllowed(new ToolContext(isAdmin: true)));
     }
 
-    public function testSchemaRequiresQuery(): void
+    public function testSchemaRequiresNothingSoDealsAndCategoriesCanBeListed(): void
     {
         $schema = (new SearchProductsTool(new FakeCatalogGateway()))->getInputSchema();
 
-        $this->assertSame(['query'], $schema['required']);
+        $this->assertSame([], $schema['required']);
         $this->assertSame('string', $schema['properties']['query']['type']);
+        $this->assertSame('boolean', $schema['properties']['promo']['type']);
         $this->assertArrayHasKey('category_id', $schema['properties']);
         $this->assertArrayHasKey('min_price', $schema['properties']);
         $this->assertArrayHasKey('max_price', $schema['properties']);
         $this->assertArrayHasKey('limit', $schema['properties']);
+    }
+
+    public function testPromoOnlySearchNeedsNoQuery(): void
+    {
+        $gateway = new FakeCatalogGateway();
+        $tool = new SearchProductsTool($gateway);
+
+        $tool->execute(['promo' => true], new ToolContext());
+
+        $this->assertNull($gateway->lastSearch['query']);
+        $this->assertTrue($gateway->lastSearch['promoOnly']);
+    }
+
+    public function testPromoDefaultsToFalse(): void
+    {
+        $gateway = new FakeCatalogGateway();
+        $tool = new SearchProductsTool($gateway);
+
+        $tool->execute(['query' => 'stacy'], new ToolContext());
+
+        $this->assertFalse($gateway->lastSearch['promoOnly']);
+    }
+
+    public function testCategoryFallbackIsReportedToTheAgent(): void
+    {
+        $gateway = new FakeCatalogGateway(
+            [['id' => 14, 'title' => 'Sally']],
+            ['id' => 3, 'title' => 'Chairs', 'url' => 'https://shop.example/chairs.html', 'productCount' => 14],
+        );
+
+        $result = (new SearchProductsTool($gateway))->execute(['query' => 'chairs'], new ToolContext());
+
+        $this->assertSame('Chairs', $result['matched_category']['title']);
+        $this->assertSame(1, $result['count']);
+    }
+
+    public function testNoFallbackIsReportedOnADirectHit(): void
+    {
+        $result = (new SearchProductsTool(new FakeCatalogGateway([['id' => 3, 'title' => 'Stacy']])))
+            ->execute(['query' => 'stacy'], new ToolContext());
+
+        $this->assertNull($result['matched_category']);
     }
 }

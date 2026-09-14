@@ -26,6 +26,7 @@ function commerceAgentsChat() {
             otherLines: 'other line(s)',
             inStock: 'In stock',
             outOfStock: 'Out of stock',
+            inCategory: 'In the category',
             addToCartPrompt: 'Add this product to my cart:',
             connectionLost: 'Connection lost',
             serviceUnavailable: 'Service unavailable',
@@ -160,6 +161,13 @@ function commerceAgentsChat() {
 
         bestPrice(product) {
             return this.hasPromo(product) ? product.promoPrice : product.price;
+        },
+
+        discountPercent(product) {
+            if (!this.hasPromo(product)) {
+                return 0;
+            }
+            return Math.round((1 - product.promoPrice / product.price) * 100);
         },
 
         askAddToCart(product) {
@@ -316,10 +324,18 @@ function commerceAgentsChat() {
             this.closeStreamingMessage();
 
             if (payload.name === 'search_products' && Array.isArray(result.products) && result.products.length > 0) {
-                this.messages.push({ kind: 'products', role: 'assistant', data: result.products });
+                this.messages.push({
+                    kind: 'products',
+                    role: 'assistant',
+                    data: result.products,
+                    // Set when the keyword matched no title and the search fell
+                    // back to the closest category: say so instead of pretending
+                    // the visitor's word was found as such.
+                    category: result.matched_category || null,
+                });
                 this.highlights = result.products.slice(0, COMMERCE_AGENTS_MAX_HIGHLIGHTS);
             } else if (payload.name === 'get_product_details' && result.product) {
-                this.messages.push({ kind: 'products', role: 'assistant', data: [result.product] });
+                this.messages.push({ kind: 'products', role: 'assistant', data: [result.product], category: null });
                 this.highlights = [result.product];
             } else if ((payload.name === 'get_cart' || payload.name === 'add_to_cart') && result.cart) {
                 this.messages.push({ kind: 'cart', role: 'assistant', data: result.cart });
