@@ -56,6 +56,99 @@
         <behavior name="timestampable"/>
     </table>
 
+    <table name="agent_definition" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="code" required="true" size="80" type="VARCHAR"/>
+        <column name="title" required="true" size="255" type="VARCHAR"/>
+        <column name="description" type="CLOB"/>
+        <column defaultValue="0" name="enabled" required="true" type="TINYINT"/>
+        <column name="role_prompt" type="CLOB"/>
+        <column name="provider" size="40" type="VARCHAR"/>
+        <column name="model" size="120" type="VARCHAR"/>
+        <column defaultValue="fr_FR" name="locale" size="10" type="VARCHAR"/>
+        <column defaultValue="5" name="max_iterations" required="true" type="INTEGER"/>
+        <column name="monthly_budget_usd" scale="4" size="12" type="DECIMAL"/>
+        <column defaultValue="0" name="auto_apply" required="true" type="TINYINT"/>
+        <column defaultValue="0" name="consecutive_failures" required="true" type="INTEGER"/>
+        <unique name="uq_agent_definition_code">
+            <unique-column name="code"/>
+        </unique>
+        <behavior name="timestampable"/>
+    </table>
+
+    <table name="agent_capability" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="agent_definition_id" required="true" type="INTEGER"/>
+        <column name="capability" required="true" size="60" type="VARCHAR"/>
+        <unique name="uq_agent_capability_definition_capability">
+            <unique-column name="agent_definition_id"/>
+            <unique-column name="capability"/>
+        </unique>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_capability_definition" onDelete="CASCADE">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
+    </table>
+
+    <table name="agent_trigger" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="agent_definition_id" required="true" type="INTEGER"/>
+        <column name="type" required="true" size="20" type="VARCHAR"/>
+        <column name="event_name" size="255" type="VARCHAR"/>
+        <column name="cron_expression" size="120" type="VARCHAR"/>
+        <column name="conditions" type="CLOB"/>
+        <column defaultValue="1" name="enabled" required="true" type="TINYINT"/>
+        <column name="last_run_at" type="TIMESTAMP"/>
+        <column name="next_run_at" type="TIMESTAMP"/>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_trigger_definition" onDelete="CASCADE">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
+        <behavior name="timestampable"/>
+    </table>
+
+    <table name="agent_channel" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="agent_definition_id" required="true" type="INTEGER"/>
+        <column name="connector_code" required="true" size="40" type="VARCHAR"/>
+        <column name="settings" type="CLOB"/>
+        <column defaultValue="draft" name="mode" required="true" size="10" type="VARCHAR"/>
+        <column defaultValue="1" name="enabled" required="true" type="TINYINT"/>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_channel_definition" onDelete="CASCADE">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
+        <behavior name="timestampable"/>
+    </table>
+
+    <table name="agent_run" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="agent_definition_id" required="true" type="INTEGER"/>
+        <column name="agent_trigger_id" type="INTEGER"/>
+        <column name="conversation_id" type="INTEGER"/>
+        <column defaultValue="queued" name="status" required="true" size="20" type="VARCHAR"/>
+        <column name="dedup_key" size="191" type="VARCHAR"/>
+        <column name="context" type="CLOB"/>
+        <column name="summary" type="CLOB"/>
+        <column name="error" type="CLOB"/>
+        <column name="started_at" type="TIMESTAMP"/>
+        <column name="finished_at" type="TIMESTAMP"/>
+        <unique name="uq_agent_run_definition_dedup">
+            <unique-column name="agent_definition_id"/>
+            <unique-column name="dedup_key"/>
+        </unique>
+        <index name="idx_agent_run_status">
+            <index-column name="status"/>
+        </index>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_run_definition" onDelete="CASCADE">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
+        <foreign-key foreignTable="agent_trigger" name="fk_agent_run_trigger" onDelete="SETNULL">
+            <reference foreign="id" local="agent_trigger_id"/>
+        </foreign-key>
+        <foreign-key foreignTable="agent_conversation" name="fk_agent_run_conversation" onDelete="SETNULL">
+            <reference foreign="id" local="conversation_id"/>
+        </foreign-key>
+        <behavior name="timestampable"/>
+    </table>
+
     <table name="agent_model" namespace="CommerceAgents\Model">
         <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
         <column name="provider" required="true" size="40" type="VARCHAR"/>
