@@ -157,6 +157,7 @@ class SystemPromptFactoryTest extends TestCase
 
         $this->assertStringContainsString('search_products', $prompt);
         $this->assertStringContainsString('repeat a tool call', $prompt);
+        $this->assertStringContainsString('never describe a product from memory', $prompt);
         $this->assertStringContainsString('product name or category', $prompt);
     }
 

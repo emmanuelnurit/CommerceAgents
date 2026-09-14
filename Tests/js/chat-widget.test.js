@@ -473,3 +473,87 @@ test('a product block also feeds the repeat filter', () => {
     assert.equal(shown.includes('732'), false);
     assert.ok(shown.includes('Belle pièce.'));
 });
+
+function threadWithHistory(replyText) {
+    const widget = component({});
+    widget.messages = [
+        { kind: 'text', role: 'user', text: 'des produits orange' },
+        { kind: 'variants', role: 'assistant', product: null, option: { title: 'Orange' }, data: [
+            { id: 8, ref: 'PROD002-1', productTitle: 'Travis', label: 'Couleur: Orange', url: '/travis.html', imageUrl: '/img/travis-orange.jpg', price: 30, promoPrice: 22.8, currency: 'EUR', inStock: true },
+            { id: 45, ref: 'PROD011-1', productTitle: 'Tina', label: 'Couleur: Orange', url: '/tina.html', imageUrl: '/img/tina-orange.jpg', price: 90, promoPrice: null, currency: 'EUR', inStock: true },
+        ] },
+        { kind: 'text', role: 'assistant', text: 'Première réponse.' },
+        { kind: 'text', role: 'user', text: 'et le moins cher ?' },
+        { kind: 'text', role: 'assistant', text: replyText },
+    ];
+
+    return widget;
+}
+
+test('a product named from memory gets its card back', () => {
+    const widget = threadWithHistory('Le moins cher est le **Travis** à 22,80 €, une bonne affaire.');
+
+    const cards = widget.cardsFor(widget.messages[4], 4);
+
+    assert.equal(cards.length, 1);
+    assert.equal(cards[0].productTitle, 'Travis');
+    assert.equal(cards[0].imageUrl, '/img/travis-orange.jpg');
+    assert.equal(cards[0].label, 'Couleur: Orange');
+    assert.equal(cards[0].isVariant, true);
+});
+
+test('a reply naming two known products brings both cards', () => {
+    const widget = threadWithHistory('Entre Travis et Tina, je prendrais le premier.');
+
+    assert.deepEqual(widget.cardsFor(widget.messages[4], 4).map((c) => c.productTitle), ['Travis', 'Tina']);
+});
+
+test('no card is repeated right under the block that already shows it', () => {
+    const widget = threadWithHistory('peu importe');
+    widget.messages[2].text = 'Voici Travis et Tina.';
+
+    // messages[2] sits straight after the variants block.
+    assert.deepEqual(widget.cardsFor(widget.messages[2], 2), []);
+});
+
+test('a reply naming no product brings no card', () => {
+    const widget = threadWithHistory('La livraison est offerte dès 50 €.');
+
+    assert.deepEqual(widget.cardsFor(widget.messages[4], 4), []);
+});
+
+test('a user turn never carries cards', () => {
+    const widget = threadWithHistory('peu importe');
+
+    assert.deepEqual(widget.cardsFor(widget.messages[3], 3), []);
+});
+
+test('the bullets are stripped against the cards brought back', () => {
+    const widget = threadWithHistory('Les moins chers :\n\n- **Travis** : 22,80 €\n- **Tina** : 90 €\n\nJe prendrais Travis.');
+
+    const shown = widget.displayText(widget.messages[4], 4);
+
+    assert.equal(shown.includes('22,80'), false);
+    assert.ok(shown.includes('Je prendrais Travis.'));
+});
+
+test('a recalled product card adds the right thing to the cart', () => {
+    const widget = threadWithHistory('Le **Travis** est le moins cher.');
+    const sent = [];
+    widget.sendSuggestion = (text) => sent.push(text);
+    widget.i18n.addToCartPrompt = 'Ajoute :';
+
+    widget.addCardToCart(widget.cardsFor(widget.messages[4], 4)[0]);
+
+    assert.equal(sent[0], 'Ajoute : Travis — Couleur: Orange (PROD002-1)');
+});
+
+test('a plain product card falls back to the product-level prompt', () => {
+    const widget = component({ i18n: { addToCartPrompt: 'Ajoute :' } });
+    const sent = [];
+    widget.sendSuggestion = (text) => sent.push(text);
+
+    widget.addCardToCart({ productTitle: 'Stacy', label: '', ref: null, isVariant: false });
+
+    assert.equal(sent[0], 'Ajoute : Stacy');
+});

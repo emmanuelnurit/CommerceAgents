@@ -124,8 +124,35 @@
                                 </template>
 
                                 <template x-if="message.kind === 'text' && message.role === 'assistant'">
-                                    <div class="caw-message caw-assistant"
-                                         x-effect="window.CommerceAgentsMarkdown.render($el, displayText(message, index))"></div>
+                                    <div class="caw-reply">
+                                        {# A named product always comes with its picture and its buttons. #}
+                                        <div class="caw-variant-grid caw-recalled" x-show="cardsFor(message, index).length > 0">
+                                            <template x-for="card in cardsFor(message, index)" x-bind:key="card.id">
+                                                <article class="caw-variant">
+                                                    <a class="caw-variant-media" x-bind:href="card.url || '#'">
+                                                        <img x-show="card.imageUrl" x-bind:src="card.imageUrl"
+                                                             x-bind:alt="card.productTitle" loading="lazy">
+                                                    </a>
+                                                    <div class="caw-variant-body">
+                                                        <a class="caw-variant-title" x-bind:href="card.url || '#'" x-text="card.productTitle"></a>
+                                                        <p class="caw-variant-label" x-show="card.label" x-text="card.label"></p>
+                                                        <p class="caw-product-price">
+                                                            <span class="caw-price-now" x-text="money(bestPrice(card), card.currency)"></span>
+                                                            <s class="caw-price-was" x-show="hasPromo(card)" x-text="money(card.price, card.currency)"></s>
+                                                        </p>
+                                                        <div class="caw-product-actions">
+                                                            <button type="button" class="caw-btn caw-btn-primary" x-show="card.inStock"
+                                                                    x-on:click="addCardToCart(card)" x-text="i18n.addToCart"></button>
+                                                            <a class="caw-btn caw-btn-ghost" x-bind:href="card.url || '#'" x-text="i18n.viewProduct"></a>
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            </template>
+                                        </div>
+
+                                        <div class="caw-message caw-assistant"
+                                             x-effect="window.CommerceAgentsMarkdown.render($el, displayText(message, index))"></div>
+                                    </div>
                                 </template>
 
                                 <template x-if="message.kind === 'products'">

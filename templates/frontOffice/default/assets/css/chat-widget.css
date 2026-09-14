@@ -645,6 +645,19 @@ body.caw-body-locked {
     padding-top: 0.25rem;
 }
 
+#commerce-agents-widget .caw-reply {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+    width: 100%;
+}
+
+/* Cards put back under a reply that only named the product. */
+#commerce-agents-widget .caw-recalled {
+    width: 100%;
+}
+
 /* ---------------------------------------------------------------- variants */
 
 #commerce-agents-widget .caw-variants {

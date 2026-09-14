@@ -9,6 +9,7 @@
 var COMMERCE_AGENTS_STORAGE_KEY = 'commerceagents.chat';
 var COMMERCE_AGENTS_MAX_PERSISTED = 50;
 var COMMERCE_AGENTS_MAX_HIGHLIGHTS = 3;
+var COMMERCE_AGENTS_MAX_RECALLED = 6;
 
 
 /**
@@ -281,20 +282,88 @@ function commerceAgentsChat() {
         },
 
         /**
-         * Titles already on screen just above this message, if any.
+         * Every product shown as a card so far, keyed by lowercase title. The
+         * assistant often names one again from memory, without calling a tool.
+         */
+        knownProducts() {
+            const known = new Map();
+            for (const message of this.messages) {
+                if (message.kind !== 'products' && message.kind !== 'variants') {
+                    continue;
+                }
+                for (const entry of message.data || []) {
+                    const title = entry.productTitle || entry.title || '';
+                    if (title === '' || known.has(title.toLowerCase())) {
+                        continue;
+                    }
+                    known.set(title.toLowerCase(), {
+                        id: entry.id,
+                        ref: entry.ref || null,
+                        productTitle: title,
+                        label: entry.label || '',
+                        url: entry.url || null,
+                        imageUrl: entry.imageUrl || null,
+                        price: entry.price,
+                        promoPrice: entry.promoPrice === undefined ? null : entry.promoPrice,
+                        currency: entry.currency || this.cart.currency,
+                        inStock: entry.inStock !== false,
+                        isVariant: !!(entry.ref && entry.label),
+                    });
+                }
+            }
+            return known;
+        },
+
+        /**
+         * A reply naming a product the visitor can no longer see is a wall of
+         * text: put its card back, with its picture and its buttons.
+         */
+        cardsFor(message, index) {
+            if (message.kind !== 'text' || message.role !== 'assistant') {
+                return [];
+            }
+            const previous = this.messages[index - 1];
+            if (previous && (previous.kind === 'products' || previous.kind === 'variants')) {
+                return [];
+            }
+
+            const haystack = (message.text || '').toLowerCase();
+            const cards = [];
+            this.knownProducts().forEach(function (card, title) {
+                if (haystack.indexOf(title) !== -1) {
+                    cards.push(card);
+                }
+            });
+
+            return cards.slice(0, COMMERCE_AGENTS_MAX_RECALLED);
+        },
+
+        /**
+         * Titles displayed alongside this message, whether by the block above it
+         * or by the cards brought back under it.
          */
         shownBefore(index) {
             const previous = this.messages[index - 1];
-            if (!previous || (previous.kind !== 'products' && previous.kind !== 'variants')) {
-                return [];
+            if (previous && (previous.kind === 'products' || previous.kind === 'variants')) {
+                return (previous.data || []).map(function (entry) {
+                    return entry.productTitle || entry.title || '';
+                });
             }
-            return (previous.data || []).map(function (entry) {
-                return entry.productTitle || entry.title || '';
+            return this.cardsFor(this.messages[index], index).map(function (card) {
+                return card.productTitle;
             });
         },
 
         displayText(message, index) {
             return commerceAgentsWithoutRepeats(message.text, this.shownBefore(index));
+        },
+
+        addCardToCart(card) {
+            if (card.isVariant) {
+                this.askAddVariantToCart(null, card);
+                return;
+            }
+            this.askAddToCart({ title: card.productTitle });
         },
 
         askAddToCart(product) {
