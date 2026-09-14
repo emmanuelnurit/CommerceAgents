@@ -396,3 +396,80 @@ test('adding an option-search variant to the cart names its own product', () => 
 
     assert.equal(sent[0], 'Ajoute : Stacy — Couleur: Orange (PROD003-2)');
 });
+
+function threadWithCards(text) {
+    const widget = component({});
+    widget.messages = [
+        { kind: 'text', role: 'user', text: 'des produits orange' },
+        { kind: 'variants', role: 'assistant', product: null, option: { title: 'Orange' }, data: [
+            { id: 1, ref: 'PROD002-1', productTitle: 'Travis' },
+            { id: 2, ref: 'PROD011-1', productTitle: 'Tina' },
+        ] },
+        { kind: 'text', role: 'assistant', text: text },
+    ];
+
+    return widget;
+}
+
+test('bullets that repeat the cards are dropped, the closing sentence stays', () => {
+    const widget = threadWithCards([
+        'Voici les produits disponibles en orange :',
+        '',
+        '- **Travis** : un tabouret à 22,80 € en promo.',
+        '- **Tina** : une chaise légère à 90,00 €.',
+        '',
+        'Dites-moi la pièce visée et je vous propose des fauteuils assortis.',
+    ].join('\n'));
+
+    const shown = widget.displayText(widget.messages[2], 2);
+
+    assert.equal(shown.includes('Travis'), false);
+    assert.equal(shown.includes('Tina'), false);
+    assert.ok(shown.includes('Voici les produits disponibles en orange.'));
+    assert.ok(shown.includes('je vous propose des fauteuils assortis'));
+});
+
+test('a wrapped repeat is dropped whole, not left half there', () => {
+    const widget = threadWithCards([
+        '- **Travis** : un tabouret',
+        '  empilable et léger.',
+        '- Autre chose à voir.',
+    ].join('\n'));
+
+    const shown = widget.displayText(widget.messages[2], 2);
+
+    assert.equal(shown.includes('empilable'), false);
+    assert.ok(shown.includes('Autre chose à voir.'));
+});
+
+test('a list that names nothing shown is left alone', () => {
+    const widget = threadWithCards('- Livraison offerte dès 50 €\n- Retours sous 14 jours');
+
+    assert.equal(widget.displayText(widget.messages[2], 2), '- Livraison offerte dès 50 €\n- Retours sous 14 jours');
+});
+
+test('a reply made only of repeats is kept rather than blanked', () => {
+    const widget = threadWithCards('- **Travis** : 22,80 €\n- **Tina** : 90,00 €');
+
+    assert.ok(widget.displayText(widget.messages[2], 2).includes('Travis'));
+});
+
+test('text that follows no card block is untouched', () => {
+    const widget = component({});
+    widget.messages = [{ kind: 'text', role: 'assistant', text: '- **Travis** : un tabouret.' }];
+
+    assert.equal(widget.displayText(widget.messages[0], 0), '- **Travis** : un tabouret.');
+});
+
+test('a product block also feeds the repeat filter', () => {
+    const widget = component({});
+    widget.messages = [
+        { kind: 'products', role: 'assistant', category: null, data: [{ id: 3, title: 'Stacy' }] },
+        { kind: 'text', role: 'assistant', text: '- **Stacy** : 732 €\n\nBelle pièce.' },
+    ];
+
+    const shown = widget.displayText(widget.messages[1], 1);
+
+    assert.equal(shown.includes('732'), false);
+    assert.ok(shown.includes('Belle pièce.'));
+});

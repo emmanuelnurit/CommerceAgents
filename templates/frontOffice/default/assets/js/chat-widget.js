@@ -10,6 +10,63 @@ var COMMERCE_AGENTS_STORAGE_KEY = 'commerceagents.chat';
 var COMMERCE_AGENTS_MAX_PERSISTED = 50;
 var COMMERCE_AGENTS_MAX_HIGHLIGHTS = 3;
 
+
+/**
+ * Drops the bullet points that merely restate a product already displayed as a
+ * card. The intro and the closing sentence are kept: the assistant may still
+ * conclude or open on something else, it just stops reciting the cards.
+ */
+function commerceAgentsWithoutRepeats(text, titles) {
+    if (!text || titles.length === 0) {
+        return text;
+    }
+
+    const needles = titles
+        .filter(function (title) { return typeof title === 'string' && title.trim().length >= 3; })
+        .map(function (title) { return title.trim().toLowerCase(); });
+    if (needles.length === 0) {
+        return text;
+    }
+
+    const isItem = function (line) { return /^\s*(?:[-*+]|\d+[.)])\s+/.test(line); };
+    const isContinuation = function (line) { return /^\s+\S/.test(line) && !isItem(line); };
+    const repeats = function (line) {
+        const haystack = line.toLowerCase();
+        return needles.some(function (needle) { return haystack.indexOf(needle) !== -1; });
+    };
+
+    const lines = text.split('\n');
+    const kept = [];
+    let dropped = false;
+
+    for (let index = 0; index < lines.length; index += 1) {
+        if (isItem(lines[index]) && repeats(lines[index])) {
+            dropped = true;
+            index += 1;
+            while (index < lines.length && isContinuation(lines[index])) {
+                index += 1;
+            }
+            index -= 1;
+            continue;
+        }
+        kept.push(lines[index]);
+    }
+
+    if (!dropped) {
+        return text;
+    }
+
+    // A line that introduced the removed list would be left dangling on its colon.
+    const cleaned = kept
+        .map(function (line) { return /[:：]\s*$/.test(line) ? line.replace(/\s*[:：]\s*$/, '.') : line; })
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+    // Never blank a reply: an answer made only of repeats stays as it was.
+    return cleaned === '' ? text : cleaned;
+}
+
 function commerceAgentsChat() {
     return {
         // dock: nothing said yet — collapsed: a conversation to keep an eye on
@@ -221,6 +278,23 @@ function commerceAgentsChat() {
                 return 0;
             }
             return Math.round((1 - product.promoPrice / product.price) * 100);
+        },
+
+        /**
+         * Titles already on screen just above this message, if any.
+         */
+        shownBefore(index) {
+            const previous = this.messages[index - 1];
+            if (!previous || (previous.kind !== 'products' && previous.kind !== 'variants')) {
+                return [];
+            }
+            return (previous.data || []).map(function (entry) {
+                return entry.productTitle || entry.title || '';
+            });
+        },
+
+        displayText(message, index) {
+            return commerceAgentsWithoutRepeats(message.text, this.shownBefore(index));
         },
 
         askAddToCart(product) {

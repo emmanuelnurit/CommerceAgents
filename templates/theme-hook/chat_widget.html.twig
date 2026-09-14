@@ -125,7 +125,7 @@
 
                                 <template x-if="message.kind === 'text' && message.role === 'assistant'">
                                     <div class="caw-message caw-assistant"
-                                         x-effect="window.CommerceAgentsMarkdown.render($el, message.text)"></div>
+                                         x-effect="window.CommerceAgentsMarkdown.render($el, displayText(message, index))"></div>
                                 </template>
 
                                 <template x-if="message.kind === 'products'">
