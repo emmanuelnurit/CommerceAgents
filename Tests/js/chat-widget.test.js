@@ -592,3 +592,75 @@ test('a plain search has no caption', () => {
 
     assert.equal(widget.productsCaption(widget.messages[0]), '');
 });
+
+function threadWithWilson(replyText) {
+    const widget = component({});
+    widget.messages = [
+        { kind: 'text', role: 'user', text: 'que mettre avec la Sally orange ?' },
+        { kind: 'products', role: 'assistant', category: null, feature: null, data: [
+            { id: 8, title: 'Wilson', url: '/wilson.html', imageUrl: '/img/wilson.jpg', price: 586.8, promoPrice: null, currency: 'EUR', inStock: true },
+        ] },
+        { kind: 'text', role: 'assistant', text: replyText },
+    ];
+
+    return widget;
+}
+
+test('a product paragraph with its price is dropped, the advice stays', () => {
+    const widget = threadWithWilson([
+        'La chaise Sally en orange a une touche lumineuse.',
+        '',
+        '1. Fauteuils en noir (pour un contraste chic)',
+        '',
+        'Wilson (586,80 €) Un fauteuil en cuir noir ultra-confortable, qui équilibre la vibrance de la Sally.',
+        '',
+        'Voir Wilson en noir',
+        '',
+        'Souhaitez-vous que je regarde aussi les tables basses ?',
+    ].join('\n'));
+
+    const shown = widget.displayText(widget.messages[2], 2);
+
+    assert.equal(shown.includes('586,80'), false);
+    assert.equal(shown.includes('Voir Wilson'), false);
+    assert.ok(shown.includes('La chaise Sally en orange a une touche lumineuse.'));
+    assert.ok(shown.includes('1. Fauteuils en noir'));
+    assert.ok(shown.includes('les tables basses'));
+});
+
+test('a markdown link to a displayed product is dropped', () => {
+    const widget = threadWithWilson('Un mot sur le style.\n\n[Voir Wilson en noir](/wilson.html)\n\nDites-moi.');
+
+    const shown = widget.displayText(widget.messages[2], 2);
+
+    assert.equal(shown.includes('/wilson.html'), false);
+    assert.ok(shown.includes('Dites-moi.'));
+});
+
+test('an opinion naming a product is not mistaken for a listing', () => {
+    const widget = threadWithWilson('Entre les deux, je prendrais Wilson.');
+
+    assert.equal(widget.displayText(widget.messages[2], 2), 'Entre les deux, je prendrais Wilson.');
+});
+
+test('a paragraph naming a product without a price survives', () => {
+    const widget = threadWithWilson('Le Wilson ira bien avec un tapis clair.');
+
+    assert.equal(widget.displayText(widget.messages[2], 2), 'Le Wilson ira bien avec un tapis clair.');
+});
+
+test('a price paragraph about something else is left alone', () => {
+    const widget = threadWithWilson('La livraison coûte 9,90 € au-delà de 50 km.');
+
+    assert.equal(widget.displayText(widget.messages[2], 2), 'La livraison coûte 9,90 € au-delà de 50 km.');
+});
+
+test('a section heading that names no product keeps its numbering', () => {
+    const widget = threadWithWilson('1. Fauteuils en noir\n2. Tables basses\n\nWilson (586,80 €) Confortable.');
+
+    const shown = widget.displayText(widget.messages[2], 2);
+
+    assert.ok(shown.includes('1. Fauteuils en noir'));
+    assert.ok(shown.includes('2. Tables basses'));
+    assert.equal(shown.includes('586,80'), false);
+});

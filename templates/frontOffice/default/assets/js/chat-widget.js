@@ -13,9 +13,10 @@ var COMMERCE_AGENTS_MAX_RECALLED = 6;
 
 
 /**
- * Drops the bullet points that merely restate a product already displayed as a
- * card. The intro and the closing sentence are kept: the assistant may still
- * conclude or open on something else, it just stops reciting the cards.
+ * Removes what the cards already say. Three shapes get dropped: a bullet
+ * naming a displayed product, a paragraph naming one along with its price,
+ * and a bare "see the product" line. Everything else survives, so the
+ * assistant keeps its intro, its section headings and its closing sentence.
  */
 function commerceAgentsWithoutRepeats(text, titles) {
     if (!text || titles.length === 0) {
@@ -31,37 +32,61 @@ function commerceAgentsWithoutRepeats(text, titles) {
 
     const isItem = function (line) { return /^\s*(?:[-*+]|\d+[.)])\s+/.test(line); };
     const isContinuation = function (line) { return /^\s+\S/.test(line) && !isItem(line); };
-    const repeats = function (line) {
-        const haystack = line.toLowerCase();
+    const names = function (chunk) {
+        const haystack = chunk.toLowerCase();
         return needles.some(function (needle) { return haystack.indexOf(needle) !== -1; });
     };
+    const hasPrice = function (chunk) {
+        return /(?:[€$£]|\bEUR\b|\bUSD\b|\bGBP\b)/i.test(chunk) && /\d/.test(chunk);
+    };
+    // "Voir Wilson en noir" duplicates the button the card already carries.
+    const isCallToAction = function (chunk) {
+        const trimmed = chunk.trim();
+        return /^\[[^\]]+\]\([^)]+\)$/.test(trimmed)
+            || /^(?:voir|d[ée]couvrir|consulter|see|view|shop|browse)\b/i.test(trimmed);
+    };
 
-    const lines = text.split('\n');
-    const kept = [];
     let dropped = false;
 
-    for (let index = 0; index < lines.length; index += 1) {
-        if (isItem(lines[index]) && repeats(lines[index])) {
-            dropped = true;
-            index += 1;
-            while (index < lines.length && isContinuation(lines[index])) {
-                index += 1;
+    const blocks = text.split(/\n\s*\n/).map(function (block) {
+        const lines = block.split('\n');
+
+        if (lines.some(isItem)) {
+            const kept = [];
+            for (let index = 0; index < lines.length; index += 1) {
+                if (isItem(lines[index]) && names(lines[index])) {
+                    dropped = true;
+                    index += 1;
+                    while (index < lines.length && isContinuation(lines[index])) {
+                        index += 1;
+                    }
+                    index -= 1;
+                    continue;
+                }
+                kept.push(lines[index]);
             }
-            index -= 1;
-            continue;
+            return kept.join('\n');
         }
-        kept.push(lines[index]);
-    }
+
+        if (names(block) && (hasPrice(block) || isCallToAction(block))) {
+            dropped = true;
+            return '';
+        }
+
+        return block;
+    });
 
     if (!dropped) {
         return text;
     }
 
-    // A line that introduced the removed list would be left dangling on its colon.
-    const cleaned = kept
-        .map(function (line) { return /[:：]\s*$/.test(line) ? line.replace(/\s*[:：]\s*$/, '.') : line; })
-        .join('\n')
-        .replace(/\n{3,}/g, '\n\n')
+    // A line that introduced the removed content would be left dangling on its colon.
+    const cleaned = blocks
+        .filter(function (block) { return block.trim() !== ''; })
+        .map(function (block) {
+            return /[:：]\s*$/.test(block) ? block.replace(/\s*[:：]\s*$/, '.') : block;
+        })
+        .join('\n\n')
         .trim();
 
     // Never blank a reply: an answer made only of repeats stays as it was.
