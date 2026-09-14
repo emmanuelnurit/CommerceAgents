@@ -10,9 +10,11 @@ final readonly class LlmClientFactory
 {
     public const PROVIDERS = ['anthropic', 'mistral', 'openai-compatible'];
 
+    public const DEFAULT_PROVIDER = 'mistral';
+
     public const DEFAULT_MODELS = [
         'anthropic' => 'claude-sonnet-5',
-        'mistral' => 'mistral-large-latest',
+        'mistral' => 'ministral-3b-latest',
         'openai-compatible' => 'gpt-4.1-mini',
     ];
 

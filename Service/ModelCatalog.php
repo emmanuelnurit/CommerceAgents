@@ -7,15 +7,18 @@ namespace CommerceAgents\Service;
 use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Agent\Llm\LlmConfig;
 use CommerceAgents\Agent\Llm\ModelDiscovery;
+use CommerceAgents\CommerceAgents;
 use CommerceAgents\Model\AgentModel;
 use CommerceAgents\Model\AgentModelQuery;
 use Propel\Runtime\ActiveQuery\Criteria;
+use Thelia\Core\Translation\Translator;
 
 /**
- * Catalog of LLM models per provider with their prices (USD per million
- * tokens). Seeded from Config/models.php, extended from the provider APIs,
- * and editable in the back-office. A row edited by hand ("manual" source)
- * is never overwritten by the bundled catalog.
+ * Catalog of LLM models per provider with their prices per million tokens,
+ * in the currency each provider publishes (EUR for Mistral, USD elsewhere).
+ * Seeded from Config/models.php, extended from the provider APIs, and
+ * editable in the back-office. A row edited by hand ("manual" source) is
+ * never overwritten by the bundled catalog.
  */
 final readonly class ModelCatalog
 {
@@ -25,19 +28,22 @@ final readonly class ModelCatalog
 
     public function __construct(
         private ModelDiscovery $modelDiscovery,
+        private Translator $translator,
     ) {
     }
 
     /**
      * Inserts the bundled models and refreshes the prices of rows still
      * carrying the catalog source. Returns the number of rows written.
+     * Rows edited by hand keep their prices, name and currency (their
+     * prices were typed in the currency of the time); only their empty
+     * tier is backfilled so they stay grouped in the selector.
      */
     public function seedFromBundledCatalog(): int
     {
-        $catalog = require __DIR__.'/../Config/models.php';
         $written = 0;
 
-        foreach ($catalog as $provider => $section) {
+        foreach (self::bundledCatalog()['providers'] as $provider => $section) {
             $pricedAt = new \DateTimeImmutable($section['priced_at']);
 
             foreach ($section['models'] as $entry) {
@@ -50,6 +56,11 @@ final readonly class ModelCatalog
                         ->setEnabled(1)
                         ->setSource(self::SOURCE_CATALOG);
                 } elseif ($model->getSource() === self::SOURCE_MANUAL) {
+                    $model->setTier($model->getTier() ?? $entry['tier']);
+                    if ($model->isModified()) {
+                        $model->save();
+                        ++$written;
+                    }
                     continue;
                 }
 
@@ -58,6 +69,8 @@ final readonly class ModelCatalog
                     ->setPriceInput(self::decimal($entry['input']))
                     ->setPriceOutput(self::decimal($entry['output']))
                     ->setContextWindow($entry['context'])
+                    ->setTier($entry['tier'])
+                    ->setCurrency($section['currency'])
                     ->setSource(self::SOURCE_CATALOG)
                     ->setPricedAt($pricedAt);
 
@@ -179,16 +192,106 @@ final readonly class ModelCatalog
     }
 
     /**
+     * Prices in USD per million tokens, whatever currency the row carries:
+     * the internal cost accounting (agent_message.cost, BudgetGuard) stays
+     * in USD and converts with the rate maintained in Config/models.php.
+     *
      * @return array{input: ?float, output: ?float}
      */
     public function pricesFor(string $provider, string $modelId): array
     {
         $model = $this->find($provider, $modelId);
+        $currency = $model?->getCurrency() ?? 'USD';
 
         return [
-            'input' => $model?->getPriceInput() !== null ? (float) $model->getPriceInput() : null,
-            'output' => $model?->getPriceOutput() !== null ? (float) $model->getPriceOutput() : null,
+            'input' => self::toUsd($model?->getPriceInput() !== null ? (float) $model->getPriceInput() : null, $currency),
+            'output' => self::toUsd($model?->getPriceOutput() !== null ? (float) $model->getPriceOutput() : null, $currency),
         ];
+    }
+
+    public static function toUsd(?float $price, string $currency): ?float
+    {
+        if ($price === null || $currency !== 'EUR') {
+            return $price;
+        }
+
+        return round($price / self::usdToEurRate(), 6);
+    }
+
+    public static function usdToEurRate(): float
+    {
+        return (float) self::bundledCatalog()['usd_to_eur'];
+    }
+
+    /**
+     * The models offered by the agent model selector: enabled, priced, and
+     * ordered by reasoning tier then input price. Null provider = every
+     * provider. This is the data contract of the back-office agent form.
+     *
+     * @return ModelChoice[]
+     */
+    public function getSelectableModels(?string $provider = null): array
+    {
+        $providers = $provider !== null ? [$provider] : LlmClientFactory::PROVIDERS;
+
+        $choices = [];
+        foreach ($providers as $providerCode) {
+            foreach ($this->listByProvider($providerCode, enabledOnly: true) as $row) {
+                if ($row->getPriceInput() === null || $row->getPriceOutput() === null) {
+                    continue;
+                }
+                $choices[] = $this->choiceFromRow($row);
+            }
+        }
+
+        usort($choices, static fn (ModelChoice $a, ModelChoice $b): int =>
+            [array_search($a->tier, ModelChoice::TIERS, true), (float) $a->priceInput, $a->modelId]
+            <=> [array_search($b->tier, ModelChoice::TIERS, true), (float) $b->priceInput, $b->modelId]);
+
+        return $choices;
+    }
+
+    /**
+     * Rows predating the tier column fall back to "balanced"; rows predating
+     * the currency column were priced when everything was USD.
+     */
+    public function choiceFromRow(AgentModel $row): ModelChoice
+    {
+        $tier = \in_array($row->getTier(), ModelChoice::TIERS, true) ? $row->getTier() : ModelChoice::TIER_BALANCED;
+
+        return new ModelChoice(
+            modelId: $row->getModelId(),
+            name: $row->getName() ?? $row->getModelId(),
+            tier: $tier,
+            tierLabel: $this->translator->trans(ModelChoice::TIER_LABELS[$tier], [], CommerceAgents::DOMAIN_NAME),
+            priceInput: self::formatPrice((string) $row->getPriceInput()),
+            priceOutput: self::formatPrice((string) $row->getPriceOutput()),
+            currency: $row->getCurrency() ?? 'USD',
+            contextWindow: $row->getContextWindow(),
+            isDefault: $row->getModelId() === (LlmClientFactory::DEFAULT_MODELS[$row->getProvider()] ?? null),
+        );
+    }
+
+    /**
+     * Trims the storage decimals ("0.090000") down to a display price
+     * ("0.09"), never shorter than two decimals.
+     */
+    public static function formatPrice(string $stored): string
+    {
+        $trimmed = rtrim(rtrim($stored, '0'), '.');
+        $decimals = \strlen(substr(strrchr($trimmed, '.') ?: '', 1));
+
+        return number_format((float) $stored, max(2, $decimals), '.', '');
+    }
+
+    /**
+     * @return array{usd_to_eur: float, rated_at: string, providers: array<string, array{priced_at: string, currency: string, models: list<array{id: string, name: string, tier: string, input: float, output: float, context: ?int}>}>}
+     */
+    private static function bundledCatalog(): array
+    {
+        static $catalog = null;
+
+        return $catalog ??= require __DIR__.'/../Config/models.php';
     }
 
     /**

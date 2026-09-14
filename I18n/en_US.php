@@ -191,4 +191,7 @@ return [
     'required' => 'required',
     'None' => 'None',
     'Quick check from a terminal:' => 'Quick check from a terminal:',
+    'Fast' => 'Fast',
+    'Balanced' => 'Balanced',
+    'Deep thinking' => 'Deep thinking',
 ];

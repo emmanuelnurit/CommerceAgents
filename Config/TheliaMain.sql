@@ -95,6 +95,8 @@ CREATE TABLE `agent_model`
     `price_input` DECIMAL(12,6),
     `price_output` DECIMAL(12,6),
     `context_window` INTEGER,
+    `tier` VARCHAR(20),
+    `currency` VARCHAR(3),
     `enabled` TINYINT DEFAULT 1 NOT NULL,
     `source` VARCHAR(20) DEFAULT 'catalog' NOT NULL,
     `priced_at` DATE,

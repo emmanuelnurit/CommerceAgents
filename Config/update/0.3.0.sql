@@ -1,0 +1,7 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+ALTER TABLE `agent_model`
+    ADD COLUMN `tier` VARCHAR(20) NULL AFTER `context_window`,
+    ADD COLUMN `currency` VARCHAR(3) NULL AFTER `tier`;
+
+SET FOREIGN_KEY_CHECKS = 1;

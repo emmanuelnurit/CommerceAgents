@@ -191,4 +191,7 @@ return [
     'required' => 'obligatoire',
     'None' => 'Aucun',
     'Quick check from a terminal:' => 'Vérification rapide depuis un terminal :',
+    'Fast' => 'Rapide',
+    'Balanced' => 'Équilibré',
+    'Deep thinking' => 'Réflexion approfondie',
 ];

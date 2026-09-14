@@ -64,6 +64,8 @@
         <column name="price_input" scale="6" size="12" type="DECIMAL"/>
         <column name="price_output" scale="6" size="12" type="DECIMAL"/>
         <column name="context_window" type="INTEGER"/>
+        <column name="tier" size="20" type="VARCHAR"/>
+        <column name="currency" size="3" type="VARCHAR"/>
         <column defaultValue="1" name="enabled" required="true" type="TINYINT"/>
         <column defaultValue="catalog" name="source" required="true" size="20" type="VARCHAR"/>
         <column name="priced_at" type="DATE"/>

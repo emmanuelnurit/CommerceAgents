@@ -36,4 +36,7 @@ return [
     'Open the full conversation' => 'Abrir la conversación completa',
     'Minimise the conversation' => 'Reducir la conversación',
     'Add this product to my cart:' => 'Añade este producto a mi cesta:',
+    'Fast' => 'Rápido',
+    'Balanced' => 'Equilibrado',
+    'Deep thinking' => 'Reflexión profunda',
 ];

@@ -16,9 +16,9 @@ final readonly class AgentConfigService
 {
     public function getProvider(): string
     {
-        $provider = (string) CommerceAgents::getConfigValue('provider', 'anthropic');
+        $provider = (string) CommerceAgents::getConfigValue('provider', LlmClientFactory::DEFAULT_PROVIDER);
 
-        return \in_array($provider, LlmClientFactory::PROVIDERS, true) ? $provider : 'anthropic';
+        return \in_array($provider, LlmClientFactory::PROVIDERS, true) ? $provider : LlmClientFactory::DEFAULT_PROVIDER;
     }
 
     public function getLlmConfig(?string $provider = null): LlmConfig
@@ -50,7 +50,7 @@ final readonly class AgentConfigService
 
     public function getModel(string $provider): string
     {
-        $default = LlmClientFactory::DEFAULT_MODELS[$provider] ?? LlmClientFactory::DEFAULT_MODELS['anthropic'];
+        $default = LlmClientFactory::DEFAULT_MODELS[$provider] ?? LlmClientFactory::DEFAULT_MODELS[LlmClientFactory::DEFAULT_PROVIDER];
 
         return (string) (CommerceAgents::getConfigValue(self::providerKey('model', $provider)) ?: $default);
     }
@@ -66,7 +66,38 @@ final readonly class AgentConfigService
 
     public function setProvider(string $provider): void
     {
-        CommerceAgents::setConfigValue('provider', \in_array($provider, LlmClientFactory::PROVIDERS, true) ? $provider : 'anthropic');
+        CommerceAgents::setConfigValue('provider', \in_array($provider, LlmClientFactory::PROVIDERS, true) ? $provider : LlmClientFactory::DEFAULT_PROVIDER);
+    }
+
+    /**
+     * Run before the module default switched from Anthropic to Mistral: an
+     * installation living on the implicit Anthropic default keeps it, stored
+     * explicitly so the new default never changes its behaviour.
+     */
+    public function freezeImplicitProviderBeforeMistralDefault(): void
+    {
+        $stored = (string) CommerceAgents::getConfigValue('provider', '');
+        $hasAnthropicKey = $this->hasApiKey('anthropic')
+            || (string) CommerceAgents::getConfigValue('api_key', '') !== '';
+
+        $frozen = self::providerToFreeze($stored, $hasAnthropicKey);
+        if ($frozen !== null) {
+            CommerceAgents::setConfigValue('provider', $frozen);
+        }
+    }
+
+    /**
+     * Decision table of the freeze: an explicit provider always wins, an
+     * Anthropic key without explicit provider is frozen on Anthropic, a
+     * virgin installation gets the new Mistral default.
+     */
+    public static function providerToFreeze(string $storedProvider, bool $hasAnthropicApiKey): ?string
+    {
+        if ($storedProvider !== '') {
+            return null;
+        }
+
+        return $hasAnthropicApiKey ? 'anthropic' : null;
     }
 
     /**

@@ -38,8 +38,17 @@ class CommerceAgents extends BaseModule
             }
         }
 
+        $configService = $this->getContainer()->get(Service\AgentConfigService::class);
+
+        // Freeze first: migrateLegacySingleProviderSettings() reads getProvider(),
+        // whose fallback is now Mistral — a 0.1.x install implicitly on Anthropic
+        // must be pinned before that fallback is consulted.
+        if (version_compare($currentVersion, '0.3.0', '<')) {
+            $configService->freezeImplicitProviderBeforeMistralDefault();
+        }
+
         if (version_compare($currentVersion, '0.2.0', '<')) {
-            $this->getContainer()->get(Service\AgentConfigService::class)->migrateLegacySingleProviderSettings();
+            $configService->migrateLegacySingleProviderSettings();
         }
 
         $this->seedModelCatalog();

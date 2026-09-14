@@ -113,7 +113,7 @@ final readonly class ConfigSaveController
             return $denied;
         }
 
-        $this->configService->setProvider((string) $request->request->get('provider', 'anthropic'));
+        $this->configService->setProvider((string) $request->request->get('provider', LlmClientFactory::DEFAULT_PROVIDER));
 
         foreach (LlmClientFactory::PROVIDERS as $provider) {
             $this->configService->setProviderSettings(
