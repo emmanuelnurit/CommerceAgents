@@ -19,6 +19,9 @@ final class ProductThumbnailProvider
     /** @var array<int, string|null> */
     private array $urlByProductId = [];
 
+    /** @var array<int, string|null> */
+    private array $urlByVariantId = [];
+
     public function __construct(
         private readonly ThumbnailUrlBuilder $thumbnailUrlBuilder,
     ) {
@@ -36,10 +39,37 @@ final class ProductThumbnailProvider
             ->orderByPosition(Criteria::ASC)
             ->findOne();
 
-        $url = $image === null
+        return $this->urlByProductId[$productId] = $this->buildUrl($image);
+    }
+
+    /**
+     * Picture of one variant, when the merchant attached images to it. Most
+     * catalogues never do, so the product picture is the fallback rather than
+     * an empty slot.
+     */
+    public function urlForVariant(int $productSaleElementsId, int $productId): ?string
+    {
+        if (\array_key_exists($productSaleElementsId, $this->urlByVariantId)) {
+            return $this->urlByVariantId[$productSaleElementsId];
+        }
+
+        $image = ProductImageQuery::create()
+            ->useProductSaleElementsProductImageQuery()
+                ->filterByProductSaleElementsId($productSaleElementsId)
+            ->endUse()
+            ->filterByVisible(1)
+            ->orderByPosition(Criteria::ASC)
+            ->findOne();
+
+        return $this->urlByVariantId[$productSaleElementsId] = $image === null
+            ? $this->urlFor($productId)
+            : $this->buildUrl($image);
+    }
+
+    private function buildUrl(?\Thelia\Model\ProductImage $image): ?string
+    {
+        return $image === null
             ? null
             : $this->thumbnailUrlBuilder->build($image->getUploadDir().DS.$image->getFile(), self::CACHE_SUBDIRECTORY);
-
-        return $this->urlByProductId[$productId] = $url;
     }
 }

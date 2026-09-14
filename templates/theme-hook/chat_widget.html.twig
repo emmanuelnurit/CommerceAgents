@@ -182,6 +182,40 @@
                                     </div>
                                 </template>
 
+                                <template x-if="message.kind === 'variants'">
+                                    <div class="caw-variants">
+                                        <p class="caw-variants-title">
+                                            <a x-bind:href="message.product.url" x-text="message.product.title"></a>
+                                            <span x-text="'— ' + i18n.variantsTitle"></span>
+                                        </p>
+
+                                        <div class="caw-variant-grid">
+                                            <template x-for="variant in message.data" x-bind:key="variant.id">
+                                                <article class="caw-variant">
+                                                    <a class="caw-variant-media" x-bind:href="message.product.url">
+                                                        <img x-show="variant.imageUrl" x-bind:src="variant.imageUrl"
+                                                             x-bind:alt="variant.label || message.product.title" loading="lazy">
+                                                    </a>
+                                                    <div class="caw-variant-body">
+                                                        <p class="caw-variant-label" x-text="variant.label || message.product.title"></p>
+                                                        <p class="caw-product-price">
+                                                            <span class="caw-price-now" x-text="money(bestPrice(variant), message.product.currency)"></span>
+                                                            <s class="caw-price-was" x-show="hasPromo(variant)"
+                                                               x-text="money(variant.price, message.product.currency)"></s>
+                                                        </p>
+                                                        <p class="caw-stock" x-bind:class="variant.inStock ? 'is-in' : 'is-out'"
+                                                           x-text="variant.inStock ? i18n.inStock : i18n.outOfStock"></p>
+                                                        <button type="button" class="caw-btn caw-btn-primary caw-btn-block"
+                                                                x-show="variant.inStock"
+                                                                x-on:click="askAddVariantToCart(message.product, variant)"
+                                                                x-text="i18n.addToCart"></button>
+                                                    </div>
+                                                </article>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+
                                 <template x-if="message.kind === 'cart'">
                                     <div class="caw-cart-block">
                                         <template x-for="item in (message.data.items || [])" x-bind:key="item.productId">

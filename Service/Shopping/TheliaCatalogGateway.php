@@ -218,10 +218,27 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             'ref' => $pse->getRef(),
             'isDefault' => $pse->isDefault(),
             'attributes' => $attributes,
+            // "Blue" on its own says nothing in a list; "Colors: Blue" does.
+            'label' => self::variantLabel($attributes),
             'price' => $pricing['price'],
             'promoPrice' => $pse->getPromo() ? $pricing['promoPrice'] : null,
             'stock' => (float) $pse->getQuantity(),
+            'inStock' => $pse->getQuantity() > 0,
+            'imageUrl' => $this->thumbnailProvider->urlForVariant((int) $pse->getId(), (int) $pse->getProductId()),
         ];
+    }
+
+    /**
+     * @param array<string, string> $attributes
+     */
+    private static function variantLabel(array $attributes): string
+    {
+        $parts = [];
+        foreach ($attributes as $name => $value) {
+            $parts[] = sprintf('%s: %s', $name, $value);
+        }
+
+        return implode(' · ', $parts);
     }
 
     /**

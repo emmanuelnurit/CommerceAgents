@@ -31,6 +31,7 @@ return [
     'In stock' => 'En stock',
     'Out of stock' => 'Agotado',
     'In the category' => 'En la categoría',
+    'Available options' => 'Opciones disponibles',
     'Open the full conversation' => 'Abrir la conversación completa',
     'Minimise the conversation' => 'Reducir la conversación',
     'Add this product to my cart:' => 'Añade este producto a mi cesta:',

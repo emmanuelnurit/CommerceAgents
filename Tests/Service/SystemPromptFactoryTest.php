@@ -248,6 +248,7 @@ class SystemPromptFactoryTest extends TestCase
         $this->assertStringContainsString('never re-list the products', $prompt);
         $this->assertStringContainsString('no Markdown image ever', $prompt);
         $this->assertStringContainsString('a bullet list that repeats the cards is not', $prompt);
+        $this->assertStringContainsString('get_product_details: its variants are displayed as cards', $prompt);
     }
 
     public function testShoppingPromptStaysReadableWithoutAnyCategory(): void

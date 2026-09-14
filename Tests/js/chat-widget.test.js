@@ -252,3 +252,79 @@ test('the collapsed card surfaces an error rather than a stale reply', () => {
 test('an empty conversation has nothing to summarise', () => {
     assert.equal(component({}).lastReply, '');
 });
+
+function detailsPayload(variants) {
+    return {
+        name: 'get_product_details',
+        result: {
+            product: {
+                id: 1, title: 'Horatio', url: '/horatio.html', currency: 'EUR',
+                price: 267.6, promoPrice: 238.8, imageUrl: '/img/horatio.jpg',
+                pses: variants,
+            },
+        },
+    };
+}
+
+test('a product with several variants becomes a variant block', () => {
+    const widget = component({});
+
+    widget.pushToolBlock(detailsPayload([
+        { id: 1, ref: 'PROD001-0', label: 'Colors: Blue', price: 267.6, promoPrice: 238.8, inStock: true, imageUrl: '/img/blue.jpg' },
+        { id: 2, ref: 'PROD001-1', label: 'Colors: Pink', price: 267.6, promoPrice: null, inStock: false, imageUrl: '/img/pink.jpg' },
+    ]));
+
+    assert.equal(widget.messages.length, 1);
+    assert.equal(widget.messages[0].kind, 'variants');
+    assert.equal(widget.messages[0].data.length, 2);
+    assert.equal(widget.messages[0].product.title, 'Horatio');
+    assert.equal(widget.highlights.length, 1);
+});
+
+test('a product with a single variant stays a plain product card', () => {
+    const widget = component({});
+
+    widget.pushToolBlock(detailsPayload([{ id: 1, ref: 'PROD001-0', label: '', price: 90, promoPrice: null, inStock: true }]));
+
+    assert.equal(widget.messages[0].kind, 'products');
+    assert.equal(widget.messages[0].data[0].title, 'Horatio');
+});
+
+test('a product with no variant at all still renders', () => {
+    const widget = component({});
+
+    widget.pushToolBlock({ name: 'get_product_details', result: { product: { id: 1, title: 'Horatio' } } });
+
+    assert.equal(widget.messages[0].kind, 'products');
+});
+
+test('adding a variant to the cart names it by reference', () => {
+    const widget = component({ i18n: { addToCartPrompt: 'Ajoute ce produit à mon panier :' } });
+    const sent = [];
+    widget.sendSuggestion = (text) => sent.push(text);
+
+    widget.askAddVariantToCart(
+        { title: 'Horatio' },
+        { id: 3, ref: 'PROD001-2', label: 'Colors: Red' },
+    );
+
+    assert.equal(sent[0], 'Ajoute ce produit à mon panier : Horatio — Colors: Red (PROD001-2)');
+});
+
+test('a variant without attributes is still unambiguous', () => {
+    const widget = component({ i18n: { addToCartPrompt: 'Add to cart:' } });
+    const sent = [];
+    widget.sendSuggestion = (text) => sent.push(text);
+
+    widget.askAddVariantToCart({ title: 'Tina' }, { id: 9, ref: 'PROD011-0', label: '' });
+
+    assert.equal(sent[0], 'Add to cart: Tina (PROD011-0)');
+});
+
+test('the promo price of a variant wins over the product price', () => {
+    const widget = component({});
+    const variant = { price: 267.6, promoPrice: 238.8 };
+
+    assert.equal(widget.hasPromo(variant), true);
+    assert.equal(widget.bestPrice(variant), 238.8);
+});

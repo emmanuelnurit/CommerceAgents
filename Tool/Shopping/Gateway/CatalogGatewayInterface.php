@@ -26,7 +26,8 @@ interface CatalogGatewayInterface
 
     /**
      * @return array|null {id, ref, title, description, categories, url, imageUrl,
-     *                    pses: [{id, attributes, price, promoPrice, stock}]}
+     *                    pses: [{id, ref, isDefault, attributes, label, price,
+     *                            promoPrice, stock, inStock, imageUrl}]}
      */
     public function getProductDetails(int $productId, ToolContext $ctx): ?array;
 }

@@ -22,8 +22,10 @@ final readonly class GetProductDetailsTool implements ToolInterface
 
     public function getDescription(): string
     {
-        return 'Get the full detail of one product: description, variants (size, color…), '
-            .'stock availability and taxed prices in the customer currency.';
+        return 'Get the full detail of one product: description, and every variant under "pses" '
+            .'with its own label, picture, stock and taxed price in the customer currency. '
+            .'Call it whenever the visitor asks about an option of a product — colours, sizes, '
+            .'materials, what is left in stock — rather than answering from a search result.';
     }
 
     public function getInputSchema(): array

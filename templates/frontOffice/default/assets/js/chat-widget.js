@@ -29,6 +29,7 @@ function commerceAgentsChat() {
             inStock: 'In stock',
             outOfStock: 'Out of stock',
             inCategory: 'In the category',
+            variantsTitle: 'Available options',
             expandAssistant: 'Open the full conversation',
             minimiseAssistant: 'Minimise the conversation',
             addToCartPrompt: 'Add this product to my cart:',
@@ -225,6 +226,13 @@ function commerceAgentsChat() {
             this.sendSuggestion(this.i18n.addToCartPrompt + ' ' + product.title);
         },
 
+        askAddVariantToCart(product, variant) {
+            // The reference is what makes the turn unambiguous: "the blue one"
+            // is not enough once a product has five colours.
+            const label = variant.label ? ' — ' + variant.label : '';
+            this.sendSuggestion(this.i18n.addToCartPrompt + ' ' + product.title + label + ' (' + variant.ref + ')');
+        },
+
         retry() {
             if (this.lastSent !== '') {
                 this.streamMessage(this.lastSent);
@@ -391,8 +399,16 @@ function commerceAgentsChat() {
                 });
                 this.highlights = result.products.slice(0, COMMERCE_AGENTS_MAX_HIGHLIGHTS);
             } else if (payload.name === 'get_product_details' && result.product) {
-                this.messages.push({ kind: 'products', role: 'assistant', data: [result.product], category: null });
-                this.highlights = [result.product];
+                const product = result.product;
+                const variants = Array.isArray(product.pses) ? product.pses : [];
+                // One variant is just the product; several are the answer to
+                // "which colours do you have?" and deserve their own cards.
+                if (variants.length > 1) {
+                    this.messages.push({ kind: 'variants', role: 'assistant', product: product, data: variants });
+                } else {
+                    this.messages.push({ kind: 'products', role: 'assistant', data: [product], category: null });
+                }
+                this.highlights = [product];
             } else if ((payload.name === 'get_cart' || payload.name === 'add_to_cart') && result.cart) {
                 this.messages.push({ kind: 'cart', role: 'assistant', data: result.cart });
                 this.updateCartFromResult(result.cart);
