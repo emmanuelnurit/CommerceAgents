@@ -78,6 +78,8 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'inStock' => $translate('In stock'),
                 'outOfStock' => $translate('Out of stock'),
                 'inCategory' => $translate('In the category'),
+                'expandAssistant' => $translate('Open the full conversation'),
+                'minimiseAssistant' => $translate('Minimise the conversation'),
                 'addToCartPrompt' => $translate('Add this product to my cart:'),
                 'subtitle' => $translate('Shopping assistant powered by AI'),
             ],

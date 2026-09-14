@@ -75,6 +75,8 @@ return [
     'In stock' => 'En stock',
     'Out of stock' => 'Rupture de stock',
     'In the category' => 'Dans la catégorie',
+    'Open the full conversation' => 'Ouvrir la conversation complète',
+    'Minimise the conversation' => 'Réduire la conversation',
     'Add this product to my cart:' => 'Ajoute ce produit à mon panier :',
     'Dashboard' => 'Tableau de bord',
     'Customers' => 'Clients',

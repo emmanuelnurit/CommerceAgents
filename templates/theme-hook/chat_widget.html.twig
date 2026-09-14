@@ -9,14 +9,14 @@
      x-cloak>
 
     {# ---------- Dock: slim bar anchored at the bottom, grows into the overlay ---------- #}
-    <div class="caw-dock" x-show="!open" x-transition.opacity>
-        <form class="caw-glow caw-glow-dock" x-on:submit.prevent="expand(true)">
+    <div class="caw-dock" x-show="!isOpen" x-transition.opacity>
+        <form class="caw-glow caw-glow-dock" x-on:submit.prevent="send()">
             <div class="caw-dock-inner">
                 <span class="caw-avatar" aria-hidden="true">✦</span>
                 <input type="text"
                        class="caw-dock-input"
                        x-model="input"
-                       x-on:focus="expand()"
+                       x-on:focus="focusDock()"
                        maxlength="2000"
                        autocomplete="off"
                        aria-label="{{ i18n.openAssistant }}"
@@ -35,11 +35,48 @@
         </form>
     </div>
 
+    {# ---------- Collapsed: the running conversation, page still readable ---------- #}
+    <div class="caw-collapsed" x-show="isCollapsed" x-transition.opacity>
+        <section class="caw-collapsed-card" aria-label="{{ assistantName }}">
+            <header class="caw-collapsed-head">
+                <span class="caw-avatar" aria-hidden="true">✦</span>
+                <strong>{{ assistantName }}</strong>
+                <button type="button" class="caw-icon-button" x-on:click="expand()"
+                        x-bind:title="i18n.expandAssistant" x-bind:aria-label="i18n.expandAssistant">⤢</button>
+                <button type="button" class="caw-icon-button" x-on:click="minimise()"
+                        x-bind:title="i18n.minimiseAssistant" x-bind:aria-label="i18n.minimiseAssistant">✕</button>
+            </header>
+
+            <p class="caw-typing caw-collapsed-typing" x-show="pending" aria-live="polite">
+                <span></span><span></span><span></span>
+            </p>
+
+            <p class="caw-collapsed-reply" x-show="!pending && lastReply" x-text="lastReply"></p>
+
+            <div class="caw-collapsed-products" x-show="highlights.length > 0">
+                <template x-for="product in highlights" x-bind:key="product.id">
+                    <a class="caw-collapsed-product" x-bind:href="product.url" x-bind:title="product.title">
+                        <span class="caw-cart-thumb">
+                            <img x-show="product.imageUrl" x-bind:src="product.imageUrl" x-bind:alt="product.title" loading="lazy">
+                        </span>
+                        <span class="caw-collapsed-price" x-text="money(bestPrice(product), product.currency)"></span>
+                    </a>
+                </template>
+            </div>
+
+            <p class="caw-collapsed-cart" x-show="cart.itemCount > 0">
+                <span x-text="cart.itemCount + ' ' + i18n.itemsLabel"></span>
+                <strong x-text="money(cart.totalTaxedAmount, cart.currency)"></strong>
+                <a class="caw-btn caw-btn-primary" href="{{ checkoutUrl }}">{{ i18n.completeOrder }}</a>
+            </p>
+        </section>
+    </div>
+
     {# ---------- Overlay ---------- #}
-    <div class="caw-backdrop" x-show="open" x-transition.opacity x-on:click="close()"></div>
+    <div class="caw-backdrop" x-show="isOpen" x-transition.opacity x-on:click="close()"></div>
 
     <section class="caw-shell"
-             x-show="open"
+             x-show="isOpen"
              x-transition
              role="dialog"
              aria-modal="true"

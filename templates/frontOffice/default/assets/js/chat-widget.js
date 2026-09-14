@@ -12,7 +12,9 @@ var COMMERCE_AGENTS_MAX_HIGHLIGHTS = 3;
 
 function commerceAgentsChat() {
     return {
-        open: false,
+        // dock: nothing said yet — collapsed: a conversation to keep an eye on
+        // while browsing — open: the full-screen panel.
+        state: 'dock',
         pending: false,
         input: '',
         lastSent: '',
@@ -27,6 +29,8 @@ function commerceAgentsChat() {
             inStock: 'In stock',
             outOfStock: 'Out of stock',
             inCategory: 'In the category',
+            expandAssistant: 'Open the full conversation',
+            minimiseAssistant: 'Minimise the conversation',
             addToCartPrompt: 'Add this product to my cart:',
             connectionLost: 'Connection lost',
             serviceUnavailable: 'Service unavailable',
@@ -38,18 +42,42 @@ function commerceAgentsChat() {
             this.restore();
 
             this.$watch('messages', () => this.persist());
-            this.$watch('open', (isOpen) => {
+            this.$watch('state', () => {
                 this.persist();
-                document.body.classList.toggle('caw-body-locked', isOpen);
-                if (isOpen) {
+                document.body.classList.toggle('caw-body-locked', this.isOpen);
+                if (this.isOpen) {
                     this.scrollDownSoon();
                 }
             });
 
-            if (this.open) {
+            if (this.isOpen) {
                 document.body.classList.add('caw-body-locked');
                 this.scrollDownSoon();
             }
+        },
+
+        get isOpen() {
+            return this.state === 'open';
+        },
+
+        get isCollapsed() {
+            return this.state === 'collapsed';
+        },
+
+        /**
+         * Plain text of the last thing the assistant said, for the collapsed card.
+         */
+        get lastReply() {
+            for (let index = this.messages.length - 1; index >= 0; index -= 1) {
+                const message = this.messages[index];
+                if (message.kind === 'text' && message.role === 'assistant') {
+                    return message.text;
+                }
+                if (message.kind === 'error') {
+                    return message.text;
+                }
+            }
+            return '';
         },
 
         readConfig() {
@@ -78,11 +106,19 @@ function commerceAgentsChat() {
                 const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_STORAGE_KEY) || 'null');
                 if (saved && Array.isArray(saved.messages)) {
                     this.messages = saved.messages;
-                    this.open = !!saved.open;
                     this.highlights = Array.isArray(saved.highlights) ? saved.highlights : [];
+                    // A page load never restores the full-screen panel: the visitor
+                    // came here to read the page, not to stare at the overlay again.
+                    this.state = saved.state === 'open' || saved.state === 'collapsed' || this.messages.length > 0
+                        ? 'collapsed'
+                        : 'dock';
                 }
             } catch (error) {
-                sessionStorage.removeItem(COMMERCE_AGENTS_STORAGE_KEY);
+                try {
+                    sessionStorage.removeItem(COMMERCE_AGENTS_STORAGE_KEY);
+                } catch (ignored) {
+                    // storage unavailable (private browsing): nothing to clean up
+                }
             }
         },
 
@@ -100,7 +136,7 @@ function commerceAgentsChat() {
                     return copy;
                 });
                 sessionStorage.setItem(COMMERCE_AGENTS_STORAGE_KEY, JSON.stringify({
-                    open: this.open,
+                    state: this.state,
                     messages: messages,
                     highlights: this.highlights,
                 }));
@@ -110,7 +146,7 @@ function commerceAgentsChat() {
         },
 
         expand(submitAfter) {
-            this.open = true;
+            this.state = 'open';
             this.$nextTick(() => {
                 const field = this.$refs.composerInput;
                 if (field && !this.pending) {
@@ -123,7 +159,21 @@ function commerceAgentsChat() {
         },
 
         close() {
-            this.open = false;
+            this.state = this.messages.length > 0 ? 'collapsed' : 'dock';
+        },
+
+        minimise() {
+            this.state = 'dock';
+        },
+
+        /**
+         * Focusing the bottom bar opens the panel only when there is nothing to
+         * come back to; with a conversation running the visitor keeps the page.
+         */
+        focusDock() {
+            if (this.state === 'dock' && this.messages.length === 0) {
+                this.expand();
+            }
         },
 
         reset() {
@@ -131,6 +181,7 @@ function commerceAgentsChat() {
             this.highlights = [];
             this.lastSent = '';
             this.input = '';
+            this.state = 'dock';
             this.persist();
         },
 
@@ -182,7 +233,7 @@ function commerceAgentsChat() {
 
         sendSuggestion(text) {
             this.input = String(text).trim();
-            this.open = true;
+            this.state = 'open';
             this.send();
         },
 
@@ -203,6 +254,11 @@ function commerceAgentsChat() {
                 return;
             }
             this.input = '';
+            if (this.state === 'dock') {
+                // Resuming a minimised conversation must not throw the panel back
+                // over the page the visitor asked to see.
+                this.state = this.messages.length > 0 ? 'collapsed' : 'open';
+            }
             this.messages.push({ kind: 'text', role: 'user', text: text });
             this.streamMessage(text);
         },

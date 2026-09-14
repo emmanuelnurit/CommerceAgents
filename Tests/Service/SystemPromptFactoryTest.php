@@ -253,4 +253,36 @@ class SystemPromptFactoryTest extends TestCase
 
         $this->assertStringNotContainsString('Product categories:', $prompt);
     }
+
+    public function testShoppingPromptPinsTheLanguageBeforeAnythingElse(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringContainsString('You write every single reply in French', $prompt);
+        $this->assertStringContainsString('not when the visitor writes to you in another', $prompt);
+        // Stated up front and repeated at the end: the tail alone was not enough.
+        $this->assertSame(2, substr_count($prompt, 'French (français)'));
+    }
+
+    public function testMerchantPromptPinsTheLanguageBeforeAnythingElse(): void
+    {
+        $prompt = $this->factory->merchant('fr_FR');
+
+        $this->assertStringContainsString('You write every single reply in French', $prompt);
+        $this->assertStringContainsString('administrator profile', $prompt);
+    }
+
+    public function testLanguageIsNamedInEnglishAndInItself(): void
+    {
+        $this->assertStringContainsString('Italian (italiano)', $this->factory->shopping('Alex', 'it_IT'));
+        $this->assertStringContainsString('Spanish (español)', $this->factory->shopping('Alex', 'es_ES'));
+    }
+
+    public function testEnglishIsNotNamedTwiceOverItself(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'en_US');
+
+        $this->assertStringContainsString('every single reply in English', $prompt);
+        $this->assertStringNotContainsString('English (English)', $prompt);
+    }
 }

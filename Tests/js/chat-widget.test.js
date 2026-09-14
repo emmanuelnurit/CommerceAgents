@@ -11,11 +11,18 @@ const path = require('node:path');
 
 const SOURCE = path.join(__dirname, '../../templates/frontOffice/default/assets/js/chat-widget.js');
 
-function loadFactory(config) {
+function loadFactory(config, storage) {
     global.document = {
+        body: { classList: { toggle() {}, add() {}, remove() {} } },
         getElementById: (id) => (id === 'commerce-agents-widget'
             ? { dataset: { config: config === undefined ? undefined : JSON.stringify(config) } }
             : null),
+    };
+    global.sessionStorage = storage || {
+        store: {},
+        getItem(key) { return this.store[key] || null; },
+        setItem(key, value) { this.store[key] = value; },
+        removeItem(key) { delete this.store[key]; },
     };
     const fakeWindow = {};
     new Function('window', fs.readFileSync(SOURCE, 'utf8'))(fakeWindow);
@@ -23,9 +30,15 @@ function loadFactory(config) {
     return fakeWindow.commerceAgentsChat;
 }
 
-function component(config) {
+function component(config, saved) {
     const widget = loadFactory(config)();
+    widget.$nextTick = () => {};
+    widget.$watch = () => {};
+    if (saved !== undefined) {
+        global.sessionStorage.setItem('commerceagents.chat', JSON.stringify(saved));
+    }
     widget.readConfig();
+    widget.restore();
 
     return widget;
 }
@@ -121,4 +134,121 @@ test('a navigation tool result never leaves the store origin', () => {
 
     assert.equal(widget.pendingNavigationUrl, '/cart');
     assert.equal(widget.messages.length, 0);
+});
+
+test('a fresh visitor gets the bottom bar only', () => {
+    const widget = component({});
+
+    assert.equal(widget.state, 'dock');
+    assert.equal(widget.isOpen, false);
+    assert.equal(widget.isCollapsed, false);
+});
+
+test('a page load never restores the full-screen panel', () => {
+    const widget = component({}, {
+        state: 'open',
+        messages: [{ kind: 'text', role: 'assistant', text: 'Here are three chairs.' }],
+        highlights: [],
+    });
+
+    assert.equal(widget.state, 'collapsed');
+    assert.equal(widget.isOpen, false);
+    assert.equal(widget.isCollapsed, true);
+});
+
+test('a conversation minimised before navigation comes back collapsed', () => {
+    const widget = component({}, {
+        state: 'dock',
+        messages: [{ kind: 'text', role: 'assistant', text: 'Hello.' }],
+        highlights: [],
+    });
+
+    assert.equal(widget.state, 'collapsed');
+});
+
+test('closing the panel keeps the conversation within reach', () => {
+    const widget = component({});
+    widget.messages = [{ kind: 'text', role: 'assistant', text: 'Hello.' }];
+    widget.state = 'open';
+
+    widget.close();
+
+    assert.equal(widget.state, 'collapsed');
+});
+
+test('closing an empty panel goes back to the bare bar', () => {
+    const widget = component({});
+    widget.state = 'open';
+
+    widget.close();
+
+    assert.equal(widget.state, 'dock');
+});
+
+test('minimising and clearing both fall back to the bare bar', () => {
+    const widget = component({});
+    widget.messages = [{ kind: 'text', role: 'assistant', text: 'Hello.' }];
+
+    widget.state = 'collapsed';
+    widget.minimise();
+    assert.equal(widget.state, 'dock');
+
+    widget.state = 'collapsed';
+    widget.reset();
+    assert.equal(widget.state, 'dock');
+    assert.equal(widget.messages.length, 0);
+});
+
+test('the bottom bar opens the panel only for a first question', () => {
+    const widget = component({});
+
+    widget.focusDock();
+    assert.equal(widget.state, 'open');
+
+    widget.state = 'dock';
+    widget.messages = [{ kind: 'text', role: 'assistant', text: 'Hello.' }];
+    widget.focusDock();
+    assert.equal(widget.state, 'dock');
+});
+
+test('a first question opens the panel, a follow-up stays on the page', () => {
+    global.fetch = () => Promise.reject(new Error('offline'));
+
+    const first = component({});
+    first.input = 'chairs';
+    first.send();
+    assert.equal(first.state, 'open');
+
+    const later = component({});
+    later.messages = [{ kind: 'text', role: 'assistant', text: 'Hello.' }];
+    later.state = 'dock';
+    later.input = 'and sofas?';
+    later.send();
+    assert.equal(later.state, 'collapsed');
+});
+
+test('the collapsed card shows the last thing the assistant said', () => {
+    const widget = component({});
+    widget.messages = [
+        { kind: 'text', role: 'assistant', text: 'First reply.' },
+        { kind: 'text', role: 'user', text: 'and sofas?' },
+        { kind: 'text', role: 'assistant', text: 'Second reply.' },
+        { kind: 'products', role: 'assistant', data: [{ id: 1, title: 'Stacy' }] },
+    ];
+
+    assert.equal(widget.lastReply, 'Second reply.');
+});
+
+test('the collapsed card surfaces an error rather than a stale reply', () => {
+    const widget = component({});
+    widget.messages = [
+        { kind: 'text', role: 'assistant', text: 'First reply.' },
+        { kind: 'error', role: 'assistant', text: 'Connection lost' },
+    ];
+
+    assert.equal(widget.lastReply, 'Connection lost');
+});
+
+test('an empty conversation has nothing to summarise', () => {
+    assert.equal(component({}).lastReply, '');
 });

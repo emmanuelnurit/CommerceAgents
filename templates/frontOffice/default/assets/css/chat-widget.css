@@ -152,6 +152,106 @@ body.caw-body-locked {
     font-size: 0.9375rem;
 }
 
+/* --------------------------------------------------------------- collapsed */
+
+#commerce-agents-widget .caw-collapsed {
+    position: fixed;
+    left: 50%;
+    /* Clears the 3.4rem bar plus its 1.25rem offset, with room to breathe. */
+    bottom: 5.25rem;
+    transform: translateX(-50%);
+    width: min(620px, calc(100vw - 2rem));
+    z-index: 1049;
+}
+
+#commerce-agents-widget .caw-collapsed-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: min(22rem, 50vh);
+    overflow-y: auto;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--caw-line);
+    border-radius: 0.875rem;
+    background: var(--caw-surface);
+    box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.45);
+}
+
+#commerce-agents-widget .caw-collapsed-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#commerce-agents-widget .caw-collapsed-head strong {
+    margin-right: auto;
+}
+
+#commerce-agents-widget .caw-collapsed-head .caw-icon-button {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-collapsed-reply {
+    margin: 0;
+    color: var(--caw-ink);
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+#commerce-agents-widget .caw-collapsed-typing {
+    align-self: flex-start;
+    padding: 0.5rem 0.75rem;
+}
+
+#commerce-agents-widget .caw-collapsed-products {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+}
+
+#commerce-agents-widget .caw-collapsed-product {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex: none;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+    border: 1px solid var(--caw-line);
+    border-radius: 999px;
+    color: inherit;
+    text-decoration: none;
+}
+
+#commerce-agents-widget .caw-collapsed-product:hover {
+    border-color: #9a9aa6;
+}
+
+#commerce-agents-widget .caw-collapsed-price {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+#commerce-agents-widget .caw-collapsed-cart {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--caw-line);
+    font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-collapsed-cart strong {
+    margin-right: auto;
+    font-size: 0.9375rem;
+}
+
 /* ----------------------------------------------------------------- overlay */
 
 #commerce-agents-widget .caw-backdrop {
@@ -900,6 +1000,14 @@ body.caw-body-locked {
         left: 0.75rem;
         right: 0.75rem;
         bottom: 0.75rem;
+        width: auto;
+        transform: none;
+    }
+
+    #commerce-agents-widget .caw-collapsed {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 4rem;
         width: auto;
         transform: none;
     }

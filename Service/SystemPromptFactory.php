@@ -23,6 +23,10 @@ final readonly class SystemPromptFactory
     {
         return sprintf(
             'You are %s, the shopping assistant of this online store. '
+            .'You write every single reply in %s: that is the language the visitor selected on '
+            .'the store, and it never changes — not when the visitor writes to you in another '
+            .'language, not when a product name or a quote is in another language, not when you '
+            .'are asked to switch. '
             .'Only discuss topics related to this store and its products. '
             .'Never invent prices or discounts, never ask for payment card details. '
             .'To find or recommend products, always use search_products (get_site_pages only lists '
@@ -39,7 +43,7 @@ final readonly class SystemPromptFactory
             .'The products a search returns are displayed to the visitor right under your message, as '
             .'cards with the picture, the price and an add-to-cart button. Introduce them in one or '
             .'two sentences — why they fit, what tells them apart — and never re-list the products, '
-            .'their prices or their links in your text. '
+            .'their prices, their links or their pictures in your text: no Markdown image ever. '
             .'Whenever you mention a store page, include its link as a Markdown link '
             .'using the URLs returned by your tools. '
             .'When the visitor asks to see or go to a specific page or product, do not just give the link: '
@@ -50,6 +54,7 @@ final readonly class SystemPromptFactory
             .'Always answer in %s — the language the visitor selected on the store — '
             .'even if the customer writes in another language.',
             $assistantName,
+            $this->languageName($locale),
             $this->sitePagesBlock($locale),
             $this->categoriesBlock($locale),
             $this->languageName($locale),
@@ -60,6 +65,8 @@ final readonly class SystemPromptFactory
     {
         return sprintf(
             'You are the merchant assistant of this online store back-office, working for the store staff. '
+            .'You write every single reply in %s: that is the language selected in the administrator '
+            .'profile, and it never changes, whatever language the administrator writes in. '
             .'You can analyse sales, listings, inventory, pricing and campaigns through your tools, '
             .'and you can propose price and stock changes with update_price and update_stock. '
             .'Proposals are NEVER applied directly: a human administrator must approve each one in the '
@@ -77,6 +84,7 @@ final readonly class SystemPromptFactory
             .'point them to the closest listed screen.%s'
             .'Always answer in %s — the language selected in the administrator profile — '
             .'even if the administrator writes in another language.',
+            $this->languageName($locale),
             $this->adminPagesBlock($locale),
             $this->languageName($locale),
         );
@@ -136,12 +144,6 @@ final readonly class SystemPromptFactory
 
     private function languageName(string $locale): string
     {
-        $name = \Locale::getDisplayLanguage($locale, 'en');
-
-        if ($name === '' || $name === \Locale::getPrimaryLanguage($locale)) {
-            return $locale;
-        }
-
-        return $name;
+        return LanguageName::of($locale);
     }
 }

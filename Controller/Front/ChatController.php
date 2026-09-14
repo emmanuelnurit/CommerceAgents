@@ -12,6 +12,7 @@ use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
+use CommerceAgents\Service\LanguageReminder;
 use CommerceAgents\Service\SystemPromptFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -76,7 +77,12 @@ final class ChatController extends BaseFrontController
 
         $conversation = $this->conversationService->getOrCreate('shopping', $session->getId(), $customerId, $locale);
         $this->conversationService->appendMessage($conversation->getId(), 'user', $userMessage);
-        $history = $this->conversationService->getHistory($conversation->getId());
+        // The system prompt alone loses against the language the visitor writes
+        // in; the directive has to ride on the last user turn.
+        $history = LanguageReminder::apply(
+            $this->conversationService->getHistory($conversation->getId()),
+            $locale,
+        );
 
         // Warm up the session cart while the real session is still writable:
         // once the stream starts the session is frozen (see SessionFreezer) and
