@@ -1007,7 +1007,8 @@ body.caw-body-locked {
     #commerce-agents-widget .caw-collapsed {
         left: 0.75rem;
         right: 0.75rem;
-        bottom: 4rem;
+        /* Clears the bar, which sits 0.75rem from the bottom and is 3.4rem tall. */
+        bottom: 4.75rem;
         width: auto;
         transform: none;
     }
