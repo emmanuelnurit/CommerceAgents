@@ -15,6 +15,12 @@ interface ToolInterface
      */
     public function getInputSchema(): array;
 
+    /**
+     * Capability group (one of the Capability constants) an agent definition
+     * must be granted for this tool to be exposed to it.
+     */
+    public function getRequiredCapability(): string;
+
     public function isAllowed(ToolContext $ctx): bool;
 
     public function execute(array $args, ToolContext $ctx): array;

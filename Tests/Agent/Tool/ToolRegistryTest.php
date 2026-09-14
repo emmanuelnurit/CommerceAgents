@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tests\Agent\Tool;
 
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Agent\Tool\ToolInterface;
@@ -12,6 +13,11 @@ use PHPUnit\Framework\TestCase;
 
 class FakeEchoTool implements ToolInterface
 {
+    public function getRequiredCapability(): string
+    {
+        return Capability::CATALOG_READ;
+    }
+
     public function getName(): string
     {
         return 'echo';

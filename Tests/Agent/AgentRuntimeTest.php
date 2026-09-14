@@ -10,6 +10,7 @@ use CommerceAgents\Agent\Llm\LlmConfig;
 use CommerceAgents\Agent\Llm\LlmEvent;
 use CommerceAgents\Agent\Llm\LlmMessage;
 use CommerceAgents\Agent\Llm\LlmToolCall;
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Agent\Tool\ToolInterface;
@@ -40,6 +41,11 @@ class ScriptedLlmClient implements LlmClientInterface
 
 class RecordingEchoTool implements ToolInterface
 {
+    public function getRequiredCapability(): string
+    {
+        return Capability::CATALOG_READ;
+    }
+
     public int $executions = 0;
 
     public function __construct(private readonly bool $failing = false)

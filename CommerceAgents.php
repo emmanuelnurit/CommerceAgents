@@ -7,10 +7,10 @@ namespace CommerceAgents;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Symfony\Component\Finder\Finder;
-
-use function Symfony\Component\DependencyInjection\Loader\Configurator\expr;
 use Thelia\Core\Install\Database;
 use Thelia\Module\BaseModule;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\expr;
 
 class CommerceAgents extends BaseModule
 {
@@ -25,6 +25,7 @@ class CommerceAgents extends BaseModule
         }
 
         $this->seedModelCatalog();
+        $this->seedAgentDefinitions();
     }
 
     public function update($currentVersion, $newVersion, ?ConnectionInterface $con = null): void
@@ -52,6 +53,7 @@ class CommerceAgents extends BaseModule
         }
 
         $this->seedModelCatalog();
+        $this->seedAgentDefinitions();
     }
 
     private function seedModelCatalog(): void
@@ -61,6 +63,15 @@ class CommerceAgents extends BaseModule
         }
 
         $this->getContainer()->get(Service\ModelCatalog::class)->seedFromBundledCatalog();
+    }
+
+    private function seedAgentDefinitions(): void
+    {
+        if (!$this->hasContainer() || !$this->getContainer()->has(Service\AgentDefinitionSeeder::class)) {
+            return;
+        }
+
+        $this->getContainer()->get(Service\AgentDefinitionSeeder::class)->seed();
     }
 
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void
@@ -93,20 +104,22 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Tool\Admin\Gateway\CampaignGatewayInterface::class, Service\Merchant\TheliaCampaignGateway::class);
         $servicesConfigurator->alias(Tool\Admin\Gateway\StagingGatewayInterface::class, Service\Merchant\TheliaStagingGateway::class);
         $servicesConfigurator->alias(StagedChange\StagedChangeRepositoryInterface::class, Service\Merchant\TheliaStagedChangeRepository::class);
+        $servicesConfigurator->alias(Agent\Llm\LlmClientFactoryInterface::class, Agent\Llm\LlmClientFactory::class);
 
         // Reached from the module lifecycle (postActivation / update) through the container.
         $servicesConfigurator->set(Service\ModelCatalog::class)->autowire(true)->autoconfigure(true)->public();
         $servicesConfigurator->set(Service\AgentConfigService::class)->autowire(true)->autoconfigure(true)->public();
+        $servicesConfigurator->set(Service\AgentDefinitionSeeder::class)->autowire(true)->autoconfigure(true)->public();
 
         $configServiceRef = str_replace('\\', '\\\\', Service\AgentConfigService::class);
         $servicesConfigurator->set(Tool\Shopping\AddToCartTool::class)
             ->autowire(true)->autoconfigure(true)
-            ->arg('$cartEnabled', expr(sprintf("service('%s').isCartEnabled()", $configServiceRef)));
+            ->arg('$cartEnabled', expr(\sprintf("service('%s').isCartEnabled()", $configServiceRef)));
         $servicesConfigurator->set(Tool\Shopping\PrepareCheckoutTool::class)
             ->autowire(true)->autoconfigure(true)
-            ->arg('$checkoutEnabled', expr(sprintf("service('%s').isCheckoutEnabled()", $configServiceRef)));
+            ->arg('$checkoutEnabled', expr(\sprintf("service('%s').isCheckoutEnabled()", $configServiceRef)));
         $servicesConfigurator->set(Tool\Shopping\GetOrdersTool::class)
             ->autowire(true)->autoconfigure(true)
-            ->arg('$ordersEnabled', expr(sprintf("service('%s').areOrdersEnabled()", $configServiceRef)));
+            ->arg('$ordersEnabled', expr(\sprintf("service('%s').areOrdersEnabled()", $configServiceRef)));
     }
 }

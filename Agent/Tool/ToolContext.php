@@ -6,6 +6,13 @@ namespace CommerceAgents\Agent\Tool;
 
 final readonly class ToolContext
 {
+    /**
+     * @param list<string>|null $capabilities capabilities granted to the agent
+     *                                        definition running this context;
+     *                                        null for the historical chat
+     *                                        contexts, where tools rely on
+     *                                        their own isAllowed() rules only
+     */
     public function __construct(
         public bool $isAdmin = false,
         public ?int $customerId = null,
@@ -14,6 +21,13 @@ final readonly class ToolContext
         public ?string $sessionId = null,
         public string $locale = 'fr_FR',
         public string $currencyCode = 'EUR',
+        public ?int $agentDefinitionId = null,
+        public ?array $capabilities = null,
     ) {
+    }
+
+    public function hasCapability(string $capability): bool
+    {
+        return $this->capabilities !== null && \in_array($capability, $this->capabilities, true);
     }
 }

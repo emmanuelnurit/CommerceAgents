@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tests\Mcp;
 
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolInterface;
 use CommerceAgents\Agent\Tool\ToolRegistry;
@@ -12,6 +13,11 @@ use PHPUnit\Framework\TestCase;
 
 final class CatalogFakeTool implements ToolInterface
 {
+    public function getRequiredCapability(): string
+    {
+        return Capability::CATALOG_READ;
+    }
+
     public function __construct(private readonly string $name, private readonly bool $adminOnly = true)
     {
     }

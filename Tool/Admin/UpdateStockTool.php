@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tool\Admin;
 
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolInterface;
 use CommerceAgents\Tool\Admin\Gateway\StagingGatewayInterface;
@@ -37,6 +38,11 @@ final readonly class UpdateStockTool implements ToolInterface
             ],
             'required' => ['pse_id', 'new_quantity'],
         ];
+    }
+
+    public function getRequiredCapability(): string
+    {
+        return Capability::INVENTORY_WRITE;
     }
 
     public function isAllowed(ToolContext $ctx): bool

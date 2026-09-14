@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tests\Mcp\Server;
 
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Agent\Tool\ToolInterface;
@@ -15,6 +16,11 @@ use PHPUnit\Framework\TestCase;
 
 final class FakeAdminTool implements ToolInterface
 {
+    public function getRequiredCapability(): string
+    {
+        return Capability::ANALYTICS_READ;
+    }
+
     public function __construct(private readonly string $name, private readonly bool $throws = false)
     {
     }
@@ -51,6 +57,11 @@ final class FakeAdminTool implements ToolInterface
 
 final class FakeShoppingTool implements ToolInterface
 {
+    public function getRequiredCapability(): string
+    {
+        return Capability::CATALOG_READ;
+    }
+
     public function getName(): string
     {
         return 'search_products';

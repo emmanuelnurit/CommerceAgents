@@ -14,11 +14,12 @@ use CommerceAgents\Agent\Tool\ToolRegistry;
 
 final readonly class AgentRuntime
 {
-    private const MAX_ITERATIONS = 5;
+    public const DEFAULT_MAX_ITERATIONS = 5;
 
     public function __construct(
         private LlmClientInterface $llmClient,
         private ToolRegistry $toolRegistry,
+        private int $maxIterations = self::DEFAULT_MAX_ITERATIONS,
     ) {
     }
 
@@ -34,7 +35,7 @@ final readonly class AgentRuntime
     {
         $toolSpecs = $this->toolRegistry->getToolSpecs($ctx);
 
-        for ($iteration = 0; $iteration < self::MAX_ITERATIONS; ++$iteration) {
+        for ($iteration = 0; $iteration < $this->maxIterations; ++$iteration) {
             $assistantText = '';
             $toolCalls = [];
             $stopReason = null;
@@ -92,6 +93,6 @@ final readonly class AgentRuntime
             }
         }
 
-        yield AgentEvent::error(sprintf('Agent stopped after %d tool iterations', self::MAX_ITERATIONS));
+        yield AgentEvent::error(\sprintf('Agent stopped after %d tool iterations', $this->maxIterations));
     }
 }

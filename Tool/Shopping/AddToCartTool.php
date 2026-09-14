@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tool\Shopping;
 
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CartGatewayInterface;
@@ -40,6 +41,11 @@ final readonly class AddToCartTool implements ToolInterface
             ],
             'required' => ['product_id'],
         ];
+    }
+
+    public function getRequiredCapability(): string
+    {
+        return Capability::CART_WRITE;
     }
 
     public function isAllowed(ToolContext $ctx): bool

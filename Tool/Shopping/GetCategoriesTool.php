@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tool\Shopping;
 
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CategoryGatewayInterface;
@@ -32,6 +33,11 @@ final readonly class GetCategoriesTool implements ToolInterface
     public function getInputSchema(): array
     {
         return ['type' => 'object', 'properties' => new \stdClass(), 'required' => []];
+    }
+
+    public function getRequiredCapability(): string
+    {
+        return Capability::CATALOG_READ;
     }
 
     public function isAllowed(ToolContext $ctx): bool

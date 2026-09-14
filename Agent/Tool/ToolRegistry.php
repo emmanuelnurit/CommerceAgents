@@ -29,15 +29,30 @@ class ToolRegistry
 
     public function execute(string $name, array $args, ToolContext $ctx): array
     {
-        $tool = $this->tools[$name] ?? throw new ToolException(sprintf('Unknown tool "%s"', $name));
+        $tool = $this->tools[$name] ?? throw new ToolException(\sprintf('Unknown tool "%s"', $name));
 
-        if (!$tool->isAllowed($ctx)) {
-            throw new ToolException(sprintf('Tool "%s" not allowed in this context', $name));
+        if (!$this->isAllowed($tool, $ctx)) {
+            throw new ToolException(\sprintf('Tool "%s" not allowed in this context', $name));
         }
 
         $this->validateArguments($tool->getInputSchema(), $args, $name);
 
         return $tool->execute($args, $ctx);
+    }
+
+    /**
+     * For a context carrying an agent definition, the granted capabilities are
+     * the whole rule: an autonomous run has no admin or customer session, so
+     * the per-tool session rules do not apply (plan MYO-226 §3.4). The
+     * historical chat contexts keep relying on each tool's own rules.
+     */
+    public function isAllowed(ToolInterface $tool, ToolContext $ctx): bool
+    {
+        if ($ctx->capabilities !== null) {
+            return $ctx->hasCapability($tool->getRequiredCapability());
+        }
+
+        return $tool->isAllowed($ctx);
     }
 
     /**
@@ -49,7 +64,7 @@ class ToolRegistry
     {
         $specs = [];
         foreach ($this->tools as $tool) {
-            if (!$tool->isAllowed($ctx)) {
+            if (!$this->isAllowed($tool, $ctx)) {
                 continue;
             }
             $specs[] = [
@@ -66,7 +81,7 @@ class ToolRegistry
     {
         foreach ($schema['required'] ?? [] as $field) {
             if (!\array_key_exists($field, $args)) {
-                throw new ToolException(sprintf('Tool "%s": missing required argument "%s"', $toolName, $field));
+                throw new ToolException(\sprintf('Tool "%s": missing required argument "%s"', $toolName, $field));
             }
         }
 
@@ -76,7 +91,7 @@ class ToolRegistry
             }
             $expected = $definition['type'] ?? null;
             if ($expected !== null && !$this->matchesType($args[$field], $expected)) {
-                throw new ToolException(sprintf('Tool "%s": argument "%s" must be of type %s', $toolName, $field, $expected));
+                throw new ToolException(\sprintf('Tool "%s": argument "%s" must be of type %s', $toolName, $field, $expected));
             }
         }
     }

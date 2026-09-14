@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tool\Shopping;
 
+use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolInterface;
 use CommerceAgents\Tool\Shopping\Gateway\SitePagesGatewayInterface;
@@ -36,6 +37,11 @@ final readonly class GetSitePagesTool implements ToolInterface
             ],
             'required' => [],
         ];
+    }
+
+    public function getRequiredCapability(): string
+    {
+        return Capability::CONTENT_READ;
     }
 
     public function isAllowed(ToolContext $ctx): bool

@@ -33,6 +33,25 @@ final readonly class AgentConfigService
         );
     }
 
+    /**
+     * LlmConfig of a configurable agent, honouring its own provider/model
+     * overrides (NULL = module default). Read at every run so a change in the
+     * back-office takes effect on the very next execution (plan MYO-226 §3.8).
+     */
+    public function getLlmConfigForAgent(?string $agentProvider, ?string $agentModel): LlmConfig
+    {
+        $provider = $agentProvider !== null && \in_array($agentProvider, LlmClientFactory::PROVIDERS, true)
+            ? $agentProvider
+            : $this->getProvider();
+
+        return new LlmConfig(
+            provider: $provider,
+            model: $agentModel !== null && $agentModel !== '' ? $agentModel : $this->getModel($provider),
+            apiKey: $this->getApiKey($provider),
+            baseUrl: $this->getBaseUrl($provider),
+        );
+    }
+
     public function getApiKey(string $provider): string
     {
         return (string) CommerceAgents::getConfigValue(self::providerKey('api_key', $provider), '');

@@ -27,7 +27,7 @@ final readonly class SystemPromptFactory
 
     public function shopping(string $assistantName, string $locale): string
     {
-        return sprintf(
+        return \sprintf(
             'You are %s, the shopping assistant of this online store. '
             .'You write every single reply in %s: that is the language the visitor selected on '
             .'the store, and it never changes — not when the visitor writes to you in another '
@@ -86,7 +86,7 @@ final readonly class SystemPromptFactory
 
     public function merchant(string $locale): string
     {
-        return sprintf(
+        return \sprintf(
             'You are the merchant assistant of this online store back-office, working for the store staff. '
             .'You write every single reply in %s: that is the language selected in the administrator '
             .'profile, and it never changes, whatever language the administrator writes in. '
@@ -110,6 +110,31 @@ final readonly class SystemPromptFactory
             $this->languageName($locale),
             $this->adminPagesBlock($locale),
             $this->languageName($locale),
+        );
+    }
+
+    /**
+     * System prompt of a configurable agent: a fixed guardrail base the
+     * merchant cannot edit, followed by the role/mission text of the
+     * definition (plan MYO-226 §3.1).
+     */
+    public function agent(string $title, string $rolePrompt, string $locale): string
+    {
+        return \sprintf(
+            'You are "%s", an autonomous AI agent operated by the staff of this online store. '
+            .'You run unattended: nobody can answer questions during this run, so carry out your '
+            .'mission with the tools you have been granted, then end with a short report of what '
+            .'you did and found. '
+            .'You write every single reply in %s, whatever language the mission below is written in. '
+            .'Never invent data: every figure and fact you give must come from a tool result. '
+            .'Price and stock changes you request are recorded as proposals a human administrator '
+            .'must approve in the approval console before anything is applied; present them as such. '
+            .'If the mission cannot be completed with the tools you have, say precisely what is missing '
+            .'instead of improvising.'
+            ."\n\nMission:\n%s",
+            $title,
+            $this->languageName($locale),
+            trim($rolePrompt) !== '' ? trim($rolePrompt) : 'No specific mission was configured. Report that the mission text is empty.',
         );
     }
 
@@ -138,14 +163,14 @@ final readonly class SystemPromptFactory
     {
         $lines = [];
         foreach ($this->categoryGateway->getCategories($locale, self::MAX_PROMPT_CATEGORIES) as $category) {
-            $lines[] = sprintf('- %s (category_id %d, %d products)', $category['title'], $category['id'], $category['productCount']);
+            $lines[] = \sprintf('- %s (category_id %d, %d products)', $category['title'], $category['id'], $category['productCount']);
         }
 
         if ($lines === []) {
             return '';
         }
 
-        return sprintf("Product categories:\n%s\n\n", implode("\n", $lines));
+        return \sprintf("Product categories:\n%s\n\n", implode("\n", $lines));
     }
 
     /**
@@ -156,14 +181,14 @@ final readonly class SystemPromptFactory
     {
         $lines = [];
         foreach ($this->optionGateway->getValues($locale, self::MAX_PROMPT_OPTIONS) as $value) {
-            $lines[] = sprintf('- %s: %s (%d variants)', $value['attribute'], $value['title'], $value['variantCount']);
+            $lines[] = \sprintf('- %s: %s (%d variants)', $value['attribute'], $value['title'], $value['variantCount']);
         }
 
         if ($lines === []) {
             return '';
         }
 
-        return sprintf("Option values:\n%s\n\n", implode("\n", $lines));
+        return \sprintf("Option values:\n%s\n\n", implode("\n", $lines));
     }
 
     /**
@@ -173,14 +198,14 @@ final readonly class SystemPromptFactory
     {
         $lines = [];
         foreach ($this->featureGateway->getValues($locale, self::MAX_PROMPT_FEATURES) as $value) {
-            $lines[] = sprintf('- %s: %s (%d products)', $value['feature'], $value['title'], $value['productCount']);
+            $lines[] = \sprintf('- %s: %s (%d products)', $value['feature'], $value['title'], $value['productCount']);
         }
 
         if ($lines === []) {
             return '';
         }
 
-        return sprintf("Feature values:\n%s\n\n", implode("\n", $lines));
+        return \sprintf("Feature values:\n%s\n\n", implode("\n", $lines));
     }
 
     /**
@@ -190,14 +215,14 @@ final readonly class SystemPromptFactory
     {
         $lines = [];
         foreach ($pages as $page) {
-            $lines[] = sprintf('- %s: %s', $page['title'], $page['url']);
+            $lines[] = \sprintf('- %s: %s', $page['title'], $page['url']);
         }
 
         if ($lines === []) {
             return ' ';
         }
 
-        return sprintf("\n\n%s:\n%s\n\n", $heading, implode("\n", $lines));
+        return \sprintf("\n\n%s:\n%s\n\n", $heading, implode("\n", $lines));
     }
 
     private function languageName(string $locale): string

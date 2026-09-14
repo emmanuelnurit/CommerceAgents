@@ -6,7 +6,7 @@ namespace CommerceAgents\Agent\Llm;
 
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-final readonly class LlmClientFactory
+final readonly class LlmClientFactory implements LlmClientFactoryInterface
 {
     public const PROVIDERS = ['anthropic', 'mistral', 'openai-compatible'];
 
@@ -29,7 +29,7 @@ final readonly class LlmClientFactory
             'anthropic' => new AnthropicClient($this->httpClient),
             'mistral' => new MistralClient($this->httpClient),
             'openai-compatible' => new OpenAiCompatibleClient($this->httpClient),
-            default => throw new \InvalidArgumentException(sprintf('Unknown LLM provider "%s"', $provider)),
+            default => throw new \InvalidArgumentException(\sprintf('Unknown LLM provider "%s"', $provider)),
         };
     }
 }
