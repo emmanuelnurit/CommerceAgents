@@ -128,3 +128,97 @@ test('a real link is still a link', () => {
     assert.equal(anchors.length, 1);
     assert.equal(text(anchors[0]), 'page livraison');
 });
+
+function shape(node) {
+    if (node.nodeName === '#text') {
+        return JSON.stringify(node.textContent);
+    }
+    return node.nodeName + (node.childNodes.length ? '[' + node.childNodes.map(shape).join(',') + ']' : '');
+}
+
+test('a thematic break becomes a rule, not three dashes of text', () => {
+    const blocks = renderBlocks('Ajouté au panier.\n\n---\n\nTotal : 732 €');
+
+    assert.deepEqual(blocks.map((block) => block.nodeName), ['P', 'HR', 'P']);
+});
+
+test('every rule spelling is recognised', () => {
+    for (const rule of ['---', '***', '___', '- - -'.replace(/ /g, ''), '****']) {
+        assert.equal(renderBlocks(rule)[0].nodeName, 'HR', rule);
+    }
+});
+
+test('a bullet list is not mistaken for a rule', () => {
+    const blocks = renderBlocks('- Tina\n- Sally');
+
+    assert.equal(blocks[0].nodeName, 'UL');
+    assert.equal(blocks[0].childNodes.length, 2);
+});
+
+test('a quote is a blockquote, not a line starting with a chevron', () => {
+    const blocks = renderBlocks('> Livraison offerte dès 50 €.\n> Retours sous 14 jours.');
+
+    assert.equal(blocks[0].nodeName, 'BLOCKQUOTE');
+    assert.ok(text(blocks[0]).includes('Livraison offerte'));
+    assert.ok(text(blocks[0]).includes('Retours sous 14 jours'));
+    assert.equal(text(blocks[0]).includes('>'), false);
+});
+
+test('a fenced block keeps its content verbatim', () => {
+    const blocks = renderBlocks('Référence :\n\n```\nPROD001-0\n**not bold**\n```');
+
+    assert.equal(blocks[1].nodeName, 'PRE');
+    assert.equal(blocks[1].childNodes[0].nodeName, 'CODE');
+    assert.equal(blocks[1].childNodes[0].textContent, 'PROD001-0\n**not bold**');
+});
+
+test('an unclosed fence still renders instead of swallowing the reply', () => {
+    const blocks = renderBlocks('```\nPROD001-0');
+
+    assert.equal(blocks[0].nodeName, 'PRE');
+    assert.equal(blocks[0].childNodes[0].textContent, 'PROD001-0');
+});
+
+test('underscores are bold and italic too', () => {
+    assert.equal(shape(renderBlocks('Le __Stacy__ est là.')[0]), 'P["Le ",STRONG["Stacy"]," est là."]');
+    assert.equal(shape(renderBlocks('Le _Stacy_ est là.')[0]), 'P["Le ",EM["Stacy"]," est là."]');
+});
+
+test('an underscore inside a word stays a plain underscore', () => {
+    const rendered = text(renderBlocks('Le fichier prod_001_a.jpg est en ligne.')[0]);
+
+    assert.equal(rendered, 'Le fichier prod_001_a.jpg est en ligne.');
+});
+
+test('headings go up to six levels', () => {
+    for (const hashes of ['#', '##', '###', '####', '#####', '######']) {
+        const blocks = renderBlocks(hashes + ' Détail');
+        assert.equal(blocks[0].className, 'cam-heading', hashes);
+        assert.equal(text(blocks[0]), 'Détail');
+    }
+});
+
+test('a nested list keeps its level', () => {
+    const blocks = renderBlocks('- Chaises\n  - Tina\n  - Sally\n- Fauteuils');
+
+    assert.equal(shape(blocks[0]), 'UL[LI["Chaises",UL[LI["Tina"],LI["Sally"]]],LI["Fauteuils"]]');
+});
+
+test('a wrapped list item stays one item', () => {
+    const blocks = renderBlocks('- Tina, une chaise\n  légère et empilable\n- Sally');
+
+    assert.equal(blocks[0].childNodes.length, 2);
+    assert.equal(text(blocks[0].childNodes[0]), 'Tina, une chaise légère et empilable');
+});
+
+test('an ordered list does not swallow the bullets that follow', () => {
+    const blocks = renderBlocks('1. Tina\n2. Sally\n- Autre');
+
+    assert.equal(blocks[0].nodeName, 'OL');
+    assert.equal(blocks[1].nodeName, 'UL');
+});
+
+test('a backslash protects the character that follows', () => {
+    assert.equal(text(renderBlocks('Prix 5 \\* 3')[0]), 'Prix 5 * 3');
+    assert.equal(text(renderBlocks('Un \\_vrai\\_ souligné')[0]), 'Un _vrai_ souligné');
+});

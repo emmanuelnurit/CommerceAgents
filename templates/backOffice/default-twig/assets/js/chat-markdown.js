@@ -4,50 +4,78 @@
  * Minimal safe Markdown renderer for agent replies.
  *
  * Builds DOM exclusively through createElement/textContent — LLM output is
- * never parsed as HTML. Supported: paragraphs, **bold**, *italic*,
- * ~~strikethrough~~, `code`, [links](url) (http(s) or site-relative only),
- * unordered/ordered lists, tables, #### headings. A paragraph made of a single
- * link is styled as a call-to-action button.
+ * never parsed as HTML. Supported: paragraphs, bold and italic in both the
+ * asterisk and underscore forms, strikethrough, inline code, fenced code blocks,
+ * [links](url) (http(s) or site-relative only), unordered/ordered lists with
+ * one level of nesting and wrapped items, blockquotes, horizontal rules,
+ * tables, # to ###### headings, and backslash escapes. A paragraph made of a
+ * single link is styled as a call-to-action button.
  *
  * Twin file notice: this file is shipped twice (frontOffice and backOffice
  * asset directories) because module_asset() resolves per template type.
  * Keep both copies identical.
  */
 (function (global) {
+    function isWordChar(character) {
+        return character !== undefined && /[A-Za-z0-9]/.test(character);
+    }
+
     function appendInline(parent, text) {
-        // Fresh regex per call: appendInline recurses into bold/italic/strike
-        // and link labels, and a shared lastIndex would corrupt the outer scan.
         // A Markdown image never belongs in chat text: products carry their own
         // card, and the link syntax below would otherwise turn it into a bare
         // link to a JPEG.
-        text = text.replace(/!\[[^\]]*\]\([^\s)]*\)/g, '');
+        text = String(text).replace(/!\[[^\]]*\]\([^\s)]*\)/g, '');
 
-        var inline = /(\*\*([^*]+)\*\*)|(\*([^*\s][^*]*)\*)|(~~([^~]+)~~)|(`([^`]+)`)|(\[([^\]]+)\]\(((?:https?:\/\/|\/)[^\s)]*)\))/g;
+        // Fresh regex per call: appendInline recurses into bold/italic/strike
+        // and link labels, and a shared lastIndex would corrupt the outer scan.
+        var inline = new RegExp(
+            '(\\\\[\\\\`*_~\\[\\]()#+\\-.!>])'          // 1: escaped punctuation
+            + '|(\\*\\*([^*]+)\\*\\*)'                   // 2,3: **bold**
+            + '|(__([^_]+)__)'                           // 4,5: __bold__
+            + '|(\\*([^*\\s][^*]*)\\*)'                  // 6,7: *italic*
+            + '|(_([^_\\s][^_]*)_)'                      // 8,9: _italic_
+            + '|(~~([^~]+)~~)'                           // 10,11: ~~strike~~
+            + '|(`([^`]+)`)'                             // 12,13: `code`
+            + '|(\\[([^\\]]+)\\]\\(((?:https?://|/)[^\\s)]*)\\))', // 14,15,16: link
+            'g'
+        );
+
         var last = 0;
         var match;
         while ((match = inline.exec(text)) !== null) {
+            // snake_case and file_names must not turn into italics.
+            if (match[9] !== undefined
+                && (isWordChar(text[match.index - 1]) || isWordChar(text[match.index + match[0].length]))) {
+                continue;
+            }
+
             if (match.index > last) {
                 parent.appendChild(document.createTextNode(text.slice(last, match.index)));
             }
+
             var el;
-            if (match[2] !== undefined) {
+            if (match[1] !== undefined) {
+                parent.appendChild(document.createTextNode(match[1].slice(1)));
+                last = match.index + match[0].length;
+                continue;
+            } else if (match[3] !== undefined || match[5] !== undefined) {
                 el = document.createElement('strong');
-                appendInline(el, match[2]);
-            } else if (match[4] !== undefined) {
+                appendInline(el, match[3] !== undefined ? match[3] : match[5]);
+            } else if (match[7] !== undefined || match[9] !== undefined) {
                 el = document.createElement('em');
-                appendInline(el, match[4]);
-            } else if (match[6] !== undefined) {
+                appendInline(el, match[7] !== undefined ? match[7] : match[9]);
+            } else if (match[11] !== undefined) {
                 el = document.createElement('s');
-                appendInline(el, match[6]);
-            } else if (match[8] !== undefined) {
+                appendInline(el, match[11]);
+            } else if (match[13] !== undefined) {
                 el = document.createElement('code');
-                el.textContent = match[8];
+                el.textContent = match[13];
             } else {
                 el = document.createElement('a');
-                appendInline(el, match[10]);
-                el.setAttribute('href', match[11]);
+                appendInline(el, match[15]);
+                el.setAttribute('href', match[16]);
                 el.className = 'cam-link';
-                if (match[11].indexOf('http') === 0 && match[11].indexOf(global.location.origin) !== 0) {
+                if (match[16].indexOf('http') === 0 && match[16].indexOf(global.location.origin) !== 0) {
                     el.setAttribute('rel', 'noopener');
                     el.setAttribute('target', '_blank');
                 }
@@ -74,6 +102,24 @@
         });
     }
 
+    function isHorizontalRule(line) {
+        return /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line);
+    }
+
+    function isFence(line) {
+        return /^\s*(?:```|~~~)/.test(line);
+    }
+
+    function isQuote(line) {
+        return /^\s*>\s?/.test(line);
+    }
+
+    function listMarker(line) {
+        var match = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/.exec(line);
+
+        return match === null ? null : { indent: match[1].length, ordered: /^\s*\d/.test(line), text: match[2] };
+    }
+
     function render(container, markdown) {
         container.textContent = '';
         append(container, markdown);
@@ -82,6 +128,8 @@
     // Renders after the existing children. No block ever spans a blank line,
     // so appending two halves split on "\n\n" builds the same DOM as one
     // render: the chat widgets rely on this to rebuild only the streaming tail.
+    // A fenced code block holding a blank line is the one exception; the final
+    // full render at end of stream settles it.
     function append(container, markdown) {
         var lines = String(markdown || '').split('\n');
         var i = 0;
@@ -93,10 +141,85 @@
             return isTableRow(lines[index]) && index + 1 < lines.length && isTableSeparator(lines[index + 1]);
         }
 
+        function startsBlock(index) {
+            return listMarker(lines[index]) !== null
+                || /^\s*#{1,6}\s+/.test(lines[index])
+                || isHorizontalRule(lines[index])
+                || isQuote(lines[index])
+                || isFence(lines[index])
+                || isTableStart(index);
+        }
+
+        function buildList(baseIndent) {
+            var first = listMarker(lines[i]);
+            var list = document.createElement(first.ordered ? 'ol' : 'ul');
+            list.className = 'cam-list';
+            var item = null;
+
+            while (i < lines.length && lines[i].trim() !== '') {
+                var marker = listMarker(lines[i]);
+
+                if (marker !== null) {
+                    if (marker.indent > baseIndent && item !== null) {
+                        item.appendChild(buildList(marker.indent));
+                        continue;
+                    }
+                    if (marker.indent < baseIndent || marker.ordered !== first.ordered) {
+                        break;
+                    }
+                    item = document.createElement('li');
+                    appendInline(item, marker.text);
+                    list.appendChild(item);
+                    i += 1;
+                    continue;
+                }
+
+                // An item wrapped onto the next line belongs to that item.
+                if (item !== null && /^\s+\S/.test(lines[i]) && !startsBlock(i)) {
+                    item.appendChild(document.createTextNode(' '));
+                    appendInline(item, lines[i].trim());
+                    i += 1;
+                    continue;
+                }
+
+                break;
+            }
+
+            return list;
+        }
+
         while (i < lines.length) {
             var line = lines[i];
 
             if (line.trim() === '') {
+                i += 1;
+                continue;
+            }
+
+            // Fences first: nothing inside a code block is Markdown.
+            if (isFence(line)) {
+                var fence = /^\s*(```|~~~)/.exec(line)[1];
+                var code = [];
+                i += 1;
+                while (i < lines.length && lines[i].indexOf(fence) === -1) {
+                    code.push(lines[i]);
+                    i += 1;
+                }
+                i += 1;
+                var pre = document.createElement('pre');
+                pre.className = 'cam-code';
+                var codeEl = document.createElement('code');
+                codeEl.textContent = code.join('\n');
+                pre.appendChild(codeEl);
+                container.appendChild(pre);
+                continue;
+            }
+
+            // Before lists: "* * *" is a rule, not three bullets.
+            if (isHorizontalRule(line)) {
+                var rule = document.createElement('hr');
+                rule.className = 'cam-rule';
+                container.appendChild(rule);
                 i += 1;
                 continue;
             }
@@ -131,36 +254,28 @@
                 continue;
             }
 
-            if (/^\s*[-*]\s+/.test(line)) {
-                var ul = document.createElement('ul');
-                ul.className = 'cam-list';
-                while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
-                    var li = document.createElement('li');
-                    appendInline(li, lines[i].replace(/^\s*[-*]\s+/, ''));
-                    ul.appendChild(li);
+            if (isQuote(line)) {
+                var quoted = [];
+                while (i < lines.length && isQuote(lines[i])) {
+                    quoted.push(lines[i].replace(/^\s*>\s?/, ''));
                     i += 1;
                 }
-                container.appendChild(ul);
+                var quote = document.createElement('blockquote');
+                quote.className = 'cam-quote';
+                append(quote, quoted.join('\n'));
+                container.appendChild(quote);
                 continue;
             }
 
-            if (/^\s*\d+[.)]\s+/.test(line)) {
-                var ol = document.createElement('ol');
-                ol.className = 'cam-list';
-                while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) {
-                    var oli = document.createElement('li');
-                    appendInline(oli, lines[i].replace(/^\s*\d+[.)]\s+/, ''));
-                    ol.appendChild(oli);
-                    i += 1;
-                }
-                container.appendChild(ol);
+            if (listMarker(line) !== null) {
+                container.appendChild(buildList(listMarker(line).indent));
                 continue;
             }
 
-            if (/^#{1,4}\s+/.test(line)) {
+            if (/^\s*#{1,6}\s+/.test(line)) {
                 var heading = document.createElement('p');
                 heading.className = 'cam-heading';
-                appendInline(heading, line.replace(/^#{1,4}\s+/, ''));
+                appendInline(heading, line.replace(/^\s*#{1,6}\s+/, ''));
                 container.appendChild(heading);
                 i += 1;
                 continue;
@@ -170,8 +285,7 @@
             paragraph.className = 'cam-p';
             var paragraphStart = i;
             var first = true;
-            while (i < lines.length && lines[i].trim() !== ''
-                && !/^\s*([-*]|\d+[.)]|#{1,4})\s+/.test(lines[i]) && !isTableStart(i)) {
+            while (i < lines.length && lines[i].trim() !== '' && !startsBlock(i)) {
                 if (!first) {
                     paragraph.appendChild(document.createElement('br'));
                 }
