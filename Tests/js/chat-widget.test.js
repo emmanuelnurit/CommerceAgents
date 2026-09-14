@@ -328,3 +328,71 @@ test('the promo price of a variant wins over the product price', () => {
     assert.equal(widget.hasPromo(variant), true);
     assert.equal(widget.bestPrice(variant), 238.8);
 });
+
+test('an option search shows the matching variants, not whole products', () => {
+    const widget = component({ i18n: { optionResults: 'Déclinaisons correspondant à' } });
+
+    widget.pushToolBlock({
+        name: 'search_products',
+        result: {
+            count: 2,
+            matched_option: { id: 3, title: 'Orange', attribute: 'Couleur', variantCount: 11 },
+            variants: [
+                { id: 12, ref: 'PROD003-2', productId: 3, productTitle: 'Stacy', url: '/stacy.html', label: 'Couleur: Orange', price: 783.6, promoPrice: 732, currency: 'EUR', inStock: true, imageUrl: '/img/stacy.jpg' },
+                { id: 40, ref: 'PROD011-1', productId: 11, productTitle: 'Tina', url: '/tina.html', label: 'Couleur: Orange', price: 90, promoPrice: null, currency: 'EUR', inStock: true, imageUrl: '/img/tina.jpg' },
+            ],
+        },
+    });
+
+    assert.equal(widget.messages.length, 1);
+    assert.equal(widget.messages[0].kind, 'variants');
+    assert.equal(widget.messages[0].product, null);
+    assert.equal(widget.messages[0].option.title, 'Orange');
+    assert.equal(widget.messages[0].data.length, 2);
+    assert.equal(widget.variantsHeading(widget.messages[0]), 'Déclinaisons correspondant à Orange');
+});
+
+test('an option search feeds the sidebar with the product behind each variant', () => {
+    const widget = component({});
+
+    widget.pushToolBlock({
+        name: 'search_products',
+        result: {
+            matched_option: { id: 3, title: 'Orange' },
+            variants: [
+                { id: 12, ref: 'PROD003-2', productTitle: 'Stacy', url: '/stacy.html', imageUrl: '/img/stacy.jpg', price: 783.6, promoPrice: 732, currency: 'EUR' },
+            ],
+        },
+    });
+
+    assert.equal(widget.highlights[0].title, 'Stacy');
+    assert.equal(widget.highlights[0].url, '/stacy.html');
+    assert.equal(widget.bestPrice(widget.highlights[0]), 732);
+});
+
+test('an option search with nothing matching leaves the thread alone', () => {
+    const widget = component({});
+
+    widget.pushToolBlock({ name: 'search_products', result: { count: 0, variants: [], matched_option: null, unknown_option: 'fluo' } });
+
+    assert.equal(widget.messages.length, 0);
+});
+
+test('a variant card falls back to the product of the details block', () => {
+    const widget = component({ i18n: { variantsTitle: 'Options disponibles' } });
+    const message = { kind: 'variants', product: { title: 'Horatio', url: '/horatio.html', currency: 'EUR' }, option: null, data: [] };
+
+    assert.equal(widget.variantsHeading(message), 'Horatio — Options disponibles');
+    assert.equal(widget.variantUrl(message, { url: null }), '/horatio.html');
+    assert.equal(widget.variantCurrency(message, { currency: null }), 'EUR');
+});
+
+test('adding an option-search variant to the cart names its own product', () => {
+    const widget = component({ i18n: { addToCartPrompt: 'Ajoute :' } });
+    const sent = [];
+    widget.sendSuggestion = (text) => sent.push(text);
+
+    widget.askAddVariantToCart(null, { ref: 'PROD003-2', productTitle: 'Stacy', label: 'Couleur: Orange' });
+
+    assert.equal(sent[0], 'Ajoute : Stacy — Couleur: Orange (PROD003-2)');
+});

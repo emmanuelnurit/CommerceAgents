@@ -25,6 +25,25 @@ interface CatalogGatewayInterface
     ): array;
 
     /**
+     * Variants carrying one option value ("Couleur: Orange"), across products.
+     *
+     * @return list<array{id: int, ref: string, productId: int, productTitle: string,
+     *                    url: string|null, label: string, price: float|null,
+     *                    promoPrice: float|null, currency: string|null,
+     *                    inStock: bool, imageUrl: string|null}>
+     */
+    public function searchVariants(
+        ?string $query,
+        int $attributeAvId,
+        ?int $categoryId,
+        ?float $minPrice,
+        ?float $maxPrice,
+        bool $promoOnly,
+        int $limit,
+        ToolContext $ctx,
+    ): array;
+
+    /**
      * @return array|null {id, ref, title, description, categories, url, imageUrl,
      *                    pses: [{id, ref, isDefault, attributes, label, price,
      *                            promoPrice, stock, inStock, imageUrl}]}

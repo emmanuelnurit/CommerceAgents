@@ -13,7 +13,9 @@ use Thelia\Api\Service\DataAccess\DataAccessService;
 use Thelia\Core\Security\SecurityContext;
 use Thelia\Domain\Catalog\Product\PSEFacade;
 use Thelia\Domain\Taxation\TaxEngine\TaxEngine;
+use Propel\Runtime\ActiveQuery\Criteria;
 use Thelia\Model\ProductSaleElements;
+use Thelia\Model\ProductSaleElementsQuery;
 
 final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
 {
@@ -70,6 +72,83 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
             'products' => $this->runSearch('', $category['id'], $minPrice, $maxPrice, $promoOnly, $limit, $ctx->locale),
             'matchedCategory' => $category,
         ];
+    }
+
+    public function searchVariants(
+        ?string $query,
+        int $attributeAvId,
+        ?int $categoryId,
+        ?float $minPrice,
+        ?float $maxPrice,
+        bool $promoOnly,
+        int $limit,
+        ToolContext $ctx,
+    ): array {
+        [$minPrice, $maxPrice] = PriceRange::sane($minPrice, $maxPrice);
+        $query = trim((string) $query);
+
+        $search = ProductSaleElementsQuery::create()
+            ->useAttributeCombinationQuery()
+                ->filterByAttributeAvId($attributeAvId)
+            ->endUse();
+
+        $products = $search->useProductQuery()->filterByVisible(true);
+        if ($query !== '') {
+            $products->useI18nQuery($ctx->locale)
+                ->filterByTitle('%'.$query.'%', Criteria::LIKE)
+            ->endUse();
+        }
+        if ($categoryId !== null) {
+            $products->useProductCategoryQuery()
+                ->filterByCategoryId($categoryId)
+            ->endUse();
+        }
+        $products->endUse();
+
+        if ($promoOnly) {
+            $search->filterByPromo(1);
+        }
+
+        $bounds = array_filter(['min' => $minPrice, 'max' => $maxPrice], static fn ($bound): bool => $bound !== null);
+        if ($bounds !== []) {
+            $search->useProductPriceQuery()
+                ->filterByCurrencyId($this->currencyId())
+                ->filterByPrice($bounds)
+            ->endUse();
+        }
+
+        $variants = [];
+        foreach ($search->orderByProductId()->limit(max(1, $limit))->find() as $pse) {
+            $variants[] = $this->mapVariant($pse, $ctx->locale);
+        }
+
+        return $variants;
+    }
+
+    private function mapVariant(ProductSaleElements $pse, string $locale): array
+    {
+        $product = $pse->getProduct();
+        $product->setLocale($locale);
+        $variant = $this->mapPse($pse, $locale);
+
+        return [
+            'id' => $variant['id'],
+            'ref' => $variant['ref'],
+            'productId' => (int) $product->getId(),
+            'productTitle' => $product->getTitle() ?? '',
+            'url' => $product->getUrl($locale),
+            'label' => $variant['label'],
+            'price' => $variant['price'],
+            'promoPrice' => $variant['promoPrice'],
+            'currency' => $this->session()?->getCurrency()->getCode(),
+            'inStock' => $variant['inStock'],
+            'imageUrl' => $variant['imageUrl'],
+        ];
+    }
+
+    private function currencyId(): int
+    {
+        return (int) ($this->session()?->getCurrency()->getId() ?? 1);
     }
 
     public function getProductDetails(int $productId, ToolContext $ctx): ?array

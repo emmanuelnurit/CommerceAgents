@@ -30,6 +30,7 @@ function commerceAgentsChat() {
             outOfStock: 'Out of stock',
             inCategory: 'In the category',
             variantsTitle: 'Available options',
+            optionResults: 'Variants matching',
             expandAssistant: 'Open the full conversation',
             minimiseAssistant: 'Minimise the conversation',
             addToCartPrompt: 'Add this product to my cart:',
@@ -229,8 +230,24 @@ function commerceAgentsChat() {
         askAddVariantToCart(product, variant) {
             // The reference is what makes the turn unambiguous: "the blue one"
             // is not enough once a product has five colours.
+            const title = variant.productTitle || (product && product.title) || '';
             const label = variant.label ? ' — ' + variant.label : '';
-            this.sendSuggestion(this.i18n.addToCartPrompt + ' ' + product.title + label + ' (' + variant.ref + ')');
+            this.sendSuggestion(this.i18n.addToCartPrompt + ' ' + title + label + ' (' + variant.ref + ')');
+        },
+
+        variantsHeading(message) {
+            if (message.option) {
+                return this.i18n.optionResults + ' ' + message.option.title;
+            }
+            return message.product ? message.product.title + ' — ' + this.i18n.variantsTitle : this.i18n.variantsTitle;
+        },
+
+        variantUrl(message, variant) {
+            return variant.url || (message.product ? message.product.url : '#');
+        },
+
+        variantCurrency(message, variant) {
+            return variant.currency || (message.product ? message.product.currency : null);
         },
 
         retry() {
@@ -387,7 +404,28 @@ function commerceAgentsChat() {
             const result = payload.result || {};
             this.closeStreamingMessage();
 
-            if (payload.name === 'search_products' && Array.isArray(result.products) && result.products.length > 0) {
+            if (payload.name === 'search_products' && Array.isArray(result.variants) && result.variants.length > 0) {
+                // An option search answers with variants: only the orange ones,
+                // each carrying its own product title and reference.
+                this.messages.push({
+                    kind: 'variants',
+                    role: 'assistant',
+                    product: null,
+                    option: result.matched_option || null,
+                    data: result.variants,
+                });
+                this.highlights = result.variants.slice(0, COMMERCE_AGENTS_MAX_HIGHLIGHTS).map(function (variant) {
+                    return {
+                        id: variant.id,
+                        title: variant.productTitle,
+                        url: variant.url,
+                        imageUrl: variant.imageUrl,
+                        price: variant.price,
+                        promoPrice: variant.promoPrice,
+                        currency: variant.currency,
+                    };
+                });
+            } else if (payload.name === 'search_products' && Array.isArray(result.products) && result.products.length > 0) {
                 this.messages.push({
                     kind: 'products',
                     role: 'assistant',
@@ -404,7 +442,7 @@ function commerceAgentsChat() {
                 // One variant is just the product; several are the answer to
                 // "which colours do you have?" and deserve their own cards.
                 if (variants.length > 1) {
-                    this.messages.push({ kind: 'variants', role: 'assistant', product: product, data: variants });
+                    this.messages.push({ kind: 'variants', role: 'assistant', product: product, option: null, data: variants });
                 } else {
                     this.messages.push({ kind: 'products', role: 'assistant', data: [product], category: null });
                 }

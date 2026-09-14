@@ -9,6 +9,7 @@ use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Tests\Tool\Admin\FakeAnalyticsGateway;
 use CommerceAgents\Tests\Tool\Shopping\FakeCatalogGateway;
+use CommerceAgents\Tests\Tool\Shopping\FakeOptionGateway;
 use CommerceAgents\Tool\Admin\GetAnalyticsTool;
 use CommerceAgents\Tool\Shopping\SearchProductsTool;
 use PHPUnit\Framework\TestCase;
@@ -18,7 +19,7 @@ class ToolIsolationTest extends TestCase
     private function registry(): ToolRegistry
     {
         return new ToolRegistry([
-            new SearchProductsTool(new FakeCatalogGateway()),
+            new SearchProductsTool(new FakeCatalogGateway(), new FakeOptionGateway()),
             new GetAnalyticsTool(new FakeAnalyticsGateway()),
         ]);
     }

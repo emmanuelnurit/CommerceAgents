@@ -76,6 +76,7 @@ return [
     'Out of stock' => 'Rupture de stock',
     'In the category' => 'Dans la catégorie',
     'Available options' => 'Options disponibles',
+    'Variants matching' => 'Déclinaisons correspondant à',
     'Open the full conversation' => 'Ouvrir la conversation complète',
     'Minimise the conversation' => 'Réduire la conversation',
     'Add this product to my cart:' => 'Ajoute ce produit à mon panier :',

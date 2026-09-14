@@ -32,6 +32,7 @@ return [
     'Out of stock' => 'Esaurito',
     'In the category' => 'Nella categoria',
     'Available options' => 'Opzioni disponibili',
+    'Variants matching' => 'Varianti corrispondenti a',
     'Open the full conversation' => 'Apri la conversazione completa',
     'Minimise the conversation' => 'Riduci la conversazione',
     'Add this product to my cart:' => 'Aggiungi questo prodotto al mio carrello:',

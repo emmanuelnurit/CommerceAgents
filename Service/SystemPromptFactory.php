@@ -6,16 +6,19 @@ namespace CommerceAgents\Service;
 
 use CommerceAgents\Tool\Admin\Gateway\AdminPagesGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CategoryGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\OptionGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\SitePagesGatewayInterface;
 
 final readonly class SystemPromptFactory
 {
     private const MAX_PROMPT_CATEGORIES = 25;
+    private const MAX_PROMPT_OPTIONS = 20;
 
     public function __construct(
         private AdminPagesGatewayInterface $adminPagesGateway,
         private SitePagesGatewayInterface $sitePagesGateway,
         private CategoryGatewayInterface $categoryGateway,
+        private OptionGatewayInterface $optionGateway,
     ) {
     }
 
@@ -34,6 +37,9 @@ final readonly class SystemPromptFactory
             .'Product titles in this catalog are model names, not product types: a word like "chair" '
             .'or "sofa" names a category, never a title. Before telling a visitor the store sells no '
             .'such thing, call get_categories and search again with the closest category_id. '
+            .'A colour or a size is not a title either, it lives on the variants: asked for "les '
+            .'produits orange", call search_products with option="orange" and present the variants '
+            .'it returns, not whole products. '
             .'Call search_products with promo=true and no query to list the current deals. A product '
             .'is on sale only when its promo_price is filled: when promo_price is absent, never '
             .'describe it as discounted or reduced. '
@@ -55,13 +61,14 @@ final readonly class SystemPromptFactory
             .'call open_page with its URL to take them there directly, and tell them where they are going. '
             .'Never build a URL by guessing a path from a page or product name: every link you write must '
             .'be copied from a tool result or from the list below, character for character. If the visitor '
-            .'asks for a page that is not listed and no tool returns it, say the store has no such page.%s%s'
+            .'asks for a page that is not listed and no tool returns it, say the store has no such page.%s%s%s'
             .'Always answer in %s — the language the visitor selected on the store — '
             .'even if the customer writes in another language.',
             $assistantName,
             $this->languageName($locale),
             $this->sitePagesBlock($locale),
             $this->categoriesBlock($locale),
+            $this->optionsBlock($locale),
             $this->languageName($locale),
         );
     }
@@ -128,6 +135,24 @@ final readonly class SystemPromptFactory
         }
 
         return sprintf("Product categories:\n%s\n\n", implode("\n", $lines));
+    }
+
+    /**
+     * The option vocabulary: a visitor asking for "orange" is naming one of these,
+     * never a product title.
+     */
+    private function optionsBlock(string $locale): string
+    {
+        $lines = [];
+        foreach ($this->optionGateway->getValues($locale, self::MAX_PROMPT_OPTIONS) as $value) {
+            $lines[] = sprintf('- %s: %s (%d variants)', $value['attribute'], $value['title'], $value['variantCount']);
+        }
+
+        if ($lines === []) {
+            return '';
+        }
+
+        return sprintf("Option values:\n%s\n\n", implode("\n", $lines));
     }
 
     /**

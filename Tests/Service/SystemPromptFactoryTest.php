@@ -7,6 +7,7 @@ namespace CommerceAgents\Tests\Service;
 use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Tool\Admin\Gateway\AdminPagesGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CategoryGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\OptionGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\SitePagesGatewayInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -71,13 +72,33 @@ class FakePromptCategoryGateway implements CategoryGatewayInterface
     }
 }
 
+class FakePromptOptionGateway implements OptionGatewayInterface
+{
+    /** @param array[] $values */
+    public function __construct(private readonly array $values = [
+        ['id' => 3, 'title' => 'Orange', 'attribute' => 'Couleur', 'variantCount' => 11],
+        ['id' => 1, 'title' => 'Bleu', 'attribute' => 'Couleur', 'variantCount' => 18],
+    ]) {
+    }
+
+    public function getValues(string $locale, int $limit): array
+    {
+        return \array_slice($this->values, 0, $limit);
+    }
+
+    public function findValueByName(string $term, string $locale): ?array
+    {
+        return $this->values[0] ?? null;
+    }
+}
+
 class SystemPromptFactoryTest extends TestCase
 {
     private SystemPromptFactory $factory;
 
     protected function setUp(): void
     {
-        $this->factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway());
+        $this->factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway(), new FakePromptOptionGateway());
     }
 
     public function testShoppingPromptEnforcesSelectedLanguage(): void
@@ -179,7 +200,7 @@ class SystemPromptFactoryTest extends TestCase
 
     public function testMerchantPromptStaysReadableWithoutAnyPage(): void
     {
-        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway([]), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway());
+        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway([]), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway(), new FakePromptOptionGateway());
 
         $prompt = $factory->merchant('fr_FR');
 
@@ -253,7 +274,7 @@ class SystemPromptFactoryTest extends TestCase
 
     public function testShoppingPromptStaysReadableWithoutAnyCategory(): void
     {
-        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway([]));
+        $factory = new SystemPromptFactory(new FakePromptAdminPagesGateway(), new FakePromptSitePagesGateway(), new FakePromptCategoryGateway([]), new FakePromptOptionGateway());
 
         $prompt = $factory->shopping('Alex', 'fr_FR');
 
@@ -298,5 +319,34 @@ class SystemPromptFactoryTest extends TestCase
 
         $this->assertStringContainsString('every single reply in English', $prompt);
         $this->assertStringNotContainsString('English (English)', $prompt);
+    }
+
+    public function testShoppingPromptListsTheOptionVocabulary(): void
+    {
+        $prompt = $this->factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringContainsString('Option values:', $prompt);
+        $this->assertStringContainsString('- Couleur: Orange (11 variants)', $prompt);
+        $this->assertStringContainsString('option="orange"', $prompt);
+    }
+
+    public function testShoppingPromptStaysReadableWithoutAnyOption(): void
+    {
+        $factory = new SystemPromptFactory(
+            new FakePromptAdminPagesGateway(),
+            new FakePromptSitePagesGateway(),
+            new FakePromptCategoryGateway(),
+            new FakePromptOptionGateway([]),
+        );
+
+        $prompt = $factory->shopping('Alex', 'fr_FR');
+
+        $this->assertStringNotContainsString('Option values:', $prompt);
+        $this->assertStringContainsString('Always answer in French', $prompt);
+    }
+
+    public function testMerchantPromptDoesNotCarryTheOptionVocabulary(): void
+    {
+        $this->assertStringNotContainsString('Option values:', $this->factory->merchant('fr_FR'));
     }
 }

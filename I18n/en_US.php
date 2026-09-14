@@ -76,6 +76,7 @@ return [
     'Out of stock' => 'Out of stock',
     'In the category' => 'In the category',
     'Available options' => 'Available options',
+    'Variants matching' => 'Variants matching',
     'Open the full conversation' => 'Open the full conversation',
     'Minimise the conversation' => 'Minimise the conversation',
     'Add this product to my cart:' => 'Add this product to my cart:',

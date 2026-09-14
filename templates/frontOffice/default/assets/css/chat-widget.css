@@ -704,10 +704,22 @@ body.caw-body-locked {
     padding: 0.5rem 0.625rem 0.625rem;
 }
 
-#commerce-agents-widget .caw-variant-label {
-    margin: 0;
+#commerce-agents-widget .caw-variant-title {
+    color: inherit;
+    text-decoration: none;
     font-size: 0.8125rem;
     font-weight: 600;
+    line-height: 1.25;
+}
+
+#commerce-agents-widget .caw-variant-title:hover {
+    color: var(--caw-accent);
+}
+
+#commerce-agents-widget .caw-variant-label {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--caw-muted);
     line-height: 1.25;
 }
 
