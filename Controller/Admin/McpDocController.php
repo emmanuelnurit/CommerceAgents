@@ -6,6 +6,7 @@ namespace CommerceAgents\Controller\Admin;
 
 use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Command\McpServeCommand;
 use CommerceAgents\Mcp\McpToolCatalog;
 use CommerceAgents\Mcp\Server\ServerInfo;
 use CommerceAgents\Service\Locale\AssistantLocaleResolver;
@@ -38,18 +39,24 @@ final readonly class McpDocController
         $login = $admin->getLogin();
         $baseUrl = $request->getSchemeAndHttpHost();
         $arguments = ['commerceagents:mcp:serve', '--admin='.$login, '--base-url='.$baseUrl];
+        $confirmEnvVar = McpServeCommand::CONFIRM_ENV_VAR;
 
         return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/merchant-chat/mcp.html.twig', [
             'serverName' => ServerInfo::NAME,
             'protocolVersions' => ServerInfo::SUPPORTED_PROTOCOL_VERSIONS,
             'adminLogin' => $login,
             'baseUrl' => $baseUrl,
-            'command' => 'php Thelia '.implode(' ', $arguments),
+            'confirmEnvVar' => $confirmEnvVar,
+            'command' => $confirmEnvVar.'=1 php Thelia '.implode(' ', $arguments),
             'claudeDesktopConfig' => json_encode(
-                ['mcpServers' => ['thelia' => ['command' => 'php', 'args' => ['/path/to/thelia/Thelia', ...$arguments]]]],
+                ['mcpServers' => ['thelia' => [
+                    'command' => 'php',
+                    'args' => ['/path/to/thelia/Thelia', ...$arguments],
+                    'env' => [$confirmEnvVar => '1'],
+                ]]],
                 \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES,
             ),
-            'claudeCodeCommand' => 'claude mcp add thelia -- php /path/to/thelia/Thelia '.implode(' ', $arguments),
+            'claudeCodeCommand' => 'claude mcp add thelia --env '.$confirmEnvVar.'=1 -- php /path/to/thelia/Thelia '.implode(' ', $arguments),
             'tools' => $this->toolCatalog->describe(new ToolContext(
                 isAdmin: true,
                 adminId: $admin->getId(),

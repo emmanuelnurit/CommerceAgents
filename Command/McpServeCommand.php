@@ -28,6 +28,18 @@ use Thelia\Model\CurrencyQuery;
 )]
 final class McpServeCommand extends Command
 {
+    /**
+     * `--admin=<login>` impersonates that administrator with no password or
+     * token check. Shell access to run this command is already a trust
+     * boundary, but without this gate it also lets anyone with partial/shared
+     * shell access (e.g. a system account, a CI runner) silently act as a
+     * different, more privileged admin (MYO-284 B3, confirmed independently
+     * by MYO-278). Requiring this dedicated, explicit opt-in keeps the
+     * command usable non-interactively (stdin is reserved for the MCP JSON-RPC
+     * transport, so an interactive confirmation prompt is not an option here).
+     */
+    public const CONFIRM_ENV_VAR = 'COMMERCEAGENTS_MCP_ADMIN_CONFIRMED';
+
     public function __construct(
         private readonly ToolRegistry $toolRegistry,
         private readonly ConversationService $conversationService,
@@ -53,6 +65,16 @@ final class McpServeCommand extends Command
         $login = (string) $input->getOption('admin');
         if ($login === '') {
             $errorOutput->writeln('<error>--admin=<login> is required</error>');
+
+            return Command::INVALID;
+        }
+
+        if (!$this->isConfirmed()) {
+            $errorOutput->writeln(\sprintf(
+                '<error>--admin=%s impersonates that administrator with no further check. Set %s=1 in the environment running this command to confirm you intend that.</error>',
+                $login,
+                self::CONFIRM_ENV_VAR,
+            ));
 
             return Command::INVALID;
         }
@@ -88,6 +110,13 @@ final class McpServeCommand extends Command
         (new StdioTransport(logger: $logger))->serve(new McpServer($this->toolRegistry, $toolContext));
 
         return Command::SUCCESS;
+    }
+
+    private function isConfirmed(): bool
+    {
+        $value = $_SERVER[self::CONFIRM_ENV_VAR] ?? getenv(self::CONFIRM_ENV_VAR);
+
+        return \in_array(\is_string($value) ? strtolower($value) : $value, ['1', 'true', 'yes', true], true);
     }
 
     private function configureRouterContext(string $baseUrl): void

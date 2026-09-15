@@ -30,7 +30,7 @@
                         <ul class="mb-0">
                             <li>{{ 'Transport: stdio (the client starts the PHP process on the store machine or in its container).'|trans({}, 'commerceagents') }}</li>
                             <li>{{ 'Server name'|trans({}, 'commerceagents') }} : <code>{{ serverName }}</code></li>
-                            <li>{{ 'Protocol versions'|trans({}, 'commerceagents') }} : <code>{{ protocolVersions|join('</code>, <code>')|raw }}</code></li>
+                            <li>{{ 'Protocol versions'|trans({}, 'commerceagents') }} : {% for version in protocolVersions %}<code>{{ version }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</li>
                         </ul>
                     </div>
                 </div>
@@ -40,6 +40,7 @@
                     <div class="card-header fw-semibold"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>{{ 'Security'|trans({}, 'commerceagents') }}</div>
                     <div class="card-body">
                         <p>{{ 'Whoever can run the command acts as the administrator given in --admin. Restrict shell access accordingly.'|trans({}, 'commerceagents') }}</p>
+                        <p>{{ '--admin performs no password or token check, so the command also refuses to start unless %var% is explicitly set in its environment — a deliberate confirmation that you intend to impersonate that administrator.'|trans({'%var%': confirmEnvVar}, 'commerceagents') }}</p>
                         <p class="mb-0">{{ 'Browser navigation tools are not exposed. There is no HTTP transport and no API key: remote access is out of scope.'|trans({}, 'commerceagents') }}</p>
                     </div>
                 </div>
