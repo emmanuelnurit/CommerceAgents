@@ -25,11 +25,13 @@ final readonly class CapabilityCatalog
         Capability::CUSTOMER_READ => ['label' => 'Read customers', 'group' => self::GROUP_READ, 'stagedChange' => false],
         Capability::ORDERS_READ => ['label' => 'Read orders', 'group' => self::GROUP_READ, 'stagedChange' => false],
         Capability::ANALYTICS_READ => ['label' => 'Read analytics', 'group' => self::GROUP_READ, 'stagedChange' => false],
+        Capability::CUSTOMER_PROFILE_READ => ['label' => 'Read a given customer\'s profile', 'group' => self::GROUP_READ, 'stagedChange' => false],
         Capability::PRICING_WRITE => ['label' => 'Change prices', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
         Capability::INVENTORY_WRITE => ['label' => 'Change stock levels', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
         Capability::CART_WRITE => ['label' => 'Modify visitor carts', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
         Capability::CHECKOUT_WRITE => ['label' => 'Place orders on behalf of a visitor', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
         Capability::CHANNELS_SEND => ['label' => 'Send messages on its channels', 'group' => self::GROUP_WRITE, 'stagedChange' => false],
+        Capability::ORDERS_WRITE => ['label' => 'Apply an existing coupon to an order', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
     ];
 
     public function __construct(

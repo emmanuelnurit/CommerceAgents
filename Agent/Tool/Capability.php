@@ -22,6 +22,21 @@ final class Capability
     public const CUSTOMER_READ = 'customer.read';
     public const CHANNELS_SEND = 'channels.send';
 
+    /**
+     * Admin-side "who is this customer" lookup (MYO-286 item 1), kept
+     * distinct from CUSTOMER_READ (the front tool exposing the logged-in
+     * customer's own profile) and from ORDERS_READ so an agent can be
+     * granted one without the other.
+     */
+    public const CUSTOMER_PROFILE_READ = 'customer.profile.read';
+
+    /**
+     * Applying an existing coupon to an existing order (MYO-286 item 3).
+     * A write capability, so every grant of it is a StagedChange, never a
+     * direct write.
+     */
+    public const ORDERS_WRITE = 'orders.write';
+
     public const ALL = [
         self::CATALOG_READ,
         self::PRICING_WRITE,
@@ -33,6 +48,8 @@ final class Capability
         self::CHECKOUT_WRITE,
         self::CUSTOMER_READ,
         self::CHANNELS_SEND,
+        self::CUSTOMER_PROFILE_READ,
+        self::ORDERS_WRITE,
     ];
 
     private function __construct()
