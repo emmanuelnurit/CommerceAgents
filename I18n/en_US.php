@@ -396,4 +396,9 @@ return [
     'Run history is not available yet for this agent.' => 'Run history is not available yet for this agent.',
     'This agent only drafts proposals: review and approve them before anything changes on the shop.' => 'This agent only drafts proposals: review and approve them before anything changes on the shop.',
     'Review its proposals' => 'Review its proposals',
+    'Results' => 'Results',
+    'Detailed results for "%specialty%" are coming soon.' => 'Detailed results for "%specialty%" are coming soon.',
+    'Sent at' => 'Sent at',
+    'Recipient' => 'Recipient',
+    'No outbound message recorded yet for this agent.' => 'No outbound message recorded yet for this agent.',
 ];

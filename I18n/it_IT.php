@@ -396,4 +396,9 @@ return [
     'Run history is not available yet for this agent.' => 'Lo storico delle esecuzioni non è ancora disponibile per questo agente.',
     'This agent only drafts proposals: review and approve them before anything changes on the shop.' => "Questo agente si limita a redigere proposte: esaminale e approvale prima che qualcosa cambi nel negozio.",
     'Review its proposals' => 'Vedi le sue proposte',
+    'Results' => 'Risultati',
+    'Detailed results for "%specialty%" are coming soon.' => 'I risultati dettagliati per "%specialty%" arrivano presto.',
+    'Sent at' => 'Inviato il',
+    'Recipient' => 'Destinatario',
+    'No outbound message recorded yet for this agent.' => 'Nessun messaggio in uscita registrato per questo agente.',
 ];

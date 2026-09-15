@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tool\Channel;
 
+use CommerceAgents\Agent\Tool\AgentOutboundMessageLoggerInterface;
 use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolInterface;
@@ -24,6 +25,7 @@ final readonly class SendToChannelTool implements ToolInterface
     public function __construct(
         private ChannelGatewayInterface $channelGateway,
         private ChannelConnectorRegistry $registry,
+        private ?AgentOutboundMessageLoggerInterface $outboundMessageLogger = null,
     ) {
     }
 
@@ -84,24 +86,61 @@ final readonly class SendToChannelTool implements ToolInterface
         foreach ($channels as $channel) {
             $connector = $this->registry->get($channel['connectorCode']);
             if ($connector === null) {
-                $results[] = ['channelId' => $channel['id'], 'error' => \sprintf('Unknown connector "%s"', $channel['connectorCode'])];
+                $result = ['channelId' => $channel['id'], 'error' => \sprintf('Unknown connector "%s"', $channel['connectorCode'])];
+                $results[] = $result;
+                $this->logOutbound($ctx, $channel, $result);
                 continue;
             }
 
             if ($channel['mode'] === ChannelMode::DIRECT) {
                 try {
                     $connector->send($message, $channel['settings']);
-                    $results[] = ['channelId' => $channel['id'], 'status' => 'sent'];
+                    $result = ['channelId' => $channel['id'], 'status' => 'sent'];
                 } catch (ChannelException $exception) {
-                    $results[] = ['channelId' => $channel['id'], 'error' => $exception->getMessage()];
+                    $result = ['channelId' => $channel['id'], 'error' => $exception->getMessage()];
                 }
+                $results[] = $result;
+                $this->logOutbound($ctx, $channel, $result);
                 continue;
             }
 
             $staged = $this->channelGateway->stageMessage($channel['id'], $channel['connectorCode'], $message, $ctx);
-            $results[] = $staged + ['channelId' => $channel['id']];
+            $result = $staged + ['channelId' => $channel['id']];
+            $results[] = $result;
+            $this->logOutbound($ctx, $channel, $result);
         }
 
         return ['results' => $results];
+    }
+
+    /**
+     * Single write point for outbound-message traceability (MYO-328): one
+     * agent_outbound_message row per channel result, whichever of the 3
+     * branches above produced it.
+     *
+     * @param array{id: int, connectorCode: string, mode: string, settings: array}   $channel
+     * @param array{channelId: int, status?: string, error?: string, changeId?: int} $result
+     */
+    private function logOutbound(ToolContext $ctx, array $channel, array $result): void
+    {
+        if ($this->outboundMessageLogger === null) {
+            return;
+        }
+
+        $status = match (true) {
+            isset($result['error']) => AgentOutboundMessageLoggerInterface::STATUS_FAILED,
+            ($result['status'] ?? null) === 'sent' => AgentOutboundMessageLoggerInterface::STATUS_SENT,
+            default => AgentOutboundMessageLoggerInterface::STATUS_STAGED,
+        };
+
+        $recipient = $channel['settings']['to'] ?? $channel['settings']['url'] ?? null;
+
+        $this->outboundMessageLogger->log(
+            $ctx,
+            $channel['connectorCode'],
+            \is_string($recipient) ? $recipient : null,
+            $status,
+            $result['error'] ?? null,
+        );
     }
 }

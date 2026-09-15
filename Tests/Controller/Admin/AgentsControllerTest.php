@@ -214,6 +214,39 @@ final class AgentsControllerTest extends WebIntegrationTestCase
     }
 
     /**
+     * MYO-328: the registry must resolve to the generic pane -- never throw
+     * -- for an agent with no preset_code and no granted capabilities
+     * (createAgentDefinition() below is exactly that: from_scratch style).
+     */
+    public function testShowPageOfAnAgentWithNoPresetCodeRendersTheResultsTabWithoutError(): void
+    {
+        $agent = $this->createAgentDefinition();
+        self::assertNull($agent->getPresetCode());
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('data-testid="agent-tab-results"', $html);
+        self::assertStringContainsString('data-testid="agent-pane-results"', $html);
+        self::assertStringContainsString('data-testid="agent-results-empty"', $html);
+    }
+
+    /**
+     * MYO-328: a recognized preset_code resolves to its own specialty pane
+     * (a stub for this lot) instead of falling through to the generic one.
+     */
+    public function testShowPageOfAStockWatchAgentRendersItsSpecialtyResultsStub(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $agent->setPresetCode(AgentPresets::STOCK_WATCH_RESTOCK)->save($this->getPropelConnection());
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('data-testid="agent-results-stub"', $html);
+    }
+
+    /**
      * MYO-325 §4: a run history that is not a raw log — a typed status per
      * row, and a callout pointing to MYO-324's proposal review screen for the
      * two presets that stage changes (review drafts, restock proposals).

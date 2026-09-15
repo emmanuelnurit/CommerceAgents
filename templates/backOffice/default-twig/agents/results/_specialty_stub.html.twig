@@ -1,0 +1,5 @@
+{% set specialtyLabel = specialtyTitle|trans({}, 'commerceagents') %}
+<div class="alert alert-light border mb-0" data-testid="agent-results-stub">
+    <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
+    {{ 'Detailed results for "%specialty%" are coming soon.'|trans({'%specialty%': specialtyLabel}, 'commerceagents') }}
+</div>

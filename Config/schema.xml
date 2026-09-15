@@ -250,4 +250,29 @@
         </behavior>
     </table>
 
+    <table name="agent_outbound_message" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="agent_run_id" required="true" type="INTEGER"/>
+        <column name="agent_definition_id" required="true" type="INTEGER"/>
+        <column name="channel" required="true" size="40" type="VARCHAR"/>
+        <column name="recipient" size="255" type="VARCHAR"/>
+        <column name="status" required="true" size="20" type="VARCHAR"/>
+        <column name="business_reference" size="255" type="VARCHAR"/>
+        <column name="error" type="CLOB"/>
+        <column name="sent_at" type="TIMESTAMP"/>
+        <index name="idx_agent_outbound_message_definition">
+            <index-column name="agent_definition_id"/>
+        </index>
+        <index name="idx_agent_outbound_message_run">
+            <index-column name="agent_run_id"/>
+        </index>
+        <foreign-key foreignTable="agent_run" name="fk_agent_outbound_message_run" onDelete="CASCADE">
+            <reference foreign="id" local="agent_run_id"/>
+        </foreign-key>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_outbound_message_definition" onDelete="CASCADE">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
+        <behavior name="timestampable"/>
+    </table>
+
 </database>

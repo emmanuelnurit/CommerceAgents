@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tests\Tool\Channel;
 
+use CommerceAgents\Agent\Tool\AgentOutboundMessageLoggerInterface;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Channel\ChannelConnectorInterface;
 use CommerceAgents\Channel\ChannelConnectorRegistry;
@@ -76,11 +77,22 @@ class FakeChannelGateway implements ChannelGatewayInterface
     }
 }
 
+class FakeOutboundMessageLogger implements AgentOutboundMessageLoggerInterface
+{
+    /** @var list<array{ctx: ToolContext, channel: string, recipient: ?string, status: string, error: ?string}> */
+    public array $logged = [];
+
+    public function log(ToolContext $ctx, string $channel, ?string $recipient, string $status, ?string $error = null): void
+    {
+        $this->logged[] = ['ctx' => $ctx, 'channel' => $channel, 'recipient' => $recipient, 'status' => $status, 'error' => $error];
+    }
+}
+
 class SendToChannelToolTest extends TestCase
 {
     private function context(?int $agentDefinitionId = 7): ToolContext
     {
-        return new ToolContext(isAdmin: true, adminId: 3, conversationId: 9, agentDefinitionId: $agentDefinitionId, capabilities: ['channels.send']);
+        return new ToolContext(isAdmin: true, adminId: 3, conversationId: 9, agentDefinitionId: $agentDefinitionId, capabilities: ['channels.send'], agentRunId: 99);
     }
 
     public function testRequiresAnAgentContext(): void
@@ -198,5 +210,93 @@ class SendToChannelToolTest extends TestCase
         $this->assertCount(2, $result['results']);
         $this->assertCount(1, $connector->sent);
         $this->assertCount(1, $gateway->staged);
+    }
+
+    public function testLogsOneOutboundMessageForADirectSend(): void
+    {
+        $connector = new FakeDirectConnector();
+        $registry = new ChannelConnectorRegistry();
+        $registry->register($connector);
+
+        $gateway = new FakeChannelGateway([
+            ['id' => 1, 'connectorCode' => 'webhook', 'mode' => 'direct', 'settings' => ['url' => 'https://hooks.example/x']],
+        ]);
+        $outboundLogger = new FakeOutboundMessageLogger();
+        $tool = new SendToChannelTool($gateway, $registry, $outboundLogger);
+
+        $tool->execute(['message' => 'Stock bas'], $this->context());
+
+        $this->assertCount(1, $outboundLogger->logged);
+        $this->assertSame('webhook', $outboundLogger->logged[0]['channel']);
+        $this->assertSame('https://hooks.example/x', $outboundLogger->logged[0]['recipient']);
+        $this->assertSame('sent', $outboundLogger->logged[0]['status']);
+        $this->assertNull($outboundLogger->logged[0]['error']);
+    }
+
+    public function testLogsAFailedOutboundMessageWhenTheDirectSendThrows(): void
+    {
+        $connector = new FakeDirectConnector();
+        $connector->throwOnSend = new ChannelException('Timeout');
+        $registry = new ChannelConnectorRegistry();
+        $registry->register($connector);
+
+        $gateway = new FakeChannelGateway([
+            ['id' => 1, 'connectorCode' => 'webhook', 'mode' => 'direct', 'settings' => []],
+        ]);
+        $outboundLogger = new FakeOutboundMessageLogger();
+        $tool = new SendToChannelTool($gateway, $registry, $outboundLogger);
+
+        $tool->execute(['message' => 'hello'], $this->context());
+
+        $this->assertSame('failed', $outboundLogger->logged[0]['status']);
+        $this->assertSame('Timeout', $outboundLogger->logged[0]['error']);
+    }
+
+    public function testLogsAStagedOutboundMessageInDraftMode(): void
+    {
+        $connector = new FakeDirectConnector();
+        $registry = new ChannelConnectorRegistry();
+        $registry->register($connector);
+
+        $gateway = new FakeChannelGateway([
+            ['id' => 2, 'connectorCode' => 'webhook', 'mode' => 'draft', 'settings' => ['url' => 'https://hooks.example/x']],
+        ]);
+        $outboundLogger = new FakeOutboundMessageLogger();
+        $tool = new SendToChannelTool($gateway, $registry, $outboundLogger);
+
+        $tool->execute(['message' => 'Rapport quotidien'], $this->context());
+
+        $this->assertSame('staged', $outboundLogger->logged[0]['status']);
+    }
+
+    public function testLogsAFailedOutboundMessageForAnUnknownConnector(): void
+    {
+        $gateway = new FakeChannelGateway([
+            ['id' => 1, 'connectorCode' => 'telegram', 'mode' => 'direct', 'settings' => []],
+        ]);
+        $outboundLogger = new FakeOutboundMessageLogger();
+        $tool = new SendToChannelTool($gateway, new ChannelConnectorRegistry(), $outboundLogger);
+
+        $tool->execute(['message' => 'hello'], $this->context());
+
+        $this->assertSame('failed', $outboundLogger->logged[0]['status']);
+    }
+
+    public function testDoesNotLogWhenNoOutboundMessageLoggerIsConfigured(): void
+    {
+        // Existing call sites (and the 2-arg constructor used throughout
+        // this file) must keep compiling and behaving exactly as before.
+        $connector = new FakeDirectConnector();
+        $registry = new ChannelConnectorRegistry();
+        $registry->register($connector);
+
+        $gateway = new FakeChannelGateway([
+            ['id' => 1, 'connectorCode' => 'webhook', 'mode' => 'direct', 'settings' => ['url' => 'https://hooks.example/x']],
+        ]);
+        $tool = new SendToChannelTool($gateway, $registry);
+
+        $result = $tool->execute(['message' => 'hello'], $this->context());
+
+        $this->assertSame('sent', $result['results'][0]['status']);
     }
 }

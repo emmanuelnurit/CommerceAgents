@@ -121,19 +121,26 @@ final readonly class AgentDefinitionManager
             throw new \RuntimeException(\sprintf('Agent %d not found', $id));
         }
 
-        $capabilities = array_map(
-            static fn (AgentCapability $c): string => $c->getCapability(),
-            AgentCapabilityQuery::create()->filterByAgentDefinitionId($id)->find()->getData(),
-        );
         $triggers = AgentTriggerQuery::create()->filterByAgentDefinitionId($id)->find()->getData();
         $channels = AgentChannelQuery::create()->filterByAgentDefinitionId($id)->find()->getData();
 
         return [
             'definition' => $definition,
-            'capabilities' => $capabilities,
+            'capabilities' => $this->capabilitiesFor($id),
             'triggers' => $triggers,
             'channels' => $channels,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function capabilitiesFor(int $agentDefinitionId): array
+    {
+        return array_map(
+            static fn (AgentCapability $c): string => $c->getCapability(),
+            AgentCapabilityQuery::create()->filterByAgentDefinitionId($agentDefinitionId)->find()->getData(),
+        );
     }
 
     /**

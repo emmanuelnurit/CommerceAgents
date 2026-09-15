@@ -20,6 +20,7 @@ use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\ModuleAvailabilityInterface;
 use CommerceAgents\Service\Run\AgentRunQueue;
+use CommerceAgents\Service\SpecialtyPane\SpecialtyResultsPaneRegistry;
 use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Service\TriggerCatalog;
 use Propel\Runtime\ActiveQuery\Criteria;
@@ -62,6 +63,7 @@ final readonly class AgentsController
         private Translator $translator,
         private Environment $twig,
         private ModuleAvailabilityInterface $moduleAvailability,
+        private SpecialtyResultsPaneRegistry $specialtyPaneRegistry,
     ) {
     }
 
@@ -109,6 +111,8 @@ final readonly class AgentsController
             $runsUrl = null;
         }
 
+        $resultsPane = $this->specialtyPaneRegistry->resolve($definition->getPresetCode(), $this->agentManager->capabilitiesFor($id));
+
         return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/agents/show.html.twig', [
             'agent' => [
                 'id' => $definition->getId(),
@@ -123,6 +127,8 @@ final readonly class AgentsController
             'runsUrl' => $runsUrl,
             'recentRuns' => $runsUrl !== null ? $this->recentRuns($definition) : [],
             'proposalsUrl' => $this->proposalsUrlFor($definition),
+            'resultsPaneTemplate' => $resultsPane->getTemplate(),
+            'resultsPaneData' => $resultsPane->getViewData($definition),
         ]));
     }
 

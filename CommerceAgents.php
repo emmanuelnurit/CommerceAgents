@@ -88,6 +88,14 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->instanceof(Agent\Proactive\ProactiveScenarioResolverInterface::class)
             ->tag('commerce_agents.proactive_scenario_resolver');
 
+        // MYO-328: only the 5 concrete specialty panes implement this marker
+        // (GenericResultsPane deliberately does not) -- it is wired as the
+        // registry's separate, unconditional fallback argument instead (see
+        // SpecialtyResultsPaneRegistry) so it can never race the specific
+        // panes on tag priority/iteration order.
+        $servicesConfigurator->instanceof(Service\SpecialtyPane\SpecificSpecialtyResultsPaneInterface::class)
+            ->tag('commerce_agents.specialty_pane');
+
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
             ->exclude([__DIR__.'/I18n/*', __DIR__.'/Config/*', __DIR__.'/Model/*', __DIR__.'/Tests/*'])
             ->autowire(true)
@@ -120,6 +128,7 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Service\Locale\SiteDefaultLocaleProviderInterface::class, Service\Locale\TheliaSiteDefaultLocaleProvider::class);
         $servicesConfigurator->alias(Service\Security\OutboundUrlValidatorInterface::class, Service\Security\OutboundUrlValidator::class);
         $servicesConfigurator->alias(Agent\Tool\AgentActionLoggerInterface::class, Service\Audit\TheliaAgentActionLogger::class);
+        $servicesConfigurator->alias(Agent\Tool\AgentOutboundMessageLoggerInterface::class, Service\Audit\TheliaAgentOutboundMessageLogger::class);
 
         $servicesConfigurator->set(Service\Channel\ChannelSettingsEncryptor::class)
             ->autowire(true)->autoconfigure(true)

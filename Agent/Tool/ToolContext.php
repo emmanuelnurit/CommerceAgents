@@ -26,6 +26,10 @@ final readonly class ToolContext
      *                                        front/merchant chat widgets, CHANNEL_MCP
      *                                        for an external MCP client, CHANNEL_RUN
      *                                        for an autonomous trigger-fired run
+     * @param ?int              $agentRunId   the agent_run this call executes under
+     *                                        (MYO-328); only AgentRunner (CHANNEL_RUN)
+     *                                        has a real run to report, every other
+     *                                        call site leaves it null
      */
     public function __construct(
         public bool $isAdmin = false,
@@ -38,6 +42,7 @@ final readonly class ToolContext
         public ?int $agentDefinitionId = null,
         public ?array $capabilities = null,
         public string $channel = self::CHANNEL_CHAT,
+        public ?int $agentRunId = null,
     ) {
     }
 

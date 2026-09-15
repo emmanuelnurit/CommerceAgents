@@ -47,6 +47,11 @@
                     <i class="bi bi-clock-history me-1" aria-hidden="true"></i>{{ 'Run history'|trans({}, 'commerceagents') }}
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="agent-tab-results" data-bs-toggle="tab" data-bs-target="#agent-pane-results" type="button" role="tab" aria-controls="agent-pane-results" aria-selected="false" data-testid="agent-tab-results">
+                    <i class="bi bi-bar-chart-line me-1" aria-hidden="true"></i>{{ 'Results'|trans({}, 'commerceagents') }}
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content">
@@ -113,6 +118,9 @@
                 {% else %}
                     <div class="alert alert-light border mb-0">{{ 'Run history is not available yet for this agent.'|trans({}, 'commerceagents') }}</div>
                 {% endif %}
+            </div>
+            <div class="tab-pane fade" id="agent-pane-results" role="tabpanel" aria-labelledby="agent-tab-results" data-testid="agent-pane-results">
+                {{ include(resultsPaneTemplate, resultsPaneData) }}
             </div>
         </div>
     </div>

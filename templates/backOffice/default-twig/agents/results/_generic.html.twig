@@ -1,0 +1,32 @@
+{% if messages|length > 0 %}
+    <div class="table-responsive" data-testid="agent-results-generic">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">{{ 'Sent at'|trans({}, 'commerceagents') }}</th>
+                    <th scope="col">{{ 'Channel'|trans({}, 'commerceagents') }}</th>
+                    <th scope="col">{{ 'Recipient'|trans({}, 'commerceagents') }}</th>
+                    <th scope="col">{{ 'Status'|trans({}, 'commerceagents') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for message in messages %}
+                    <tr>
+                        <td>{{ message.sentAt ? message.sentAt|relative_time : '—' }}</td>
+                        <td>{{ message.channel }}</td>
+                        <td>{{ message.recipient ?? '—' }}</td>
+                        <td>
+                            <span class="badge {{ message.status == 'sent' ? 'text-bg-success' : (message.status == 'failed' ? 'text-bg-danger' : 'text-bg-secondary') }}">
+                                {{ message.status }}
+                            </span>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="alert alert-light border mb-0" data-testid="agent-results-empty">
+        {{ 'No outbound message recorded yet for this agent.'|trans({}, 'commerceagents') }}
+    </div>
+{% endif %}
