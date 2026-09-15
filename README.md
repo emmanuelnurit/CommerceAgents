@@ -84,7 +84,7 @@ upload_max_filesize = 1M
 
 ### B6 — Strong `kernel.secret` entropy + rotation procedure
 
-**This is the most important of the three.** `agent_channel.settings` and, since the H4 fix, every LLM provider API key saved in the **Providers** tab are encrypted at rest with sodium `secretbox` (`Service/Channel/ChannelSettingsEncryptor` — key derived from Symfony's `kernel.secret`). A default or low-entropy `kernel.secret` (e.g. a fresh Symfony skeleton's placeholder value, never regenerated) makes that encryption decorative: anyone who can read the codebase's default can derive the same key.
+**This is the most important of the three.** Every channel connector's settings (mail, Mattermost, Slack — stored centrally as module config values since MYO-300, see **Channels**) and, since the H4 fix, every LLM provider API key saved in the **Providers** tab are encrypted at rest with sodium `secretbox` (`Service/Channel/ChannelSettingsEncryptor` — key derived from Symfony's `kernel.secret`). A default or low-entropy `kernel.secret` (e.g. a fresh Symfony skeleton's placeholder value, never regenerated) makes that encryption decorative: anyone who can read the codebase's default can derive the same key.
 
 **Generate a strong value:**
 
@@ -97,8 +97,8 @@ Set it as `APP_SECRET` in `.env.local` (never commit this file) and confirm `ker
 **Rotation procedure — and what it breaks.** `kernel.secret` rotation is a one-way operation for anything already encrypted with the old value:
 
 1. Generate a new value with the command above and update `APP_SECRET`.
-2. **Every provider API key already saved (Providers tab) and every configured channel's settings (`agent_channel.settings` — webhook URLs, tokens) stop decrypting.** They are not silently wrong; the module will surface the failure (a failed connection test, `send_to_channel` erroring on the next run) rather than leaking garbage.
-3. Re-enter the affected values by hand: each provider's API key in **Configuration › Providers**, and each agent's channel settings in the **AI agents** wizard's channel step. V1 has no bulk re-encryption command — for the handful of rows a real store has (one row per active provider, one per configured channel), re-entry is the supported path.
+2. **Every provider API key already saved (Providers tab) and every connector's settings saved in the Channels tab (from-address, webhook URLs, tokens) stop decrypting.** They are not silently wrong; the module will surface the failure (a failed connection test, `send_to_channel`/`send_email_to_customer` erroring on the next run) rather than leaking garbage.
+3. Re-enter the affected values by hand: each provider's API key in **Configuration › Providers**, and each connector's settings in **Configuration › Channels**. There is no bulk re-encryption command — for the handful of rows a real store has (one row per active provider, one per configured connector), re-entry is the supported path.
 4. Rotate on suspected compromise of the secret or the database at minimum; the module does not enforce or track a fixed rotation schedule.
 
 ## Configuration
@@ -164,6 +164,7 @@ Menu entry **Merchant Agent** (`/admin/merchant-agent`), plus a popup chat avail
 | `get_campaigns` | coupons and catalog sales |
 | `get_admin_pages`, `open_admin_page` | find back-office screens and navigate to them |
 | `update_price`, `update_stock` | **create a pending proposal**, nothing is written |
+| `send_email_to_customer` | **create a pending proposal** to e-mail a customer, resolved by `customer_id` only — the model never supplies an address, so it can never reach a hallucinated or copied one |
 
 ### Proposed changes
 
@@ -175,22 +176,26 @@ Adding a new kind of write: one tool that stages a change, plus one `ChangeAppli
 
 ## Configurable agents
 
-Menu entry **AI agents** (`/admin/module/CommerceAgents/agents`) lets a merchant create standing agents that run outside any chat. Each agent (`agent_definition`) has a name, a free-text role prompt, a model (picked from the Mistral catalog only in V1 — configurable agents do not yet support Anthropic or OpenAI-compatible models), a monthly budget in EUR, one or more capabilities, one or more triggers, and at most one channel.
+Menu entry **AI agents** (`/admin/module/CommerceAgents/agents`) lets a merchant create standing agents that run outside any chat. Each agent (`agent_definition`) has a name, a free-text role prompt, a model (picked from the Mistral catalog only in V1 — configurable agents do not yet support Anthropic or OpenAI-compatible models), a monthly budget in EUR, one or more capabilities, one or more triggers, and one or more channels (mail, Mattermost, Slack).
 
-Creating one starts from either a blank form or one of four presets (`Service/AgentPresets`) that pre-fill the role prompt, model tier, trigger and channel — nothing is persisted until the merchant saves:
+Creating one starts from either a blank form or one of six presets (`Service/AgentPresets`) that pre-fill the role prompt, model tier, trigger and channel — nothing is persisted until the merchant saves:
 
 | Preset | Role | Default trigger | Channel |
 |---|---|---|---|
 | Abandoned cart relaunch | Gentle e-mail reminder 24h after a cart is abandoned | `cart_abandoned`, 24h | mail |
 | Welcome new customers | Personalised welcome message on sign-up | `new_customer` | mail |
 | Daily sales summary | End-of-day report on revenue, orders, best seller | `schedule`, 19:00 | webhook |
+| Stock watch & restock | Flags stockouts and low stock, proposes a restock quantity for approval | `low_stock`, threshold 5 | mail |
+| Customer reviews replies | Drafts a reply to product reviews for approval, never publishes automatically (requires the `Comment` module) | `schedule`, 10:00 | — |
 | Start from scratch | Everything blank | — | — |
+
+Each preset gets its own results view on the agent's page (`Service/SpecialtyPane/`): `DailySalesSummaryResultsPane`, `CartAbandonedResultsPane`, `WelcomeNewCustomerResultsPane`, `StockWatchRestockResultsPane`, `CustomerReviewsReplyResultsPane`, and a `GenericResultsPane` fallback for "start from scratch" agents or a preset the registry can't resolve unambiguously.
 
 Capabilities (`agent_capability`, catalog in `Service/CapabilityCatalog`) are grouped **read** (catalog, content, customers, orders, analytics — no approval needed) and **write** (prices, stock, cart, checkout — every write still lands as a pending `agent_staged_change`, same approval flow as the merchant chat). `channels.send` is its own capability, ungrouped.
 
 The card list shows each agent's last run with a status badge: queued (hourglass), running (spinner), done (green check), failed or skipped for budget (red warning), or "never run yet". **Run now** executes an agent immediately, bypassing its triggers, from the same card.
 
-> **V1 limitation.** The channel step of the wizard only records the merchant's intent (`agent_channel` row, connector `email` or `webhook`); a real settings form (webhook URL, from-address…) is a placeholder pending MYO-231. Until then, wire channel settings through the preset defaults or by hand in the database.
+Each agent also has its own page (`/admin/module/CommerceAgents/agents/{id}`) with a compact preview of its last runs and a link to the full execution history (see **Execution history** below).
 
 ### Triggers
 
@@ -211,18 +216,26 @@ Triggers (`agent_trigger`) decide when a configurable agent runs. No trigger eve
 
 Without one, a **pseudo-cron fallback** drains the queue from back-office traffic once the real cron has not ticked for 10 minutes, at most once every 5 minutes — enough to keep triggers moving on a store with no crontab access, never a substitute for one at any real volume.
 
+### Execution history
+
+A dedicated screen (`/admin/module/CommerceAgents/agents/runs`) lists every `agent_run`, paginated and filterable by agent and status. Each run's detail page (`/admin/module/CommerceAgents/agents/runs/{id}`) shows its trigger, duration, the tool calls it made (`agent_action_log`) and the staged changes it produced. Each agent's own page (`/admin/module/CommerceAgents/agents/{id}`) shows a compact preview of its last 5 runs with a link into this screen; the card list's "Last run" badge stays the quick-glance summary.
+
+### Guardrails on automated runs
+
+Runs enqueued by a trigger (`event`, `cron`, `abandoned_cart`, `low_stock`) never carry an administrator id — only a manual "Run now" does. `admin_id` is nullable throughout the staging and channel gateways for that reason; it is distinct from `approved_by`, which is always set by the human who approves a proposal. Self-approval is not blocked: a staged change is always proposed by an agent, never by the approving administrator, so there is nothing to self-approve. If a tool call is refused (missing capability) or fails mid-run, the agent is instructed to stop that part of its mission and report exactly which tool was refused and why — never to guess the value the tool would have returned and reuse it in a further write call.
+
 ## Channels
 
-A configurable agent can push a message out through `send_to_channel`, the single channel tool exposed to the model (capability `channels.send`). The channel — mail, a Mattermost/Slack webhook, or a third-party one — is picked by the agent's `agent_channel` configuration, never by the model.
+A configurable agent can push a message out through `send_to_channel`, the single channel tool exposed to the model (capability `channels.send`), or, for customer-facing replies (e.g. review responses), `send_email_to_customer`. The channel — mail, Mattermost, Slack, or a third-party connector — is picked by the agent's `agent_channel` configuration, never by the model.
 
 | `agent_channel.mode` | Behaviour |
 |---|---|
 | `draft` (default) | The message becomes a pending `agent_staged_change` (`target_type = channel_message`). Nothing leaves until an administrator approves it in **Proposed changes**; approval runs the same connector as `direct` would have. |
 | `direct` | The connector sends the message immediately. |
 
-Built-in connectors: `mail` (Thelia's mailer) and `webhook` (generic incoming-webhook POST of `{"text": "..."}`, which both Mattermost and Slack accept — no per-provider integration needed for V1).
+Built-in connectors, each its own class under `Channel/Connector/`: `MailChannelConnector` (Thelia's mailer), `MattermostChannelConnector` and `SlackChannelConnector` (dedicated incoming-webhook integrations, sharing a common `AbstractWebhookChannelConnector` base rather than one generic webhook POST).
 
-`agent_channel.settings` (webhook URLs, tokens…) is encrypted with sodium `secretbox` before it reaches the database (`ChannelSettingsEncryptor`, key derived from `kernel.secret`); `TheliaChannelGateway` decrypts it transparently when a tool or applier needs it.
+Connector settings (mail from-address, Mattermost/Slack webhook URLs, tokens…) are configured **once for the whole store**, not per agent, in the module configuration's **Channels** tab (`Controller/Admin/ChannelsConfigController.php`, routes `commerceagents_channels_test` and `commerceagents_channels_save`): pick a connector, fill its settings form, test the connection, save. The agent wizard's Channels step only checks which connectors an agent is allowed to use; it links to this panel for the actual settings. Everything is encrypted with sodium `secretbox` before it reaches the database (`ChannelSettingsEncryptor`, key derived from `kernel.secret`); the gateways decrypt it transparently when a tool or applier needs it. The mail connector requires an explicit sender address (`store_email`) — sending without one raises a `ChannelException` rather than falling back to a transport default, both when sending for real and when testing the connection from the Channels tab.
 
 Registering a connector from any module: implement `Channel\ChannelConnectorInterface` under an autowired/autoconfigured service — the `commerce_agents.channel_connector` tag is applied automatically to every implementation, exactly like `ToolInterface` and `ChangeApplierInterface`, so `ChannelConnectorRegistry` picks it up with no further wiring.
 
@@ -258,13 +271,14 @@ Security model: whoever can run the command acts as the given administrator. The
 ```
 Agent/          AgentRuntime (LLM loop + tool calls, streaming events), LLM clients, ToolRegistry, ToolContext, Proactive/ resolver interface + 2 resolvers
 Tool/           Shopping/*, Admin/* and Channel/* tools; each depends on a gateway interface
-Channel/        ChannelConnectorInterface, registry, mail/webhook connectors
+Channel/        ChannelConnectorInterface, registry, Connector/ (mail, Mattermost, Slack)
 Service/        Thelia gateways (Propel, DataAccessService, events), config, budget, cost, conversations, streaming,
                  configurable agents (AgentDefinitionManager, presets, capability/trigger catalogs, run queue),
+                 SpecialtyPane/ (per-preset results views + registry), channel connector config service,
                  proactive guard/session and the remaining scenario resolvers (Proactive/, plus two at the Service/ root)
 StagedChange/   proposal manager, appliers, repository contract
 Mcp/            JSON-RPC framing, MCP server, stdio transport, tool catalog
-Controller/     Front chat + proactive endpoints; admin chat, agents CRUD, proposals console, MCP page, configuration actions
+Controller/     Front chat + proactive endpoints; admin chat, agents CRUD, run history, proposals console, channels config, MCP page, configuration actions
 Hook/           Back-office hooks (menu, popup chat, configuration page) and the front theme hook
 Command/        commerceagents:mcp:serve, commerce-agents:run-due
 Config/         module.xml, Propel schema, SQL, bundled model catalog
@@ -295,6 +309,7 @@ Key points:
 | `agent_trigger` | agent definition, type (`event`/`cron`/`abandoned_cart`/`low_stock`), cron expression, `conditions` JSON |
 | `agent_run` | agent definition, trigger, status (`queued`/`running`/`done`/`failed`/`skipped_budget`), `dedup_key`, timestamps |
 | `agent_channel` | agent definition, connector code, encrypted settings, mode (`draft`/`direct`), enabled |
+| `agent_outbound_message` | agent run, agent definition, channel, recipient, status, business reference, body excerpt, error, sent-at — one row per outbound message, feeding the execution history and the specialty result panes |
 
 ### Security
 
@@ -318,15 +333,13 @@ Adding a tool:
 2. Alias the gateway interface to its Thelia implementation in `CommerceAgents::configureServices()`.
 3. Write the unit test with a fake gateway. The tool is picked up automatically by the registry, the chats and the MCP server.
 
-## Known limitations (V1)
+## Known limitations
 
 - The `main` branch on GitHub lags the `myorg` development branch — see the branch note under **Installation**.
 - Configurable agents only offer Mistral models in the wizard; the shopping and merchant chat assistants can use any configured provider.
-- The channel step of the agent wizard records intent only; a real per-connector settings form is pending (MYO-231).
 - UI and prompts ship in English, French, Spanish and Italian (`I18n/`) — narrower than the back-office theme's locale set.
-- No dedicated screen lists past `agent_run` rows; a run's outcome is read from the "Last run" badge on its agent's card, or from `var/log/commerce-agents-run-due.log` if a real cron is installed.
 
-See `CHANGELOG.md` for the full V1 feature list and `docs/guide-exploitation.md` (French) for a short day-to-day operator guide.
+See `CHANGELOG.md` for the full feature list (V1 and post-V1) and `docs/guide-exploitation.md` (French) for a short day-to-day operator guide.
 
 ## License
 
