@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# MYO-369 — Hook post-commit versionné (dépôt module CommerceAgents).
+#
+# Ce dépôt (local/modules/CommerceAgents) a son propre .git, distinct de
+# celui du site : un commit ici ne déclenche PAS le hook du dépôt site, d'où
+# ce fichier séparé. Il appelle le même wrapper que le hook du dépôt site
+# (scripts/trigger-backup-bundles.sh du dépôt site) car backup-bundles.sh
+# régénère toujours les DEUX bundles (site + module) en un seul run — inutile
+# de dupliquer la logique de débounce/verrou/log ici.
+#
+# Déclenche en arrière-plan, sans bloquer `git commit` : voir le hook du
+# dépôt site (thelia3/scripts/git-hooks/post-commit) pour le détail.
+#
+# Installé via `scripts/install-backup-triggers.sh` (dépôt site) qui
+# configure `core.hooksPath` sur ce dossier pour ce dépôt.
+#
+# Logs : $BACKUP_DIR/trigger.log (défaut /home/enurit/backups/thelia3-bundles/trigger.log)
+#
+set -uo pipefail
+
+TRIGGER_SCRIPT="${TRIGGER_SCRIPT:-/home/enurit/workspace/thelia3/scripts/trigger-backup-bundles.sh}"
+
+if [[ -x "$TRIGGER_SCRIPT" ]]; then
+  nohup "$TRIGGER_SCRIPT" hook >/dev/null 2>&1 &
+  disown
+fi
+
+exit 0
