@@ -476,6 +476,14 @@ class SystemPromptFactoryTest extends TestCase
         $this->assertTrue(strpos($prompt, 'Mission:') < strpos($prompt, 'Store memory'));
     }
 
+    public function testAgentPromptForbidsGuessingAfterARefusedOrFailedTool(): void
+    {
+        $prompt = $this->factory->agent('Restock bot', 'Watch low stock items.', 'fr_FR');
+
+        $this->assertStringContainsString('never guess an id, a quantity or any other value', $prompt);
+        $this->assertStringContainsString('say exactly which tool was refused or failed and why', $prompt);
+    }
+
     public function testMemoryBlockIsCappedByEntryCount(): void
     {
         $entries = array_fill(0, SystemPromptFactory::MAX_MEMORY_ENTRIES + 5, 'A short note.');
