@@ -15,13 +15,18 @@ Inspired by the [anthropics/commerce-agents](https://github.com/anthropics/comme
 - Thelia 3.0 with the `default-twig` back-office theme (the merchant pages extend its layout and use its repositories)
 - PHP 8.3 or later
 - An API key for at least one provider
+- The core **Comment** module, **activated before CommerceAgents** (see [Installation](#installation) below) — it is not part of the module set `bin/install` activates by default on a fresh Thelia install, so this is a manual step
 
 ## Installation
 
 > **⚠️ Production warning.** Never expose `/agent/chat*` on the public internet without an upstream rate-limit. The module's own daily-message limit is per conversation, not per IP — a bare `curl` loop that opens a new conversation on every request bypasses it entirely and burns LLM budget. See [Production deployment prerequisites](#production-deployment-prerequisites) below before going live.
 
+> **⚠️ Comment is a hard prerequisite (MYO-379).** `Hook\Admin\ReviewsTabHook` reads the core `Comment` module's back-office presenter to add the product "Reviews" tab. Activate `Comment` **before** `CommerceAgents` — on a fresh `bin/install`, `Comment` is not among the modules the core installer activates, so this is always a manual step. If Comment ends up inactive anyway, the container still compiles (the dependency is wired with `nullOnInvalid()`) and the tab simply doesn't render — but the "Customer reviews replies" configurable agent preset stays unavailable too (see `ModuleAvailability`).
+
 ```bash
 # from the Thelia project root
+php Thelia module:activate Comment
+
 git clone https://github.com/emmanuelnurit/CommerceAgents.git local/modules/CommerceAgents
 php Thelia module:refresh
 php Thelia module:activate CommerceAgents
@@ -310,6 +315,15 @@ Key points:
 | `agent_run` | agent definition, trigger, status (`queued`/`running`/`done`/`failed`/`skipped_budget`), `dedup_key`, timestamps |
 | `agent_channel` | agent definition, connector code, encrypted settings, mode (`draft`/`direct`), enabled |
 | `agent_outbound_message` | agent run, agent definition, channel, recipient, status, business reference, body excerpt, error, sent-at — one row per outbound message, feeding the execution history and the specialty result panes |
+
+### Schema migrations
+
+`Config/update/*.sql` are applied by `CommerceAgents::update()` when `bin/console module:refresh` (or module activation) detects a version bump. **`module.version` in the database is not sufficient proof that the schema is actually up to date** — do not use it as evidence in an incident, a deploy check, or a CI gate without also checking `information_schema`. Two independent ways it can go stale, both observed in production (see [MYO-378](../../../../MYO/issues/MYO-378)):
+
+1. **Implicit commit inside `ModuleManagement::updateModule()`.** That core Thelia method calls `$module->setVersion($newVersion)->save($con)` *before* `$instance->update($currentVersion, $newVersion, $con)`, all inside one Propel transaction. MySQL/MariaDB implicitly commit the current transaction as soon as a DDL statement (`CREATE TABLE`, `ALTER TABLE`) runs — so the first DDL statement in `update()` permanently commits the version bump too, regardless of whether a later statement in the same run then fails. `$con->rollBack()` in the `catch` block cannot undo it. Mitigation here: every `Config/update/*.sql` file is written to be idempotent/replayable (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `ADD INDEX IF NOT EXISTS`, and a guarded `information_schema` check for foreign keys, which have no `IF NOT EXISTS` form in MariaDB). `update()` replays *all* of them on every call instead of trusting `$currentVersion` to skip files, so the schema converges to what the current code describes even if the recorded version is wrong or several versions behind.
+2. **Stale vendor copy.** `ModuleManagement::updateModules()` scans both `local/modules/` and `vendor/thelia/modules/` for `module.xml`, and this module is tracked in both. If `vendor/thelia/modules/CommerceAgents` (the packaged copy, not the one `dev`/`test` actually load — see the vendor-vs-local note in project memory) falls behind — an older declared `<version>`, missing `Config/update/*.sql` files — a `module:refresh` run can process the vendor copy *after* the local one and write that older version number back into `module.version`, even though the schema and the local copy are already current. This is a distinct, real bug from #1 above (not fixed by SQL idempotency); it was found live while verifying this fix and is tracked separately.
+
+If you ever need to *prove* the schema matches the code (not just trust the version column), compare `information_schema.columns` / `information_schema.tables` for the tables in the table above against what a fresh replay of every `Config/update/*.sql` file produces.
 
 ### Security
 

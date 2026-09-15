@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents;
 
+use Comment\Service\BackOffice\CommentListPresenter;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Symfony\Component\Finder\Finder;
@@ -11,6 +12,7 @@ use Thelia\Core\Install\Database;
 use Thelia\Module\BaseModule;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\expr;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 class CommerceAgents extends BaseModule
 {
@@ -30,13 +32,24 @@ class CommerceAgents extends BaseModule
 
     public function update($currentVersion, $newVersion, ?ConnectionInterface $con = null): void
     {
+        // MYO-378: $currentVersion comes from Thelia\Module\ModuleManagement, which
+        // persists the *target* module version to the `module` table before calling
+        // update() rather than after -- and MySQL/MariaDB implicitly commit whatever
+        // is pending in the current transaction as soon as a DDL statement (the ALTER/
+        // CREATE TABLE below) runs. So a failure partway through this loop still
+        // leaves `module.version` at $newVersion even though the schema is only
+        // partially migrated, and a later run believes there is nothing left to do.
+        // Every Config/update/*.sql file is therefore written to be safely replayable
+        // (CREATE TABLE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / a guarded ALTER for
+        // foreign keys, which have no IF NOT EXISTS form). Replaying all of them on
+        // every update() call -- instead of trusting $currentVersion to skip files --
+        // makes this call self-healing: whatever the (possibly wrong) recorded version
+        // says, the schema converges to what HEAD's update files describe.
         $finder = Finder::create()->name('*.sql')->depth(0)->sortByName()->in(__DIR__.'/Config/update');
         $database = new Database($con);
 
         foreach ($finder as $file) {
-            if (version_compare($currentVersion, $file->getBasename('.sql'), '<')) {
-                $database->insertSql(null, [$file->getPathname()]);
-            }
+            $database->insertSql(null, [$file->getPathname()]);
         }
 
         $configService = $this->getContainer()->get(Service\AgentConfigService::class);
@@ -152,5 +165,14 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->set(Service\Proactive\LowStockScenarioResolver::class)
             ->autowire(true)->autoconfigure(true)
             ->arg('$lowStockThreshold', expr(\sprintf("service('%s').getLowStockThreshold()", $configServiceRef)));
+
+        // MYO-379: Comment is not part of the core `bin/install` module set, so a
+        // freshly installed site can have CommerceAgents active without Comment.
+        // nullOnInvalid() keeps the container compiling in that case instead of
+        // crashing the whole site (BO/FO/console) on a missing service; the hook
+        // itself no-ops when the injected presenter is null.
+        $servicesConfigurator->set(Hook\Admin\ReviewsTabHook::class)
+            ->autowire(true)->autoconfigure(true)
+            ->arg('$commentListPresenter', service(CommentListPresenter::class)->nullOnInvalid());
     }
 }

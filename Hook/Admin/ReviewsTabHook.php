@@ -29,13 +29,20 @@ use Twig\Environment;
  * re-querying comment/comment_i18n, then joins in the approved reply per
  * comment_id from CommerceAgents' own table — Comment has no native reply
  * concept.
+ *
+ * $commentListPresenter is nullable (MYO-379): Comment is not part of the
+ * core `bin/install` module set, so on a fresh install CommerceAgents can be
+ * active while Comment is not. CommerceAgents.php wires this arg with
+ * `nullOnInvalid()` so the DI container still compiles in that case — the
+ * alternative (a hard autowired dependency) breaks the container for the
+ * whole site, BO/FO/console included, until Comment is activated by hand.
  */
 final class ReviewsTabHook extends BaseHook
 {
     private const PRODUCT_REF = 'product';
 
     public function __construct(
-        private readonly CommentListPresenter $commentListPresenter,
+        private readonly ?CommentListPresenter $commentListPresenter,
         private readonly ReviewReplyLookup $reviewReplyLookup,
         private readonly RequestStack $requestStack,
         private readonly Environment $twig,
@@ -56,6 +63,10 @@ final class ReviewsTabHook extends BaseHook
 
     public function onProductTab(HookRenderBlockEvent $event): void
     {
+        if ($this->commentListPresenter === null) {
+            return;
+        }
+
         $productId = (int) ($event->getArgument('product') ?: $event->getArgument('id'));
         if ($productId <= 0) {
             return;
