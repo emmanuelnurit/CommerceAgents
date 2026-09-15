@@ -1,0 +1,81 @@
+{# Memory tab of the agent configuration panel (plan MYO-280 §2): CRUD on agent_memory, injected into the prompt after the guardrails. #}
+<p class="text-muted small mb-3">{{ 'Facts and instructions injected into the prompt after the guardrails above. Never put secrets, passwords or payment details here.'|trans({}, 'commerceagents') }}</p>
+
+{% if memoryCoverage is not null and memoryCoverage.droppedCount > 0 %}
+    <div class="alert alert-warning small" role="status" data-testid="agent-memory-coverage-warning">
+        {{ '%count% of %total% active entries are used in the prompt — the rest are truncated to stay within the size cap.'|trans({'%count%': memoryCoverage.includedCount, '%total%': memoryCoverage.totalCount}, 'commerceagents') }}
+    </div>
+{% endif %}
+
+<form method="post" action="{{ memoryAddUrl }}" class="row g-2 align-items-end mb-3" data-testid="agent-memory-add-form">
+    <input type="hidden" name="_token" value="{{ csrfToken }}">
+    <div class="col-12">
+        <label class="form-label" for="agent-memory-new-content">{{ 'New memory entry'|trans({}, 'commerceagents') }}</label>
+        <textarea id="agent-memory-new-content" name="content" class="form-control" rows="2" maxlength="{{ maxMemoryChars }}"
+                  placeholder="{{ 'Write a fact or instruction for this agent to remember…'|trans({}, 'commerceagents') }}"
+                  aria-describedby="agent-memory-new-count" data-testid="agent-memory-new-content"></textarea>
+        <div class="form-text text-end char-counter" id="agent-memory-new-count" data-char-counter-for="agent-memory-new-content" data-max="{{ maxMemoryChars }}" aria-live="polite">
+            <span class="visually-hidden">{{ 'Characters used'|trans({}, 'commerceagents') }}:</span>0/{{ maxMemoryChars }}
+        </div>
+    </div>
+    <div class="col-12">
+        <button type="submit" class="btn btn-outline-primary btn-sm" data-testid="agent-memory-add-submit">
+            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>{{ 'Add entry'|trans({}, 'commerceagents') }}
+        </button>
+    </div>
+</form>
+
+{% if memoryEntries is empty %}
+    <p class="text-muted small mb-0" data-testid="agent-memory-empty">{{ 'No memory entries yet.'|trans({}, 'commerceagents') }}</p>
+{% else %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle" data-testid="agent-memory-table">
+            <thead>
+                <tr>
+                    <th scope="col">{{ 'Content'|trans({}, 'commerceagents') }}</th>
+                    <th scope="col">{{ 'Source'|trans({}, 'commerceagents') }}</th>
+                    <th scope="col">{{ 'Added on'|trans({}, 'commerceagents') }}</th>
+                    <th scope="col">{{ 'Status'|trans({}, 'commerceagents') }}</th>
+                    <th scope="col" class="text-end">{{ 'Actions'|trans({}, 'commerceagents') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in memoryEntries %}
+                    <tr data-testid="agent-memory-row-{{ entry.id }}" class="{{ entry.enabled ? '' : 'text-muted' }}">
+                        <td style="min-width: 16rem">
+                            <form method="post" action="{{ entry.updateUrl }}" class="d-flex flex-column gap-1 agent-memory-edit-form" data-testid="agent-memory-edit-form-{{ entry.id }}">
+                                <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                <label class="visually-hidden" for="agent-memory-content-{{ entry.id }}">{{ 'Content'|trans({}, 'commerceagents') }}</label>
+                                <textarea id="agent-memory-content-{{ entry.id }}" name="content" class="form-control form-control-sm agent-memory-content" rows="2" maxlength="{{ maxMemoryChars }}" readonly data-testid="agent-memory-content-{{ entry.id }}">{{ entry.content }}</textarea>
+                                <div class="d-none agent-memory-edit-actions gap-1">
+                                    <button type="submit" class="btn btn-sm btn-primary" data-testid="agent-memory-save-{{ entry.id }}">{{ 'Save'|trans({}, 'commerceagents') }}</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary agent-memory-cancel">{{ 'Cancel'|trans({}, 'commerceagents') }}</button>
+                                </div>
+                            </form>
+                        </td>
+                        <td><span class="badge text-bg-light">{{ entry.source == 'agent' ? 'Written by the agent'|trans({}, 'commerceagents') : 'Manual'|trans({}, 'commerceagents') }}</span></td>
+                        <td class="small text-muted">{{ entry.createdAt ? entry.createdAt|date('d/m/Y H:i') : '—' }}</td>
+                        <td>
+                            <span class="badge {{ entry.enabled ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                {{ entry.enabled ? 'Enabled'|trans({}, 'commerceagents') : 'Disabled'|trans({}, 'commerceagents') }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary agent-memory-edit-toggle" data-testid="agent-memory-edit-{{ entry.id }}">{{ 'Edit'|trans({}, 'commerceagents') }}</button>
+                                <form method="post" action="{{ entry.toggleUrl }}" data-testid="agent-memory-toggle-form-{{ entry.id }}">
+                                    <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">{{ entry.enabled ? 'Disable'|trans({}, 'commerceagents') : 'Enable'|trans({}, 'commerceagents') }}</button>
+                                </form>
+                                <form method="post" action="{{ entry.deleteUrl }}" data-confirm="{{ 'Delete this memory entry? This cannot be undone.'|trans({}, 'commerceagents') }}" class="agent-memory-delete-form" data-testid="agent-memory-delete-form-{{ entry.id }}">
+                                    <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">{{ 'Delete'|trans({}, 'commerceagents') }}</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}

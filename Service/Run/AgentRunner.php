@@ -13,6 +13,7 @@ use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentRun;
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\AgentMemoryManager;
 use CommerceAgents\Service\AgentSpendRepository;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ConversationService;
@@ -41,6 +42,7 @@ final readonly class AgentRunner
         private ToolRegistry $toolRegistry,
         private ConversationService $conversationService,
         private SystemPromptFactory $systemPromptFactory,
+        private AgentMemoryManager $memoryManager,
         private BudgetGuard $budgetGuard,
         private AgentSpendRepository $spendRepository,
         private ModelCatalog $modelCatalog,
@@ -128,7 +130,14 @@ final readonly class AgentRunner
             $pendingTokensIn = 0;
             $pendingTokensOut = 0;
 
-            foreach ($runtime->runTurn([LlmMessage::user($instruction)], $this->systemPromptFactory->agent($definition->getTitle(), (string) $definition->getRolePrompt(), $locale), $toolContext, $llmConfig) as $event) {
+            $systemPrompt = $this->systemPromptFactory->agent(
+                $definition->getTitle(),
+                (string) $definition->getRolePrompt(),
+                $locale,
+                $this->memoryManager->activeContents($definition->getId()),
+            );
+
+            foreach ($runtime->runTurn([LlmMessage::user($instruction)], $systemPrompt, $toolContext, $llmConfig) as $event) {
                 switch ($event->type) {
                     case AgentEvent::TEXT_DELTA:
                         $assistantText .= $event->payload['text'];

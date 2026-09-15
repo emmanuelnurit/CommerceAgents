@@ -3,11 +3,46 @@
     <label class="form-label" for="agent-title">{{ 'Agent name'|trans({}, 'commerceagents') }}</label>
     <input id="agent-title" name="title" class="form-control" value="{{ values.title }}" required data-testid="agent-title">
 </div>
+{% set maxRolePromptChars = maxRolePromptChars ?? 8000 %}
+<input type="hidden" id="agent-preset-code" name="preset_code" value="{{ presetCode }}" data-testid="agent-preset-code">
 <div class="mb-3">
-    <label class="form-label" for="agent-role-prompt">{{ 'Its mission, in plain language'|trans({}, 'commerceagents') }}</label>
-    <textarea id="agent-role-prompt" name="role_prompt" class="form-control" rows="4" data-testid="agent-role-prompt">{{ values.rolePrompt }}</textarea>
-    <div class="form-text">{{ 'Describe what the agent should and should not do, as you would to an employee. The chosen preset pre-fills this text — edit it freely.'|trans({}, 'commerceagents') }}</div>
+    <div class="d-flex justify-content-between align-items-end flex-wrap gap-1">
+        <label class="form-label mb-0" for="agent-role-prompt">
+            {{ protected ? 'Extra instructions (optional)'|trans({}, 'commerceagents') : 'Its mission, in plain language'|trans({}, 'commerceagents') }}
+        </label>
+        {% if mode == 'edit' %}
+            <button type="button" class="btn btn-link btn-sm p-0" id="agent-role-prompt-reset"
+                    data-reset-target="agent-role-prompt" data-reset-value="{{ resetRolePromptTo }}"
+                    data-confirm="{{ 'Reset this text to the original preset content? Your unsaved edits will be lost.'|trans({}, 'commerceagents') }}"
+                    data-testid="agent-role-prompt-reset">
+                <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>{{ 'Reset to preset'|trans({}, 'commerceagents') }}
+            </button>
+        {% endif %}
+    </div>
+    <textarea id="agent-role-prompt" name="role_prompt" class="form-control" rows="4" maxlength="{{ maxRolePromptChars }}"
+              aria-describedby="agent-role-prompt-help agent-role-prompt-count" data-testid="agent-role-prompt">{{ values.rolePrompt }}</textarea>
+    <div class="d-flex justify-content-between">
+        <div class="form-text" id="agent-role-prompt-help">
+            {% if protected %}
+                {{ 'Added after the built-in guardrails below. Leave empty to keep the default behaviour unchanged.'|trans({}, 'commerceagents') }}
+            {% else %}
+                {{ 'Describe what the agent should and should not do, as you would to an employee. The chosen preset pre-fills this text — edit it freely.'|trans({}, 'commerceagents') }}
+            {% endif %}
+        </div>
+        <div class="form-text char-counter" id="agent-role-prompt-count" data-char-counter-for="agent-role-prompt" data-max="{{ maxRolePromptChars }}" aria-live="polite">
+            <span class="visually-hidden">{{ 'Characters used'|trans({}, 'commerceagents') }}:</span>{{ values.rolePrompt|length }}/{{ maxRolePromptChars }}
+        </div>
+    </div>
 </div>
+{% if mode == 'edit' and effectivePrompt is not null %}
+    <div class="mb-3">
+        <details class="border rounded p-2" data-testid="agent-effective-prompt">
+            <summary class="fw-semibold small">{{ 'Effective system prompt'|trans({}, 'commerceagents') }}</summary>
+            <p class="form-text mt-2 mb-1">{{ 'This is exactly what is sent to the model right now, guardrails included.'|trans({}, 'commerceagents') }}</p>
+            <pre class="small bg-body-tertiary p-2 rounded" style="white-space: pre-wrap; max-height: 20rem; overflow-y: auto;" data-testid="agent-effective-prompt-text">{{- effectivePrompt -}}</pre>
+        </details>
+    </div>
+{% endif %}
 <div class="mb-3">
     <label class="form-label" id="agent-model-label">{{ 'AI model for this agent'|trans({}, 'commerceagents') }}</label>
     {% include '@CommerceAgentsModule/backOffice/default-twig/components/model-picker.html.twig' with {

@@ -10,6 +10,9 @@ use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\AgentDefinitionManager;
+use CommerceAgents\Service\AgentDefinitionSeeder;
+use CommerceAgents\Service\AgentMemoryManager;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
@@ -37,6 +40,8 @@ final readonly class MerchantChatController
         private ToolRegistry $toolRegistry,
         private ChatStreamer $chatStreamer,
         private SystemPromptFactory $systemPromptFactory,
+        private AgentDefinitionManager $agentDefinitionManager,
+        private AgentMemoryManager $agentMemoryManager,
         private Environment $twig,
         private AssistantLocaleResolver $localeResolver,
     ) {
@@ -103,6 +108,13 @@ final readonly class MerchantChatController
 
         $runtime = new AgentRuntime($this->llmClientFactory->create($llmConfig->provider), $this->toolRegistry);
 
-        return $this->chatStreamer->stream($runtime, $history, $this->systemPromptFactory->merchant($locale), $toolContext, $llmConfig, $conversation);
+        $assistant = $this->agentDefinitionManager->findByCode(AgentDefinitionSeeder::MERCHANT_CODE);
+        $system = $this->systemPromptFactory->merchant(
+            $locale,
+            $assistant?->getRolePrompt(),
+            $assistant !== null ? $this->agentMemoryManager->activeContents($assistant->getId()) : [],
+        );
+
+        return $this->chatStreamer->stream($runtime, $history, $system, $toolContext, $llmConfig, $conversation);
     }
 }

@@ -105,6 +105,11 @@
             document.getElementById('agent-title').value = button.dataset.presetTitle || '';
             document.getElementById('agent-description').value = button.dataset.presetSubtitle || '';
             document.getElementById('agent-role-prompt').value = button.dataset.presetRolePrompt || '';
+            document.getElementById('agent-role-prompt').dispatchEvent(new Event('input'));
+            var presetCodeField = document.getElementById('agent-preset-code');
+            if (presetCodeField) {
+                presetCodeField.value = button.dataset.presetCode || '';
+            }
 
             if (button.dataset.presetTier && window.CommerceAgentsModelPicker) {
                 window.CommerceAgentsModelPicker.selectTier(form, button.dataset.presetTier);

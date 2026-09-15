@@ -11,6 +11,9 @@ use CommerceAgents\Agent\Proactive\ProactiveSignal;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\AgentDefinitionManager;
+use CommerceAgents\Service\AgentDefinitionSeeder;
+use CommerceAgents\Service\AgentMemoryManager;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
@@ -50,6 +53,8 @@ final class ChatController extends BaseFrontController
         private readonly ToolRegistry $toolRegistry,
         private readonly ChatStreamer $chatStreamer,
         private readonly SystemPromptFactory $systemPromptFactory,
+        private readonly AgentDefinitionManager $agentDefinitionManager,
+        private readonly AgentMemoryManager $agentMemoryManager,
         private readonly CartFacade $cartFacade,
         private readonly ProactiveGuard $proactiveGuard,
         private readonly ProactiveSessionRepository $proactiveSessionRepository,
@@ -119,7 +124,13 @@ final class ChatController extends BaseFrontController
 
         $runtime = new AgentRuntime($this->llmClientFactory->create($llmConfig->provider), $this->toolRegistry);
 
-        $system = $this->systemPromptFactory->shopping($this->configService->getAssistantName(), $locale);
+        $assistant = $this->agentDefinitionManager->findByCode(AgentDefinitionSeeder::SHOPPING_CODE);
+        $system = $this->systemPromptFactory->shopping(
+            $this->configService->getAssistantName(),
+            $locale,
+            $assistant?->getRolePrompt(),
+            $assistant !== null ? $this->agentMemoryManager->activeContents($assistant->getId()) : [],
+        );
 
         return $this->chatStreamer->stream($runtime, $history, $system, $toolContext, $llmConfig, $conversation);
     }

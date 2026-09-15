@@ -47,6 +47,7 @@
                             {% for preset in presets %}
                                 <div class="col-md-6">
                                     <button type="button" class="card preset-card shadow-sm w-100 h-100 text-start border-0" data-preset-select
+                                            data-preset-code="{{ preset.code }}"
                                             data-preset-title="{{ preset.title }}" data-preset-subtitle="{{ preset.subtitle }}"
                                             data-preset-role-prompt="{{ preset.rolePrompt }}" data-preset-tier="{{ preset.tier }}"
                                             data-preset-triggers="{{ preset.triggers|json_encode|e('html_attr') }}"
@@ -117,6 +118,13 @@
                 </div>
             </div>
 
+            <div class="card shadow-sm mb-3" id="agent-memory">
+                <div class="card-body p-4">
+                    <h2 class="h6 mb-1">{{ 'Memory'|trans({}, 'commerceagents') }}</h2>
+                    {% include '@CommerceAgentsModule/backOffice/default-twig/agents/_step-memory.html.twig' %}
+                </div>
+            </div>
+
             <div class="d-flex gap-2 mb-4">
                 <button type="submit" class="btn btn-primary" data-testid="agent-edit-save">{{ 'Save'|trans({}, 'commerceagents') }}</button>
             </div>
@@ -128,4 +136,5 @@
 {% block scripts_extra %}
     <script src="{{ module_asset('CommerceAgents', 'assets/js/model-picker.js') }}"></script>
     <script src="{{ module_asset('CommerceAgents', 'assets/js/agents-wizard.js') }}"></script>
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/agents-memory.js') }}"></script>
 {% endblock %}

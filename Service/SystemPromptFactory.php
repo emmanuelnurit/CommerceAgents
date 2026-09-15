@@ -16,6 +16,10 @@ final readonly class SystemPromptFactory
     private const MAX_PROMPT_OPTIONS = 20;
     private const MAX_PROMPT_FEATURES = 20;
 
+    /** Memory injection cap (MYO-280): keeps a run's cost bounded whatever the admin adds. */
+    public const MAX_MEMORY_ENTRIES = 20;
+    public const MAX_MEMORY_CHARS = 4000;
+
     public function __construct(
         private AdminPagesGatewayInterface $adminPagesGateway,
         private SitePagesGatewayInterface $sitePagesGateway,
@@ -25,7 +29,10 @@ final readonly class SystemPromptFactory
     ) {
     }
 
-    public function shopping(string $assistantName, string $locale): string
+    /**
+     * @param list<string> $memoryEntries active memory entries' content, most relevant first
+     */
+    public function shopping(string $assistantName, string $locale, ?string $override = null, array $memoryEntries = []): string
     {
         return \sprintf(
             'You are %s, the shopping assistant of this online store. '
@@ -71,7 +78,7 @@ final readonly class SystemPromptFactory
             .'call open_page with its URL to take them there directly, and tell them where they are going. '
             .'Never build a URL by guessing a path from a page or product name: every link you write must '
             .'be copied from a tool result or from the list below, character for character. If the visitor '
-            .'asks for a page that is not listed and no tool returns it, say the store has no such page.%s%s%s%s'
+            .'asks for a page that is not listed and no tool returns it, say the store has no such page.%s%s%s%s%s%s'
             .'Always answer in %s — the language the visitor selected on the store — '
             .'even if the customer writes in another language.',
             $assistantName,
@@ -80,11 +87,16 @@ final readonly class SystemPromptFactory
             $this->categoriesBlock($locale),
             $this->optionsBlock($locale),
             $this->featuresBlock($locale),
+            $this->overrideBlock($override),
+            $this->memoryBlock($memoryEntries),
             $this->languageName($locale),
         );
     }
 
-    public function merchant(string $locale): string
+    /**
+     * @param list<string> $memoryEntries active memory entries' content, most relevant first
+     */
+    public function merchant(string $locale, ?string $override = null, array $memoryEntries = []): string
     {
         return \sprintf(
             'You are the merchant assistant of this online store back-office, working for the store staff. '
@@ -104,11 +116,13 @@ final readonly class SystemPromptFactory
             .'back-office link that is not in it, and never build a URL by guessing a path from a screen '
             .'name: copy the URL exactly as written here, or get it from get_admin_pages. If the '
             .'administrator asks for a screen that is not listed, say it is not reachable from here and '
-            .'point them to the closest listed screen.%s'
+            .'point them to the closest listed screen.%s%s%s'
             .'Always answer in %s — the language selected in the administrator profile — '
             .'even if the administrator writes in another language.',
             $this->languageName($locale),
             $this->adminPagesBlock($locale),
+            $this->overrideBlock($override),
+            $this->memoryBlock($memoryEntries),
             $this->languageName($locale),
         );
     }
@@ -117,8 +131,10 @@ final readonly class SystemPromptFactory
      * System prompt of a configurable agent: a fixed guardrail base the
      * merchant cannot edit, followed by the role/mission text of the
      * definition (plan MYO-226 §3.1).
+     *
+     * @param list<string> $memoryEntries active memory entries' content, most relevant first
      */
-    public function agent(string $title, string $rolePrompt, string $locale): string
+    public function agent(string $title, string $rolePrompt, string $locale, array $memoryEntries = []): string
     {
         return \sprintf(
             'You are "%s", an autonomous AI agent operated by the staff of this online store. '
@@ -131,10 +147,11 @@ final readonly class SystemPromptFactory
             .'must approve in the approval console before anything is applied; present them as such. '
             .'If the mission cannot be completed with the tools you have, say precisely what is missing '
             .'instead of improvising.'
-            ."\n\nMission:\n%s",
+            ."\n\nMission:\n%s%s",
             $title,
             $this->languageName($locale),
             trim($rolePrompt) !== '' ? trim($rolePrompt) : 'No specific mission was configured. Report that the mission text is empty.',
+            $this->memoryBlock($memoryEntries),
         );
     }
 
@@ -206,6 +223,86 @@ final readonly class SystemPromptFactory
         }
 
         return \sprintf("Feature values:\n%s\n\n", implode("\n", $lines));
+    }
+
+    /**
+     * The merchant-edited business text for a protected assistant (shopping
+     * or merchant), clearly delimited so it can never be mistaken for the
+     * fixed guardrails around it (MYO-280: "bloc dédié, clairement délimité").
+     * Empty by default, so an untouched assistant keeps its exact historical
+     * prompt.
+     */
+    private function overrideBlock(?string $override): string
+    {
+        $trimmed = trim((string) $override);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        return \sprintf(
+            "\n\n--- Additional instructions from the store staff ---\n%s\n--- End of additional instructions ---\n\n",
+            $trimmed,
+        );
+    }
+
+    /**
+     * The active agent_memory entries, capped so an admin cannot blow up the
+     * per-run cost by piling up notes (MYO-280 §2). Silently drops whatever
+     * does not fit: the back office surfaces the drop count separately.
+     *
+     * @param list<string> $memoryEntries
+     */
+    private function memoryBlock(array $memoryEntries): string
+    {
+        $included = self::capMemory($memoryEntries)['included'];
+        if ($included === []) {
+            return '';
+        }
+
+        $lines = array_map(static fn (string $entry): string => '- '.$entry, $included);
+
+        return \sprintf(
+            "\n\n--- Store memory (facts and notes added by the staff) ---\n%s\n--- End of store memory ---\n\n",
+            implode("\n", $lines),
+        );
+    }
+
+    /**
+     * Pure cap logic shared with the back office so the "N entries used /
+     * M truncated" notice shown there matches exactly what is sent to the
+     * model.
+     *
+     * @param list<string> $memoryEntries
+     *
+     * @return array{included: list<string>, includedCount: int, totalCount: int, droppedCount: int}
+     */
+    public static function capMemory(array $memoryEntries): array
+    {
+        $candidates = array_values(array_filter(array_map(
+            static fn (string $entry): string => trim($entry),
+            $memoryEntries,
+        ), static fn (string $entry): bool => $entry !== ''));
+
+        $included = [];
+        $chars = 0;
+        foreach ($candidates as $entry) {
+            if (\count($included) >= self::MAX_MEMORY_ENTRIES) {
+                break;
+            }
+            $length = mb_strlen($entry);
+            if ($chars + $length > self::MAX_MEMORY_CHARS) {
+                break;
+            }
+            $included[] = $entry;
+            $chars += $length;
+        }
+
+        return [
+            'included' => $included,
+            'includedCount' => \count($included),
+            'totalCount' => \count($candidates),
+            'droppedCount' => \count($candidates) - \count($included),
+        ];
     }
 
     /**

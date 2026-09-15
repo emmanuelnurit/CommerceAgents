@@ -81,9 +81,25 @@
         <column name="monthly_budget_usd" scale="4" size="12" type="DECIMAL"/>
         <column defaultValue="0" name="auto_apply" required="true" type="TINYINT"/>
         <column defaultValue="0" name="consecutive_failures" required="true" type="INTEGER"/>
+        <column name="preset_code" size="60" type="VARCHAR"/>
         <unique name="uq_agent_definition_code">
             <unique-column name="code"/>
         </unique>
+        <behavior name="timestampable"/>
+    </table>
+
+    <table name="agent_memory" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="agent_definition_id" required="true" type="INTEGER"/>
+        <column name="content" required="true" type="CLOB"/>
+        <column defaultValue="manual" name="source" required="true" size="20" type="VARCHAR"/>
+        <column defaultValue="1" name="enabled" required="true" type="TINYINT"/>
+        <index name="idx_agent_memory_definition">
+            <index-column name="agent_definition_id"/>
+        </index>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_memory_definition" onDelete="CASCADE">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
         <behavior name="timestampable"/>
     </table>
 

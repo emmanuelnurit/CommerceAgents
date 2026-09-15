@@ -7,11 +7,16 @@ namespace CommerceAgents\Controller\Admin;
 use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
 use CommerceAgents\Hook\Admin\AdminHookManager;
 use CommerceAgents\Model\AgentDefinition;
+use CommerceAgents\Model\AgentMemory;
+use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\AgentDefinitionManager;
 use CommerceAgents\Service\AgentDefinitionSeeder;
+use CommerceAgents\Service\AgentMemoryManager;
 use CommerceAgents\Service\AgentPresets;
 use CommerceAgents\Service\CapabilityCatalog;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Service\TriggerCatalog;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -39,6 +44,10 @@ final readonly class AgentsController
         private CsrfTokenManagerInterface $csrfTokenManager,
         private UrlGeneratorInterface $urlGenerator,
         private AgentDefinitionManager $agentManager,
+        private AgentMemoryManager $memoryManager,
+        private SystemPromptFactory $systemPromptFactory,
+        private AgentConfigService $configService,
+        private AssistantLocaleResolver $localeResolver,
         private ModelCatalog $modelCatalog,
         private CapabilityCatalog $capabilityCatalog,
         private TriggerCatalog $triggerCatalog,
@@ -90,6 +99,7 @@ final readonly class AgentsController
             triggers: $preset !== null ? $preset['triggers'] : [],
             channels: $preset !== null && $preset['channel'] !== null ? [$preset['channel']] : [],
             startAtStep: $preset !== null ? 2 : 1,
+            presetCode: $presetCode !== '' ? $presetCode : null,
         )));
     }
 
@@ -131,7 +141,77 @@ final readonly class AgentsController
             channels: array_map(static fn ($c): string => $c->getConnectorCode(), $data['channels']),
             startAtStep: null,
             protected: \in_array($definition->getCode(), AgentDefinitionSeeder::PROTECTED_CODES, true),
+            definition: $definition,
         )));
+    }
+
+    #[Route('/admin/module/CommerceAgents/agents/{id}/memory/add', name: 'commerceagents_agents_memory_add', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function addMemory(int $id, Request $request): Response
+    {
+        if ($denied = $this->guard($request, AccessManager::UPDATE)) {
+            return $denied;
+        }
+
+        $content = trim((string) $request->request->get('content', ''));
+        if ($content !== '') {
+            $this->memoryManager->create($id, $content, AgentMemoryManager::SOURCE_MANUAL);
+        }
+
+        return $this->redirectToMemoryTab($id);
+    }
+
+    #[Route('/admin/module/CommerceAgents/agents/{id}/memory/{memoryId}/update', name: 'commerceagents_agents_memory_update', requirements: ['id' => '\d+', 'memoryId' => '\d+'], methods: ['POST'])]
+    public function updateMemory(int $id, int $memoryId, Request $request): Response
+    {
+        if ($denied = $this->guard($request, AccessManager::UPDATE)) {
+            return $denied;
+        }
+
+        $content = trim((string) $request->request->get('content', ''));
+        if ($content !== '') {
+            try {
+                $this->memoryManager->update($id, $memoryId, $content);
+            } catch (\RuntimeException) {
+                // Stale/forged id: the row is gone or belongs to another agent — ignored, same as delete().
+            }
+        }
+
+        return $this->redirectToMemoryTab($id);
+    }
+
+    #[Route('/admin/module/CommerceAgents/agents/{id}/memory/{memoryId}/toggle', name: 'commerceagents_agents_memory_toggle', requirements: ['id' => '\d+', 'memoryId' => '\d+'], methods: ['POST'])]
+    public function toggleMemory(int $id, int $memoryId, Request $request): Response
+    {
+        if ($denied = $this->guard($request, AccessManager::UPDATE)) {
+            return $denied;
+        }
+
+        try {
+            $this->memoryManager->toggle($id, $memoryId);
+        } catch (\RuntimeException) {
+        }
+
+        return $this->redirectToMemoryTab($id);
+    }
+
+    #[Route('/admin/module/CommerceAgents/agents/{id}/memory/{memoryId}/delete', name: 'commerceagents_agents_memory_delete', requirements: ['id' => '\d+', 'memoryId' => '\d+'], methods: ['POST'])]
+    public function deleteMemory(int $id, int $memoryId, Request $request): Response
+    {
+        if ($denied = $this->guard($request, AccessManager::DELETE)) {
+            return $denied;
+        }
+
+        try {
+            $this->memoryManager->delete($id, $memoryId);
+        } catch (\RuntimeException) {
+        }
+
+        return $this->redirectToMemoryTab($id);
+    }
+
+    private function redirectToMemoryTab(int $id): RedirectResponse
+    {
+        return new RedirectResponse($this->urlGenerator->generate('commerceagents_agents_edit', ['id' => $id]).'#agent-memory');
     }
 
     #[Route('/admin/module/CommerceAgents/agents/save', name: 'commerceagents_agents_save', methods: ['POST'])]
@@ -149,6 +229,7 @@ final readonly class AgentsController
             'title' => trim((string) $request->request->get('title')) ?: 'Nouvel agent',
             'description' => trim((string) $request->request->get('description', '')),
             'rolePrompt' => (string) $request->request->get('role_prompt', ''),
+            'presetCode' => (string) $request->request->get('preset_code', '') ?: null,
             'model' => (string) $request->request->get('model', ''),
             'monthlyBudgetUsd' => $eurBudget !== '' ? ModelCatalog::toUsd((float) str_replace(',', '.', $eurBudget), 'EUR') : null,
             'autoApply' => $request->request->get('auto_apply') === '1',
@@ -324,6 +405,8 @@ final readonly class AgentsController
         array $channels,
         ?int $startAtStep,
         bool $protected = false,
+        ?string $presetCode = null,
+        ?AgentDefinition $definition = null,
     ): array {
         $modelChoices = array_map(static fn ($c): array => (array) $c, $this->modelCatalog->getSelectableModels('mistral'));
         $shopDefault = null;
@@ -373,6 +456,10 @@ final readonly class AgentsController
             $channelsByCode[$connectorCode] = \in_array($connectorCode, $channels, true);
         }
 
+        [$effectivePrompt, $memoryEntries, $memoryCoverage, $resetRolePromptTo] = $definition !== null
+            ? $this->promptPreviewData($definition, $rolePrompt, $agentId)
+            : [null, [], null, ''];
+
         return [
             'mode' => $mode,
             'agentId' => $agentId,
@@ -403,7 +490,54 @@ final readonly class AgentsController
             'saveUrl' => $this->urlGenerator->generate('commerceagents_agents_save'),
             'listUrl' => $this->urlGenerator->generate('commerceagents_agents_page'),
             'csrfToken' => $this->csrfTokenManager->getToken(AdminHookManager::CSRF_TOKEN_ID)->getValue(),
+            'presetCode' => $presetCode,
+            'maxRolePromptChars' => AgentDefinitionManager::MAX_ROLE_PROMPT_CHARS,
+            'maxMemoryChars' => AgentMemoryManager::MAX_ENTRY_CHARS,
+            'resetRolePromptTo' => $resetRolePromptTo,
+            'effectivePrompt' => $effectivePrompt,
+            'memoryEntries' => $memoryEntries,
+            'memoryCoverage' => $memoryCoverage,
+            'memoryAddUrl' => $agentId > 0 ? $this->urlGenerator->generate('commerceagents_agents_memory_add', ['id' => $agentId]) : null,
         ];
+    }
+
+    /**
+     * Everything the "Effective system prompt" preview and the "Memory" tab
+     * need: assembled with the exact same SystemPromptFactory + cap logic the
+     * runtime uses, so the preview never lies (MYO-280 §1 acceptance
+     * criterion: "voir l'effet sur l'aperçu").
+     *
+     * @return array{0: string, 1: list<array<string, mixed>>, 2: array{includedCount: int, totalCount: int, droppedCount: int}, 3: string}
+     */
+    private function promptPreviewData(AgentDefinition $definition, string $pendingRolePrompt, int $agentId): array
+    {
+        $locale = $this->localeResolver->forAgentRun();
+        $activeMemory = $this->memoryManager->activeContents($agentId);
+
+        $effectivePrompt = match ($definition->getCode()) {
+            AgentDefinitionSeeder::SHOPPING_CODE => $this->systemPromptFactory->shopping($this->configService->getAssistantName(), $locale, $pendingRolePrompt, $activeMemory),
+            AgentDefinitionSeeder::MERCHANT_CODE => $this->systemPromptFactory->merchant($locale, $pendingRolePrompt, $activeMemory),
+            default => $this->systemPromptFactory->agent($definition->getTitle(), $pendingRolePrompt, $locale, $activeMemory),
+        };
+
+        $memoryEntries = array_map(fn (AgentMemory $entry): array => [
+            'id' => $entry->getId(),
+            'content' => (string) $entry->getContent(),
+            'source' => $entry->getSource(),
+            'enabled' => (bool) $entry->getEnabled(),
+            'createdAt' => $entry->getCreatedAt(),
+            'toggleUrl' => $this->urlGenerator->generate('commerceagents_agents_memory_toggle', ['id' => $agentId, 'memoryId' => $entry->getId()]),
+            'updateUrl' => $this->urlGenerator->generate('commerceagents_agents_memory_update', ['id' => $agentId, 'memoryId' => $entry->getId()]),
+            'deleteUrl' => $this->urlGenerator->generate('commerceagents_agents_memory_delete', ['id' => $agentId, 'memoryId' => $entry->getId()]),
+        ], $this->memoryManager->listForAgent($agentId));
+
+        $memoryCoverage = $this->memoryManager->promptCoverage($agentId);
+
+        $isProtected = \in_array($definition->getCode(), AgentDefinitionSeeder::PROTECTED_CODES, true);
+        $preset = !$isProtected && $definition->getPresetCode() !== null ? AgentPresets::find($definition->getPresetCode()) : null;
+        $resetRolePromptTo = $preset['rolePrompt'] ?? '';
+
+        return [$effectivePrompt, $memoryEntries, $memoryCoverage, $resetRolePromptTo];
     }
 
     /**

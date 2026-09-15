@@ -31,6 +31,9 @@ final readonly class AgentDefinitionManager
     /** Connectors announced but not selectable yet (V2). */
     public const CHANNEL_CONNECTORS_SOON = ['telegram'];
 
+    /** Server-side backstop for the role/override prompt field cap shown in the UI (MYO-280 §3). */
+    public const MAX_ROLE_PROMPT_CHARS = 8000;
+
     public function __construct(
         private ModelCatalog $modelCatalog,
         private TriggerCatalog $triggerCatalog,
@@ -93,6 +96,16 @@ final readonly class AgentDefinitionManager
     }
 
     /**
+     * The protected shopping/merchant assistants are agent_definition rows
+     * too (AgentDefinitionSeeder): this is how the chat controllers reach
+     * their editable override and memory (plan MYO-280 §1).
+     */
+    public function findByCode(string $code): ?AgentDefinition
+    {
+        return AgentDefinitionQuery::create()->filterByCode($code)->findOne();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function findForEdit(int $id): array
@@ -128,6 +141,7 @@ final readonly class AgentDefinitionManager
      *     capabilities: list<string>,
      *     triggers: list<array{type: string, cronExpression?: ?string, eventName?: ?string, conditions?: ?array<string, mixed>}>,
      *     channels: list<array{connectorCode: string, enabled: bool}>,
+     *     presetCode?: ?string,
      * } $data
      */
     public function save(?int $id, array $data): AgentDefinition
@@ -141,12 +155,16 @@ final readonly class AgentDefinitionManager
         if ($isNew) {
             $definition = new AgentDefinition();
             $definition->setCode($this->generateCode($data['title']));
+            // Recorded once at creation so "Reset to preset" (MYO-280 §1) knows
+            // which AgentPresets entry to restore, whatever is typed afterwards.
+            $presetCode = $data['presetCode'] ?? null;
+            $definition->setPresetCode($presetCode !== null && AgentPresets::find($presetCode) !== null ? $presetCode : null);
         }
 
         $definition
             ->setTitle($data['title'])
             ->setDescription($data['description'])
-            ->setRolePrompt($data['rolePrompt'])
+            ->setRolePrompt(mb_substr($data['rolePrompt'], 0, self::MAX_ROLE_PROMPT_CHARS))
             ->setModel($data['model'] !== '' ? $data['model'] : null)
             ->setProvider($data['model'] !== '' ? 'mistral' : null)
             ->setMonthlyBudgetUsd($data['monthlyBudgetUsd'] !== null ? (string) $data['monthlyBudgetUsd'] : null)
