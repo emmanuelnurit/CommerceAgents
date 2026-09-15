@@ -37,6 +37,20 @@ final class Capability
      */
     public const ORDERS_WRITE = 'orders.write';
 
+    /**
+     * Reading product reviews from the "Comment" module (MYO-301 preset).
+     * Only meaningful when that module is active; the preset offering this
+     * capability is hidden otherwise.
+     */
+    public const REVIEWS_READ = 'reviews.read';
+
+    /**
+     * Drafting a reply to a product review (MYO-301 preset). A write
+     * capability: the reply is always a StagedChange proposal, never
+     * published directly.
+     */
+    public const REVIEWS_WRITE = 'reviews.write';
+
     public const ALL = [
         self::CATALOG_READ,
         self::PRICING_WRITE,
@@ -50,6 +64,8 @@ final class Capability
         self::CHANNELS_SEND,
         self::CUSTOMER_PROFILE_READ,
         self::ORDERS_WRITE,
+        self::REVIEWS_READ,
+        self::REVIEWS_WRITE,
     ];
 
     private function __construct()

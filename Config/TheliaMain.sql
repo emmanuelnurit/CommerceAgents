@@ -252,33 +252,6 @@ CREATE TABLE `agent_run`
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- agent_model
--- ---------------------------------------------------------------------
-
-DROP TABLE IF EXISTS `agent_model`;
-
-CREATE TABLE `agent_model`
-(
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `provider` VARCHAR(40) NOT NULL,
-    `model_id` VARCHAR(120) NOT NULL,
-    `name` VARCHAR(150),
-    `price_input` DECIMAL(12,6),
-    `price_output` DECIMAL(12,6),
-    `context_window` INTEGER,
-    `tier` VARCHAR(20),
-    `currency` VARCHAR(3),
-    `enabled` TINYINT DEFAULT 1 NOT NULL,
-    `source` VARCHAR(20) DEFAULT 'catalog' NOT NULL,
-    `priced_at` DATE,
-    `last_seen_at` TIMESTAMP NULL,
-    `created_at` TIMESTAMP NULL,
-    `updated_at` TIMESTAMP NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE INDEX `uq_agent_model_provider_model` (`provider`, `model_id`)
-) ENGINE=InnoDB;
-
--- ---------------------------------------------------------------------
 -- agent_action_log
 -- ---------------------------------------------------------------------
 
@@ -307,6 +280,62 @@ CREATE TABLE `agent_action_log`
         REFERENCES `agent_conversation` (`id`)
         ON DELETE SET NULL,
     CONSTRAINT `fk_agent_action_log_definition`
+        FOREIGN KEY (`agent_definition_id`)
+        REFERENCES `agent_definition` (`id`)
+        ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+-- agent_model
+-- ---------------------------------------------------------------------
+
+DROP TABLE IF EXISTS `agent_model`;
+
+CREATE TABLE `agent_model`
+(
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `provider` VARCHAR(40) NOT NULL,
+    `model_id` VARCHAR(120) NOT NULL,
+    `name` VARCHAR(150),
+    `price_input` DECIMAL(12,6),
+    `price_output` DECIMAL(12,6),
+    `context_window` INTEGER,
+    `tier` VARCHAR(20),
+    `currency` VARCHAR(3),
+    `enabled` TINYINT DEFAULT 1 NOT NULL,
+    `source` VARCHAR(20) DEFAULT 'catalog' NOT NULL,
+    `priced_at` DATE,
+    `last_seen_at` TIMESTAMP NULL,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uq_agent_model_provider_model` (`provider`, `model_id`)
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+-- agent_review_reply
+-- ---------------------------------------------------------------------
+
+DROP TABLE IF EXISTS `agent_review_reply`;
+
+CREATE TABLE `agent_review_reply`
+(
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `comment_id` INTEGER NOT NULL,
+    `staged_change_id` INTEGER,
+    `agent_definition_id` INTEGER,
+    `admin_id` INTEGER,
+    `content` LONGTEXT NOT NULL,
+    `created_at` TIMESTAMP NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uq_agent_review_reply_comment` (`comment_id`),
+    INDEX `idx_agent_review_reply_definition` (`agent_definition_id`),
+    INDEX `fi_agent_review_reply_staged_change` (`staged_change_id`),
+    CONSTRAINT `fk_agent_review_reply_staged_change`
+        FOREIGN KEY (`staged_change_id`)
+        REFERENCES `agent_staged_change` (`id`)
+        ON DELETE SET NULL,
+    CONSTRAINT `fk_agent_review_reply_definition`
         FOREIGN KEY (`agent_definition_id`)
         REFERENCES `agent_definition` (`id`)
         ON DELETE SET NULL

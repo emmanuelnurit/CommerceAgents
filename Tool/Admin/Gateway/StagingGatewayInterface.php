@@ -20,7 +20,13 @@ interface StagingGatewayInterface
 
     /**
      * @return array {changeId, targetType, targetId, before, after, status} or {error}
-     *               when the order/coupon is unknown or the coupon is already applied
+     *                                                                       when the order/coupon is unknown or the coupon is already applied
      */
     public function stageCouponApplication(int $orderId, string $couponCode, ToolContext $ctx): array;
+
+    /**
+     * @return array {changeId, targetType, targetId, before, after, status} or {error}
+     *                                                                       when the review is unknown or already has a reply proposal pending
+     */
+    public function stageReviewReply(int $commentId, string $replyContent, ToolContext $ctx): array;
 }

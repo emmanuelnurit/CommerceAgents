@@ -16,6 +16,7 @@ use CommerceAgents\Service\AgentPresets;
 use CommerceAgents\Service\CapabilityCatalog;
 use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\ModuleAvailabilityInterface;
 use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Service\TriggerCatalog;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -54,6 +55,7 @@ final readonly class AgentsController
         private OrderStatusCatalog $orderStatusCatalog,
         private Translator $translator,
         private Environment $twig,
+        private ModuleAvailabilityInterface $moduleAvailability,
     ) {
     }
 
@@ -68,7 +70,7 @@ final readonly class AgentsController
 
         return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/agents/list.html.twig', [
             'agents' => $agents,
-            'presets' => self::presetsForDisplay($this->translator),
+            'presets' => $this->presetsForDisplay(),
             'newAgentUrl' => $this->urlGenerator->generate('commerceagents_agents_new'),
             'merchantPageUrl' => $this->urlGenerator->generate('commerceagents_merchant_page'),
             'csrfToken' => $this->csrfTokenManager->getToken(AdminHookManager::CSRF_TOKEN_ID)->getValue(),
@@ -472,7 +474,7 @@ final readonly class AgentsController
                 'channels' => $channelsByCode,
             ],
             'startAtStep' => $startAtStep,
-            'presets' => self::presetsForDisplay($this->translator),
+            'presets' => $this->presetsForDisplay(),
             'modelChoices' => $modelChoices,
             'shopDefaultChoice' => $shopDefault,
             'modelPricedAt' => $this->modelCatalog->latestPricedAt('mistral')?->format('d/m/Y') ?? (new \DateTimeImmutable())->format('d/m/Y'),
@@ -536,13 +538,24 @@ final readonly class AgentsController
     }
 
     /**
+     * A preset whose `requiresModule` is not active is never hidden as a
+     * broken link (MYO-301): it stays visible but `available: false`, with an
+     * `unavailableReason` the template shows instead of letting the merchant
+     * click into a preset that would silently fail.
+     *
      * @return list<array<string, mixed>>
      */
-    private static function presetsForDisplay(Translator $translator): array
+    private function presetsForDisplay(): array
     {
-        return array_map(static function (array $preset) use ($translator): array {
-            $preset['title'] = $translator->trans($preset['title'], [], 'commerceagents');
-            $preset['subtitle'] = $translator->trans($preset['subtitle'], [], 'commerceagents');
+        return array_map(function (array $preset): array {
+            $preset['title'] = $this->translator->trans($preset['title'], [], 'commerceagents');
+            $preset['subtitle'] = $this->translator->trans($preset['subtitle'], [], 'commerceagents');
+
+            $requiresModule = $preset['requiresModule'] ?? null;
+            $preset['available'] = $requiresModule === null || $this->moduleAvailability->isActive($requiresModule);
+            $preset['unavailableReason'] = $preset['available']
+                ? null
+                : $this->translator->trans('Requires the "%module%" module to be active', ['%module%' => $requiresModule], 'commerceagents');
 
             return $preset;
         }, array_values(AgentPresets::all()));

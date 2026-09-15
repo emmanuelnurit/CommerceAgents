@@ -46,22 +46,35 @@
                         <div class="row g-3">
                             {% for preset in presets %}
                                 <div class="col-md-6">
-                                    <button type="button" class="card preset-card shadow-sm w-100 h-100 text-start border-0" data-preset-select
-                                            data-preset-code="{{ preset.code }}"
-                                            data-preset-title="{{ preset.title }}" data-preset-subtitle="{{ preset.subtitle }}"
-                                            data-preset-role-prompt="{{ preset.rolePrompt }}" data-preset-tier="{{ preset.tier }}"
-                                            data-preset-triggers="{{ preset.triggers|json_encode|e('html_attr') }}"
-                                            data-preset-channel="{{ preset.channel }}"
-                                            data-preset-capabilities="{{ preset.capabilities|json_encode|e('html_attr') }}"
-                                            data-testid="preset-{{ preset.code }}">
-                                        <div class="card-body d-flex gap-3">
-                                            <div class="agent-icon bg-{{ preset.color }}-subtle text-{{ preset.color }}-emphasis"><i class="bi {{ preset.icon }}" aria-hidden="true"></i></div>
-                                            <div>
-                                                <div class="fw-semibold">{{ preset.title }}</div>
-                                                <div class="small text-muted">{{ preset.subtitle }}</div>
+                                    {% if preset.available %}
+                                        <button type="button" class="card preset-card shadow-sm w-100 h-100 text-start border-0" data-preset-select
+                                                data-preset-code="{{ preset.code }}"
+                                                data-preset-title="{{ preset.title }}" data-preset-subtitle="{{ preset.subtitle }}"
+                                                data-preset-role-prompt="{{ preset.rolePrompt }}" data-preset-tier="{{ preset.tier }}"
+                                                data-preset-triggers="{{ preset.triggers|json_encode|e('html_attr') }}"
+                                                data-preset-channel="{{ preset.channel }}"
+                                                data-preset-capabilities="{{ preset.capabilities|json_encode|e('html_attr') }}"
+                                                data-testid="preset-{{ preset.code }}">
+                                            <div class="card-body d-flex gap-3">
+                                                <div class="agent-icon bg-{{ preset.color }}-subtle text-{{ preset.color }}-emphasis"><i class="bi {{ preset.icon }}" aria-hidden="true"></i></div>
+                                                <div>
+                                                    <div class="fw-semibold">{{ preset.title }}</div>
+                                                    <div class="small text-muted">{{ preset.subtitle }}</div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </button>
+                                        </button>
+                                    {% else %}
+                                        <button type="button" class="card preset-card shadow-sm w-100 h-100 text-start border-0 opacity-75" disabled data-testid="preset-{{ preset.code }}-disabled">
+                                            <div class="card-body d-flex gap-3">
+                                                <div class="agent-icon bg-{{ preset.color }}-subtle text-{{ preset.color }}-emphasis"><i class="bi {{ preset.icon }}" aria-hidden="true"></i></div>
+                                                <div>
+                                                    <div class="fw-semibold">{{ preset.title }}</div>
+                                                    <div class="small text-muted">{{ preset.subtitle }}</div>
+                                                    <div class="small text-warning-emphasis mt-1"><i class="bi bi-lock me-1" aria-hidden="true"></i>{{ preset.unavailableReason }}</div>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    {% endif %}
                                 </div>
                             {% endfor %}
                         </div>

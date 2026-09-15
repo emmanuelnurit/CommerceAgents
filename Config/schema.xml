@@ -226,4 +226,28 @@
         <behavior name="timestampable"/>
     </table>
 
+    <table name="agent_review_reply" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="comment_id" required="true" type="INTEGER"/>
+        <column name="staged_change_id" type="INTEGER"/>
+        <column name="agent_definition_id" type="INTEGER"/>
+        <column name="admin_id" type="INTEGER"/>
+        <column name="content" required="true" type="CLOB"/>
+        <unique name="uq_agent_review_reply_comment">
+            <unique-column name="comment_id"/>
+        </unique>
+        <index name="idx_agent_review_reply_definition">
+            <index-column name="agent_definition_id"/>
+        </index>
+        <foreign-key foreignTable="agent_staged_change" name="fk_agent_review_reply_staged_change" onDelete="SETNULL">
+            <reference foreign="id" local="staged_change_id"/>
+        </foreign-key>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_review_reply_definition" onDelete="SETNULL">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
+        <behavior name="timestampable">
+            <parameter name="disable_updated_at" value="true"/>
+        </behavior>
+    </table>
+
 </database>

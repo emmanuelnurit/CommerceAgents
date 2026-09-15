@@ -32,6 +32,8 @@ final readonly class CapabilityCatalog
         Capability::CHECKOUT_WRITE => ['label' => 'Place orders on behalf of a visitor', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
         Capability::CHANNELS_SEND => ['label' => 'Send messages on its channels', 'group' => self::GROUP_WRITE, 'stagedChange' => false],
         Capability::ORDERS_WRITE => ['label' => 'Apply an existing coupon to an order', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
+        Capability::REVIEWS_READ => ['label' => 'Read product reviews', 'group' => self::GROUP_READ, 'stagedChange' => false],
+        Capability::REVIEWS_WRITE => ['label' => 'Draft a reply to a product review', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
     ];
 
     public function __construct(

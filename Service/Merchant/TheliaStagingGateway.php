@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Service\Merchant;
 
+use Comment\Model\CommentQuery;
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Model\AgentReviewReplyQuery;
 use CommerceAgents\Model\AgentStagedChange;
+use CommerceAgents\Model\AgentStagedChangeQuery;
 use CommerceAgents\StagedChange\StagedChangeData;
 use CommerceAgents\Tool\Admin\Gateway\StagingGatewayInterface;
 use Thelia\Model\CouponQuery;
@@ -126,6 +129,36 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
         ];
 
         return $this->createChange('order_coupon', $orderId, $before, $after, $ctx);
+    }
+
+    public function stageReviewReply(int $commentId, string $replyContent, ToolContext $ctx): array
+    {
+        if ($ctx->conversationId === null || $ctx->adminId === null) {
+            return ['error' => 'No conversation context'];
+        }
+
+        $comment = CommentQuery::create()->filterByRef('product')->findPk($commentId);
+        if ($comment === null) {
+            return ['error' => 'Review not found'];
+        }
+
+        if (AgentReviewReplyQuery::create()->filterByCommentId($commentId)->exists()) {
+            return ['error' => \sprintf('Review %d already has an approved reply', $commentId)];
+        }
+
+        $pendingReplyExists = AgentStagedChangeQuery::create()
+            ->filterByTargetType('review_reply')
+            ->filterByTargetId($commentId)
+            ->filterByStatus(StagedChangeData::STATUS_PENDING)
+            ->exists();
+        if ($pendingReplyExists) {
+            return ['error' => \sprintf('Review %d already has a reply proposal pending approval', $commentId)];
+        }
+
+        $before = ['content' => $comment->getContent(), 'rating' => $comment->getRating()];
+        $after = ['reply' => $replyContent];
+
+        return $this->createChange('review_reply', $commentId, $before, $after, $ctx);
     }
 
     private function createChange(string $targetType, int $targetId, array $before, array $after, ToolContext $ctx): array

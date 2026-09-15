@@ -37,6 +37,13 @@ class FakeStagingGateway implements StagingGatewayInterface
 
         return $this->result;
     }
+
+    public function stageReviewReply(int $commentId, string $replyContent, ToolContext $ctx): array
+    {
+        $this->lastCall = ['stageReviewReply', $commentId, $replyContent];
+
+        return $this->result;
+    }
 }
 
 class UpdatePriceToolTest extends TestCase
