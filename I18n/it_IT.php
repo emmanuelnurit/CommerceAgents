@@ -266,7 +266,7 @@ return [
     'Detailed usage' => 'Utilizzo dettagliato',
     'Details' => 'Dettagli',
     'Draft a reply to a product review' => 'Redigere una bozza di risposta a una recensione prodotto',
-    'Drafts a reply to product reviews in your shop\'s tone — never published without your approval' => 'Redige una bozza di risposta alle recensioni prodotto, con il tono del tuo negozio — mai pubblicata senza la tua approvazione',
+    'Drafts a reply to product reviews in your shop\'s tone — kept for your internal review, never published automatically' => 'Redige una bozza di risposta alle recensioni prodotto, con il tono del tuo negozio — conservata per la tua revisione interna, mai pubblicata automaticamente',
     'E-mail' => 'E-mail',
     'Edit' => 'Modifica',
     'Enable %name%' => 'Attiva %name%',

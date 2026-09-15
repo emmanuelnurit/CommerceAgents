@@ -266,7 +266,7 @@ return [
     'Detailed usage' => 'Detailed usage',
     'Details' => 'Details',
     'Draft a reply to a product review' => 'Draft a reply to a product review',
-    'Drafts a reply to product reviews in your shop\'s tone — never published without your approval' => 'Drafts a reply to product reviews in your shop\'s tone — never published without your approval',
+    'Drafts a reply to product reviews in your shop\'s tone — kept for your internal review, never published automatically' => 'Drafts a reply to product reviews in your shop\'s tone — kept for your internal review, never published automatically',
     'E-mail' => 'E-mail',
     'Edit' => 'Edit',
     'Enable %name%' => 'Enable %name%',

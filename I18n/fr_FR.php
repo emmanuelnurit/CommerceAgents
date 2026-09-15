@@ -266,7 +266,7 @@ return [
     'Detailed usage' => 'Utilisation détaillée',
     'Details' => 'Détail',
     'Draft a reply to a product review' => 'Rédiger un brouillon de réponse à un avis produit',
-    'Drafts a reply to product reviews in your shop\'s tone — never published without your approval' => 'Rédige un brouillon de réponse aux avis produits, au ton de votre boutique — jamais publié sans votre validation',
+    'Drafts a reply to product reviews in your shop\'s tone — kept for your internal review, never published automatically' => 'Rédige un brouillon de réponse aux avis produits, au ton de votre boutique — conservé pour votre relecture interne, jamais publié automatiquement',
     'E-mail' => 'E-mail',
     'Edit' => 'Modifier',
     'Enable %name%' => 'Activer %name%',

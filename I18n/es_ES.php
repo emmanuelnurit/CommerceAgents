@@ -264,7 +264,7 @@ return [
     'Detailed usage' => 'Consumo detallado',
     'Details' => 'Detalle',
     'Draft a reply to a product review' => 'Redactar un borrador de respuesta a una reseña de producto',
-    'Drafts a reply to product reviews in your shop\'s tone — never published without your approval' => 'Redacta un borrador de respuesta a las reseñas de producto, con el tono de su tienda — nunca se publica sin su aprobación',
+    'Drafts a reply to product reviews in your shop\'s tone — kept for your internal review, never published automatically' => 'Redacta un borrador de respuesta a las reseñas de producto, con el tono de su tienda — se guarda para su revisión interna, nunca se publica automáticamente',
     'E-mail' => 'Correo electrónico',
     'Edit' => 'Modificar',
     'Enable %name%' => 'Activar %name%',

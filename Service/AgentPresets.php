@@ -84,7 +84,7 @@ final class AgentPresets
             self::CUSTOMER_REVIEWS_REPLY => [
                 'code' => self::CUSTOMER_REVIEWS_REPLY,
                 'title' => 'Customer reviews replies',
-                'subtitle' => 'Drafts a reply to product reviews in your shop\'s tone — never published without your approval',
+                'subtitle' => 'Drafts a reply to product reviews in your shop\'s tone — kept for your internal review, never published automatically',
                 'icon' => 'bi-chat-square-quote',
                 'color' => 'primary',
                 'rolePrompt' => 'Tu lis les avis clients laissés sur les fiches produits et tu rédiges un brouillon de réponse au ton de la boutique : remercie le client, réponds à ses remarques avec professionnalisme, reste bref. Tu ne publies jamais de réponse toi-même : chaque brouillon attend une validation humaine dans les changements proposés.',
