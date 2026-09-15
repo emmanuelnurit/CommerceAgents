@@ -14,6 +14,7 @@ use CommerceAgents\Service\Run\AgentTriggerType;
 use CommerceAgents\Service\Run\LowStockFinder;
 use Psr\Log\NullLogger;
 use Thelia\Core\Event\Customer\CustomerCreateOrUpdateEvent;
+use Thelia\Core\Event\Customer\CustomerCreateOrUpdateMinimalEvent;
 use Thelia\Core\Event\Order\OrderEvent;
 use Thelia\Core\Event\TheliaEvents;
 use Thelia\Model\OrderStatus;
@@ -46,6 +47,17 @@ class AgentTriggerSubscriberTest extends ActionIntegrationTestCase
 
             self::assertNotEmpty($found, \sprintf('AgentTriggerSubscriber must listen to "%s"', $eventName));
         }
+    }
+
+    public function testItAlsoListensToTheFrontOfficeRegistrationEventForTheSameBusinessTrigger(): void
+    {
+        // Not part of WHITELISTED_EVENTS on purpose: it's the same "new
+        // customer" business trigger as CUSTOMER_CREATEACCOUNT, observed via
+        // its other technical path (MYO-362), not a new whitelist entry.
+        $listeners = $this->dispatcher->getListeners(TheliaEvents::CREATE_CUSTOMER_MINIMAL);
+        $found = array_filter($listeners, static fn ($listener) => \is_array($listener) && $listener[0] instanceof AgentTriggerSubscriber);
+
+        self::assertNotEmpty($found, 'AgentTriggerSubscriber must listen to CREATE_CUSTOMER_MINIMAL (real front-office signup)');
     }
 
     public function testOrderPayQueuesARunOnceForDuplicateDispatch(): void
@@ -105,6 +117,25 @@ class AgentTriggerSubscriberTest extends ActionIntegrationTestCase
         $event = (new CustomerCreateOrUpdateEvent())->setCustomer($customer);
 
         $this->subscriber->onCustomerCreateAccount($event);
+
+        self::assertSame(
+            1,
+            AgentRunQuery::create()->filterByDedupKey(\sprintf('customer:%d:created', $customer->getId()))->count(),
+        );
+    }
+
+    public function testCustomerCreateMinimalQueuesARun(): void
+    {
+        // MYO-362: real front-office signup (/customer/register, flexy)
+        // dispatches CREATE_CUSTOMER_MINIMAL, never CUSTOMER_CREATEACCOUNT.
+        // The trigger is still stored with the canonical event name.
+        $agent = $this->createAgentDefinition();
+        $this->createTrigger($agent, AgentTriggerType::EVENT, eventName: TheliaEvents::CUSTOMER_CREATEACCOUNT);
+
+        $customer = $this->factory->customer($this->factory->customerTitle());
+        $event = (new CustomerCreateOrUpdateMinimalEvent())->setCustomer($customer);
+
+        $this->subscriber->onCustomerCreateMinimal($event);
 
         self::assertSame(
             1,

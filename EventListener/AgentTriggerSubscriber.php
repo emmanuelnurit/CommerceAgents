@@ -7,8 +7,10 @@ namespace CommerceAgents\EventListener;
 use CommerceAgents\Service\Run\AgentRunQueue;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Thelia\Core\Event\Customer\CustomerCreateOrUpdateEvent;
+use Thelia\Core\Event\Customer\CustomerCreateOrUpdateMinimalEvent;
 use Thelia\Core\Event\Order\OrderEvent;
 use Thelia\Core\Event\TheliaEvents;
+use Thelia\Model\Customer;
 
 /**
  * The one Symfony subscriber allowed to turn a whitelisted Thelia event into
@@ -20,6 +22,17 @@ use Thelia\Core\Event\TheliaEvents;
  * The whitelist is closed on purpose ({@see \CommerceAgents\Service\Run\AgentTriggerType::WHITELISTED_EVENTS}):
  * order paid, order status changed, new customer account. Widening it is an
  * architecture decision, not something to bolt on for one feature.
+ *
+ * "New customer account" has two distinct technical realizations that both
+ * mean the same business event: `CUSTOMER_CREATEACCOUNT` (BO admin screen,
+ * {@see \Thelia\Action\Customer::create()}) and `CREATE_CUSTOMER_MINIMAL`
+ * (real front-office signup, {@see \Thelia\Domain\Customer\Service\CustomerRegistrationService},
+ * MYO-362). Both handlers queue against the same canonical
+ * `TheliaEvents::CUSTOMER_CREATEACCOUNT` event name, since that is the only
+ * value ever written to `agent_trigger.event_name` for this trigger
+ * ({@see \CommerceAgents\Service\Run\TriggerCatalogMapping}) — this is not a
+ * new whitelist entry, just observing the real path a new customer is
+ * created on the live shop in addition to the BO one.
  */
 final readonly class AgentTriggerSubscriber implements EventSubscriberInterface
 {
@@ -34,6 +47,7 @@ final readonly class AgentTriggerSubscriber implements EventSubscriberInterface
             TheliaEvents::ORDER_PAY => 'onOrderPay',
             TheliaEvents::ORDER_UPDATE_STATUS => 'onOrderUpdateStatus',
             TheliaEvents::CUSTOMER_CREATEACCOUNT => 'onCustomerCreateAccount',
+            TheliaEvents::CREATE_CUSTOMER_MINIMAL => 'onCustomerCreateMinimal',
         ];
     }
 
@@ -67,7 +81,28 @@ final readonly class AgentTriggerSubscriber implements EventSubscriberInterface
 
     public function onCustomerCreateAccount(CustomerCreateOrUpdateEvent $event): void
     {
-        $customer = $event->getCustomer();
+        $this->enqueueNewCustomerRun($event->getCustomer());
+    }
+
+    /**
+     * Real front-office registration (`/customer/register`, flexy) — the
+     * event 100% of shop traffic actually goes through. Missing this was
+     * MYO-362: the "New customer" trigger only ever fired for the rare
+     * BO-admin-created-a-client case.
+     */
+    public function onCustomerCreateMinimal(CustomerCreateOrUpdateMinimalEvent $event): void
+    {
+        $this->enqueueNewCustomerRun($event->getCustomer());
+    }
+
+    private function enqueueNewCustomerRun(?Customer $customer): void
+    {
+        if ($customer === null) {
+            // Defensive only: both Action\Customer handlers always set the
+            // customer on the event before this subscriber runs (lower
+            // priority than their priority-128 listeners).
+            return;
+        }
 
         $this->queue->enqueueForEvent(
             TheliaEvents::CUSTOMER_CREATEACCOUNT,
