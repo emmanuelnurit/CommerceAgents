@@ -15,7 +15,9 @@ use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Model\AgentTrigger;
 use CommerceAgents\Model\AgentTriggerQuery;
 use CommerceAgents\Service\Run\AgentRunQueue;
+use CommerceAgents\Service\Run\CronSchedule;
 use Propel\Runtime\ActiveQuery\Criteria;
+use Psr\Log\LoggerInterface;
 
 /**
  * Back-office CRUD for configurable agents (agent_definition + its
@@ -38,6 +40,7 @@ final readonly class AgentDefinitionManager
         private ModelCatalog $modelCatalog,
         private TriggerCatalog $triggerCatalog,
         private AgentRunQueue $runQueue,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -230,16 +233,45 @@ final readonly class AgentDefinitionManager
     private function replaceTriggers(AgentDefinition $definition, array $triggers): void
     {
         AgentTriggerQuery::create()->filterByAgentDefinitionId($definition->getId())->delete();
+        $now = new \DateTimeImmutable();
         foreach ($triggers as $trigger) {
+            $cronExpression = $trigger['cronExpression'] ?? null;
             (new AgentTrigger())
                 ->setAgentDefinitionId($definition->getId())
                 ->setType($trigger['type'])
                 ->setEventName($trigger['eventName'] ?? null)
-                ->setCronExpression($trigger['cronExpression'] ?? null)
+                ->setCronExpression($cronExpression)
                 ->setConditions(isset($trigger['conditions']) ? json_encode($trigger['conditions'], \JSON_THROW_ON_ERROR) : null)
                 ->setEnabled(1)
+                ->setNextRunAt($this->nextRunAt($cronExpression, $now))
                 ->save();
         }
+    }
+
+    /**
+     * Seeds next_run_at at creation (and on every cron_expression change,
+     * since replaceTriggers() always recreates the row) so a fresh cron
+     * trigger is picked up by AgentRunQueue::enqueueDueCronRuns() on the next
+     * drain instead of staying NULL forever (MYO-304). Same computation
+     * AgentRunQueue::advanceSchedule() uses to roll the schedule forward.
+     */
+    private function nextRunAt(?string $cronExpression, \DateTimeImmutable $now): ?\DateTime
+    {
+        if ($cronExpression === null) {
+            return null;
+        }
+
+        try {
+            $next = CronSchedule::nextRunDate($cronExpression, $now);
+        } catch (\InvalidArgumentException $exception) {
+            $this->logger->error('[commerce-agents] cron trigger unscheduled: '.$exception->getMessage(), [
+                'cron_expression' => $cronExpression,
+            ]);
+
+            return null;
+        }
+
+        return $next !== null ? \DateTime::createFromImmutable($next) : null;
     }
 
     /**
