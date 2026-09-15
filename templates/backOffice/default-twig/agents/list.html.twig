@@ -1,0 +1,142 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'AI agents'|trans({}, 'commerceagents') }}{% endblock %}
+{% block body_testid %}commerceagents-agents-page{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'AI agents'|trans({}, 'commerceagents') }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/agents.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" data-testid="commerceagents-agents-list">
+
+    {% if agents|length == 0 %}
+        {# ---------------------------------------------------------------- Empty state, first launch (spec §4.2) #}
+        <div class="text-center mx-auto" style="max-width: 760px" data-testid="commerceagents-agents-empty">
+            <div class="mt-4 mb-3"><i class="bi bi-robot display-4 text-primary" aria-hidden="true"></i></div>
+            <h1 class="h3">{{ 'Create your first AI agent'|trans({}, 'commerceagents') }}</h1>
+            <p class="text-muted mb-4">{{ 'An agent works for you in the background: it reacts to your shop events and notifies you on your channels. Start from a ready-made preset — everything stays editable.'|trans({}, 'commerceagents') }}</p>
+
+            <div class="row g-3 text-start">
+                {% for preset in presets %}
+                    <div class="col-md-6">
+                        <a class="card preset-card shadow-sm w-100 h-100 text-start border-0 text-decoration-none text-body" href="{{ newAgentUrl }}?preset={{ preset.code }}" data-testid="preset-{{ preset.code }}">
+                            <div class="card-body d-flex gap-3">
+                                <div class="agent-icon bg-{{ preset.color }}-subtle text-{{ preset.color }}-emphasis"><i class="bi {{ preset.icon }}" aria-hidden="true"></i></div>
+                                <div>
+                                    <div class="fw-semibold">{{ preset.title }}</div>
+                                    <div class="small text-muted">{{ preset.subtitle }}</div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
+            <h1 class="h3 mb-0">{{ 'AI agents'|trans({}, 'commerceagents') }}</h1>
+            <div class="d-flex gap-2">
+                <a href="{{ merchantPageUrl }}" class="btn btn-outline-secondary"><i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>{{ 'Merchant assistant'|trans({}, 'commerceagents') }}</a>
+                <a href="{{ newAgentUrl }}" class="btn btn-primary" data-testid="commerceagents-agent-new"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>{{ 'New agent'|trans({}, 'commerceagents') }}</a>
+            </div>
+        </div>
+        <p class="text-muted mb-4">{{ 'Your automatic assistants: each has a role, reacts to shop events, and notifies you on your channels.'|trans({}, 'commerceagents') }}</p>
+
+        <div class="row g-3" data-testid="commerceagents-agent-cards">
+            {% for agent in agents %}
+                <div class="col-md-6 col-xl-4">
+                    <div class="card shadow-sm agent-card h-100 {{ agent.enabled ? '' : 'is-inactive' }}" data-testid="agent-card-{{ agent.id }}">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="d-flex gap-2 align-items-center">
+                                    <div class="agent-icon bg-primary-subtle text-primary-emphasis"><i class="bi bi-robot" aria-hidden="true"></i></div>
+                                    <div>
+                                        <div class="fw-semibold text-body">
+                                            {{ agent.title }}
+                                            {% if not agent.enabled %}<span class="badge text-bg-secondary ms-1">{{ 'Paused'|trans({}, 'commerceagents') }}</span>{% endif %}
+                                        </div>
+                                        {% if agent.description %}<div class="small text-muted">{{ agent.description }}</div>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown" aria-label="{{ 'Actions for %name%'|trans({'%name%': agent.title}, 'commerceagents') }}"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="{{ path('commerceagents_agents_edit', {id: agent.id}) }}">{{ 'Edit'|trans({}, 'commerceagents') }}</a></li>
+                                        <li>
+                                            <form action="{{ path('commerceagents_agents_run_now', {id: agent.id}) }}" method="post" class="agent-run-now-form">
+                                                <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                                <button type="submit" class="dropdown-item">{{ 'Run now'|trans({}, 'commerceagents') }}</button>
+                                            </form>
+                                        </li>
+                                        {% if not agent.protected %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{{ path('commerceagents_agents_delete', {id: agent.id}) }}" method="post" class="agent-delete-form" data-confirm="{{ 'Delete this agent? This cannot be undone.'|trans({}, 'commerceagents') }}">
+                                                    <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                                    <button type="submit" class="dropdown-item text-danger">{{ 'Delete…'|trans({}, 'commerceagents') }}</button>
+                                                </form>
+                                            </li>
+                                        {% else %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><span class="dropdown-item-text text-muted small">{{ 'Built-in assistant'|trans({}, 'commerceagents') }}</span></li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mb-3">
+                                {% for chip in agent.triggerChips %}
+                                    <span class="channel-chip"><i class="bi {{ chip.icon }}" aria-hidden="true"></i>{{ chip.label }}</span>
+                                {% endfor %}
+                                {% for chip in agent.channelChips %}
+                                    <span class="channel-chip"><i class="bi {{ chip.icon }}" aria-hidden="true"></i>{{ chip.label }}</span>
+                                {% endfor %}
+                                {% if agent.modelChip %}
+                                    <span class="channel-chip"><i class="bi {{ agent.modelChip.icon }}" aria-hidden="true"></i>{{ agent.modelChip.label }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center border-top pt-2">
+                                <div class="small text-muted">
+                                    {% if agent.lastRun %}
+                                        <i class="bi {{ agent.lastRun.icon }} {{ agent.lastRun.colorClass }} me-1" aria-hidden="true"></i>{{ 'Last run:'|trans({}, 'commerceagents') }} {{ agent.lastRun.at|relative_time }}
+                                    {% else %}
+                                        <i class="bi bi-dash-circle text-muted me-1" aria-hidden="true"></i>{{ 'Never run yet'|trans({}, 'commerceagents') }}
+                                    {% endif %}
+                                </div>
+                                <form action="{{ path('commerceagents_agents_toggle', {id: agent.id}) }}" method="post" class="form-check form-switch mb-0 agent-toggle-form">
+                                    <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                    <input class="form-check-input agent-toggle-input" type="checkbox" role="switch" id="agent-switch-{{ agent.id }}" {{ agent.enabled ? 'checked' : '' }} data-testid="agent-toggle-{{ agent.id }}">
+                                    <label class="form-check-label visually-hidden" for="agent-switch-{{ agent.id }}">{{ 'Enable %name%'|trans({'%name%': agent.title}, 'commerceagents') }}</label>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="alert alert-light border d-flex gap-2 align-items-center mt-4 mb-0" role="note">
+            <i class="bi bi-shield-check text-success fs-5" aria-hidden="true"></i>
+            <div class="small">
+                <strong>{{ 'Review mode is on.'|trans({}, 'commerceagents') }}</strong>
+                {{ 'Shop changes proposed by your agents wait for your approval in'|trans({}, 'commerceagents') }}
+                <a href="{{ path('commerceagents_changes') }}">{{ 'Proposed changes'|trans({}, 'commerceagents') }}</a>.
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/agents-list.js') }}"></script>
+{% endblock %}

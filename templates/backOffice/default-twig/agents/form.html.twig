@@ -1,0 +1,131 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ mode == 'wizard' ? 'New agent'|trans({}, 'commerceagents') : values.title }}{% endblock %}
+{% block body_testid %}commerceagents-agent-form-page{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ listUrl }}">{{ 'AI agents'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ mode == 'wizard' ? 'New agent'|trans({}, 'commerceagents') : values.title }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/agents.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" data-testid="commerceagents-agent-form">
+    <form id="agent-form" method="post" action="{{ saveUrl }}" data-testid="agent-form" data-mode="{{ mode }}" data-start-step="{{ startAtStep ?? 1 }}">
+        <input type="hidden" name="_token" value="{{ csrfToken }}">
+        <input type="hidden" name="agent_id" value="{{ agentId }}">
+        <input type="hidden" name="description" id="agent-description" value="{{ values.description }}">
+        {% if mode == 'edit' %}
+            <input type="hidden" name="enabled" value="{{ values.enabled ? '1' : '0' }}">
+            <input type="hidden" name="submit_action" value="keep">
+        {% endif %}
+
+        {% if mode == 'wizard' %}
+            <div class="card shadow-sm mx-auto" style="max-width: 820px">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-4" id="agent-wizard-title">{{ 'New agent'|trans({}, 'commerceagents') }}{% if values.title %} — {{ values.title }}{% endif %}</h1>
+
+                    <ol class="d-flex justify-content-between list-unstyled mb-4 gap-2" aria-label="{{ 'Creation steps'|trans({}, 'commerceagents') }}" id="agent-wizard-steps">
+                        <li class="step text-center flex-fill" data-step-indicator="1"><span class="step-dot" aria-hidden="true">1</span><div class="step-label mt-1">{{ 'Model'|trans({}, 'commerceagents') }}</div></li>
+                        <li class="step text-center flex-fill" data-step-indicator="2"><span class="step-dot" aria-hidden="true">2</span><div class="step-label mt-1">{{ 'Role & mission'|trans({}, 'commerceagents') }}</div></li>
+                        <li class="step text-center flex-fill" data-step-indicator="3"><span class="step-dot" aria-hidden="true">3</span><div class="step-label mt-1">{{ 'Triggers'|trans({}, 'commerceagents') }}</div></li>
+                        <li class="step text-center flex-fill" data-step-indicator="4"><span class="step-dot" aria-hidden="true">4</span><div class="step-label mt-1">{{ 'Channels & functions'|trans({}, 'commerceagents') }}</div></li>
+                    </ol>
+
+                    <div class="wizard-step" data-step="1" data-testid="wizard-step-1">
+                        <p class="text-muted small mb-3">{{ 'Start from a ready-made preset — everything stays editable next.'|trans({}, 'commerceagents') }}</p>
+                        <div class="row g-3">
+                            {% for preset in presets %}
+                                <div class="col-md-6">
+                                    <button type="button" class="card preset-card shadow-sm w-100 h-100 text-start border-0" data-preset-select
+                                            data-preset-title="{{ preset.title }}" data-preset-subtitle="{{ preset.subtitle }}"
+                                            data-preset-role-prompt="{{ preset.rolePrompt }}" data-preset-tier="{{ preset.tier }}"
+                                            data-preset-triggers="{{ preset.triggers|json_encode|e('html_attr') }}"
+                                            data-preset-channel="{{ preset.channel }}"
+                                            data-preset-capabilities="{{ preset.capabilities|json_encode|e('html_attr') }}"
+                                            data-testid="preset-{{ preset.code }}">
+                                        <div class="card-body d-flex gap-3">
+                                            <div class="agent-icon bg-{{ preset.color }}-subtle text-{{ preset.color }}-emphasis"><i class="bi {{ preset.icon }}" aria-hidden="true"></i></div>
+                                            <div>
+                                                <div class="fw-semibold">{{ preset.title }}</div>
+                                                <div class="small text-muted">{{ preset.subtitle }}</div>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="wizard-step" data-step="2" hidden data-testid="wizard-step-2">
+                        {% include '@CommerceAgentsModule/backOffice/default-twig/agents/_step-role.html.twig' %}
+                    </div>
+
+                    <div class="wizard-step" data-step="3" hidden data-testid="wizard-step-3">
+                        {% include '@CommerceAgentsModule/backOffice/default-twig/agents/_step-triggers.html.twig' %}
+                    </div>
+
+                    <div class="wizard-step" data-step="4" hidden data-testid="wizard-step-4">
+                        {% include '@CommerceAgentsModule/backOffice/default-twig/agents/_step-channels.html.twig' %}
+                    </div>
+
+                    <div class="d-flex justify-content-between border-top pt-3 mt-3">
+                        <button type="button" class="btn btn-outline-secondary" id="wizard-back" hidden data-testid="wizard-back"><i class="bi bi-arrow-left me-1" aria-hidden="true"></i>{{ 'Back'|trans({}, 'commerceagents') }}</button>
+                        <div class="ms-auto d-flex gap-2">
+                            <button type="submit" class="btn btn-outline-secondary" id="wizard-create-paused" name="submit_action" value="pause" hidden data-testid="wizard-create-paused">{{ 'Create paused'|trans({}, 'commerceagents') }}</button>
+                            <button type="button" class="btn btn-primary" id="wizard-next" data-testid="wizard-next">{{ 'Continue'|trans({}, 'commerceagents') }}<i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button>
+                            <button type="submit" class="btn btn-primary" id="wizard-activate" name="submit_action" value="activate" hidden data-testid="wizard-activate">{{ 'Activate the agent'|trans({}, 'commerceagents') }}</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="h3 mb-0" data-testid="agent-edit-title">{{ values.title }}</h1>
+                <a href="{{ listUrl }}" class="btn btn-outline-secondary">{{ 'Back to the list'|trans({}, 'commerceagents') }}</a>
+            </div>
+
+            {% if protected %}
+                <div class="alert alert-info small">{{ 'This is one of the two built-in assistants — its settings stay linked to the module configuration.'|trans({}, 'commerceagents') }}</div>
+            {% endif %}
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 mb-3">{{ 'Role & mission'|trans({}, 'commerceagents') }}</h2>
+                    {% include '@CommerceAgentsModule/backOffice/default-twig/agents/_step-role.html.twig' %}
+                </div>
+            </div>
+            <div class="card shadow-sm mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 mb-3">{{ 'Triggers'|trans({}, 'commerceagents') }}</h2>
+                    {% include '@CommerceAgentsModule/backOffice/default-twig/agents/_step-triggers.html.twig' %}
+                </div>
+            </div>
+            <div class="card shadow-sm mb-3">
+                <div class="card-body p-4">
+                    <h2 class="h6 mb-3">{{ 'Channels & functions'|trans({}, 'commerceagents') }}</h2>
+                    {% include '@CommerceAgentsModule/backOffice/default-twig/agents/_step-channels.html.twig' %}
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button type="submit" class="btn btn-primary" data-testid="agent-edit-save">{{ 'Save'|trans({}, 'commerceagents') }}</button>
+            </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/model-picker.js') }}"></script>
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/agents-wizard.js') }}"></script>
+{% endblock %}

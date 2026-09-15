@@ -1,0 +1,59 @@
+{# Wizard step 4 / edit section: channels + capabilities (spec MYO-227 §4.3 étape 4) #}
+<div class="mb-4">
+    <div class="fw-semibold mb-2">{{ 'Channels'|trans({}, 'commerceagents') }}</div>
+    {% if not channelsAvailable %}
+        <p class="text-muted small">{{ 'Channel settings are coming soon — you can already pick a channel, it will just need a quick setup once connectors ship.'|trans({}, 'commerceagents') }}</p>
+    {% endif %}
+    <div class="row g-2">
+        <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="channel-email" name="channel_email" value="1" {{ values.channels.email ? 'checked' : '' }}>
+                    <label class="form-check-label" for="channel-email"><i class="bi bi-envelope me-1" aria-hidden="true"></i>{{ 'E-mail'|trans({}, 'commerceagents') }}</label>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 h-100">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="channel-webhook" name="channel_webhook" value="1" {{ values.channels.webhook ? 'checked' : '' }}>
+                    <label class="form-check-label" for="channel-webhook"><i class="bi bi-slack me-1" aria-hidden="true"></i>{{ 'Mattermost / Slack (webhook)'|trans({}, 'commerceagents') }}</label>
+                </div>
+                {% if not channelsAvailable %}<div class="form-text">{{ 'Configure this channel: coming soon'|trans({}, 'commerceagents') }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="border rounded p-3 h-100 opacity-50">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="channel-telegram" disabled>
+                    <label class="form-check-label" for="channel-telegram"><i class="bi bi-telegram me-1" aria-hidden="true"></i>{{ 'Telegram'|trans({}, 'commerceagents') }}</label>
+                </div>
+                <div class="form-text">{{ 'Coming soon'|trans({}, 'commerceagents') }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mb-3">
+    <div class="fw-semibold mb-2">{{ 'Allowed functions'|trans({}, 'commerceagents') }}</div>
+    <div class="row g-2">
+        {% for capability in capabilitiesCatalog %}
+            <div class="col-md-6">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="capability-{{ capability.code }}" name="capabilities[]" value="{{ capability.code }}" {{ capability.code in values.capabilities ? 'checked' : '' }}>
+                    <label class="form-check-label" for="capability-{{ capability.code }}">{{ capability.label }}</label>
+                    {% if capability.stagedChange %}<div class="form-text ms-4 mt-n1">{{ 'Goes through Proposed changes'|trans({}, 'commerceagents') }}</div>{% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<details class="mb-2">
+    <summary class="text-muted small">{{ 'Advanced options (automatic approval)'|trans({}, 'commerceagents') }}</summary>
+    <div class="form-check form-switch mt-2">
+        <input class="form-check-input" type="checkbox" id="agent-auto-apply" name="auto_apply" value="1" {{ values.autoApply ? 'checked' : '' }}>
+        <label class="form-check-label" for="agent-auto-apply">{{ 'Apply this agent\'s proposed changes automatically, without review'|trans({}, 'commerceagents') }}</label>
+    </div>
+    <div class="form-text">{{ 'Off by default: every write goes to Proposed changes for your approval first.'|trans({}, 'commerceagents') }}</div>
+</details>

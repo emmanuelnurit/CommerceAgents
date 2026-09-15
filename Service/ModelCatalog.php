@@ -229,6 +229,28 @@ final readonly class ModelCatalog
     }
 
     /**
+     * Freshness date shown under the model picker ("Tarifs Mistral (EUR) au
+     * ...", spec MYO-227 §3.6): the most recent priced_at among the enabled,
+     * priced models of the provider.
+     */
+    public function latestPricedAt(string $provider): ?\DateTimeImmutable
+    {
+        $latest = null;
+        foreach ($this->listByProvider($provider, enabledOnly: true) as $model) {
+            $pricedAt = $model->getPricedAt();
+            if (!$pricedAt instanceof \DateTimeInterface) {
+                continue;
+            }
+            $immutable = \DateTimeImmutable::createFromInterface($pricedAt);
+            if ($latest === null || $immutable > $latest) {
+                $latest = $immutable;
+            }
+        }
+
+        return $latest;
+    }
+
+    /**
      * The models offered by the agent model selector: enabled, priced, and
      * ordered by reasoning tier then input price. Null provider = every
      * provider. This is the data contract of the back-office agent form.

@@ -1,0 +1,64 @@
+{# Wizard step 3 / edit section: triggers, business labels only (spec MYO-227 §4.3 étape 3) #}
+<div class="form-text mb-3">{{ 'Manual execution is not a checkbox here: every agent can be run on demand from its card ("Run now").'|trans({}, 'commerceagents') }}</div>
+
+<div class="mb-3 pb-2 border-bottom">
+    <div class="form-check">
+        <input class="form-check-input trigger-toggle" type="checkbox" id="trigger-cart-abandoned" name="trigger_cart_abandoned" value="1" {{ values.triggers.cart_abandoned.checked ? 'checked' : '' }} data-reveals="trigger-cart-abandoned-detail">
+        <label class="form-check-label" for="trigger-cart-abandoned"><i class="bi bi-cart-x me-1" aria-hidden="true"></i>{{ 'Abandoned cart'|trans({}, 'commerceagents') }}</label>
+    </div>
+    <div id="trigger-cart-abandoned-detail" class="ms-4 mt-2" {{ values.triggers.cart_abandoned.checked ? '' : 'hidden' }}>
+        <label class="form-label small" for="trigger-cart-abandoned-hours">{{ 'Wait before relaunching (hours)'|trans({}, 'commerceagents') }}</label>
+        <input type="number" min="1" class="form-control form-control-sm w-auto" id="trigger-cart-abandoned-hours" name="trigger_cart_abandoned_hours" value="{{ values.triggers.cart_abandoned.hours }}">
+    </div>
+</div>
+
+<div class="mb-3 pb-2 border-bottom">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="trigger-new-order" name="trigger_new_order" value="1" {{ values.triggers.new_order.checked ? 'checked' : '' }}>
+        <label class="form-check-label" for="trigger-new-order"><i class="bi bi-bag-check me-1" aria-hidden="true"></i>{{ 'New order'|trans({}, 'commerceagents') }}</label>
+    </div>
+</div>
+
+<div class="mb-3 pb-2 border-bottom">
+    <div class="form-check">
+        <input class="form-check-input trigger-toggle" type="checkbox" id="trigger-order-status" name="trigger_order_status_change" value="1" {{ values.triggers.order_status_change.checked ? 'checked' : '' }} data-reveals="trigger-order-status-detail">
+        <label class="form-check-label" for="trigger-order-status"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>{{ 'Order status change'|trans({}, 'commerceagents') }}</label>
+    </div>
+    <div id="trigger-order-status-detail" class="ms-4 mt-2" {{ values.triggers.order_status_change.checked ? '' : 'hidden' }}>
+        <label class="form-label small" for="trigger-order-status-ids">{{ 'Statuses to watch'|trans({}, 'commerceagents') }}</label>
+        <select class="form-select form-select-sm" id="trigger-order-status-ids" name="trigger_order_status_ids[]" multiple size="4">
+            {% for status in orderStatuses %}
+                <option value="{{ status.id }}" {{ status.id in values.triggers.order_status_change.orderStatusIds ? 'selected' : '' }}>{{ status.title }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div class="mb-3 pb-2 border-bottom">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="trigger-new-customer" name="trigger_new_customer" value="1" {{ values.triggers.new_customer.checked ? 'checked' : '' }}>
+        <label class="form-check-label" for="trigger-new-customer"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>{{ 'New customer'|trans({}, 'commerceagents') }}</label>
+    </div>
+</div>
+
+<div class="mb-3 pb-2 border-bottom">
+    <div class="form-check">
+        <input class="form-check-input trigger-toggle" type="checkbox" id="trigger-low-stock" name="trigger_low_stock" value="1" {{ values.triggers.low_stock.checked ? 'checked' : '' }} data-reveals="trigger-low-stock-detail">
+        <label class="form-check-label" for="trigger-low-stock"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'Low stock'|trans({}, 'commerceagents') }}</label>
+    </div>
+    <div id="trigger-low-stock-detail" class="ms-4 mt-2" {{ values.triggers.low_stock.checked ? '' : 'hidden' }}>
+        <label class="form-label small" for="trigger-low-stock-threshold">{{ 'Alert threshold (units)'|trans({}, 'commerceagents') }}</label>
+        <input type="number" min="0" class="form-control form-control-sm w-auto" id="trigger-low-stock-threshold" name="trigger_low_stock_threshold" value="{{ values.triggers.low_stock.threshold }}">
+    </div>
+</div>
+
+<div class="mb-1">
+    <div class="form-check">
+        <input class="form-check-input trigger-toggle" type="checkbox" id="trigger-schedule" name="trigger_schedule" value="1" {{ values.triggers.schedule.checked ? 'checked' : '' }} data-reveals="trigger-schedule-detail">
+        <label class="form-check-label" for="trigger-schedule"><i class="bi bi-clock me-1" aria-hidden="true"></i>{{ 'Schedule'|trans({}, 'commerceagents') }}</label>
+    </div>
+    <div id="trigger-schedule-detail" class="ms-4 mt-2" {{ values.triggers.schedule.checked ? '' : 'hidden' }}>
+        <label class="form-label small" for="trigger-schedule-time">{{ 'Every day at…'|trans({}, 'commerceagents') }}</label>
+        <input type="time" class="form-control form-control-sm w-auto" id="trigger-schedule-time" name="trigger_schedule_time" value="{{ values.triggers.schedule.time }}">
+    </div>
+</div>

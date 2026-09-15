@@ -10,6 +10,7 @@ use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\BudgetStatus;
 use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\ModelChoice;
 use CommerceAgents\Service\TokenUsageRepository;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -90,8 +91,8 @@ class AdminHookManager extends BaseHook
         }
 
         $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/menu-item.html.twig', [
-            'merchantPageUrl' => $this->urlGenerator->generate('commerceagents_merchant_page'),
-            'isActive' => $event->getArgument('admin_current_location') === 'commerceagents_merchant_page',
+            'agentsPageUrl' => $this->urlGenerator->generate('commerceagents_agents_page'),
+            'isActive' => \in_array($event->getArgument('admin_current_location'), ['commerceagents_agents_page', 'commerceagents_agents_new', 'commerceagents_agents_edit'], true),
         ]));
     }
 
@@ -131,10 +132,21 @@ class AdminHookManager extends BaseHook
         $budget = $this->budgetGuard->status();
         $usage = $this->tokenUsageRepository->summarize();
 
+        $mistralModel = $this->configService->getModel('mistral');
+        $mistralModelChoices = array_map(self::modelChoiceToArray(...), $this->modelCatalog->getSelectableModels('mistral'));
+
         $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/module-configuration.html.twig', [
             'activeProvider' => $activeProvider,
             'providers' => $providers,
+            'otherProviders' => array_filter($providers, static fn (array $provider): bool => $provider['code'] !== 'mistral'),
             'catalog' => $catalog,
+            'hero' => [
+                'apiKeyConfigured' => $this->configService->hasApiKey('mistral'),
+                'baseUrl' => $this->configService->getBaseUrl('mistral'),
+                'model' => $mistralModel,
+                'modelChoices' => $mistralModelChoices,
+                'modelPricedAt' => $this->modelCatalog->latestPricedAt('mistral')?->format('d/m/Y') ?? (new \DateTimeImmutable())->format('d/m/Y'),
+            ],
             'dashboard' => [
                 'providerLabel' => self::PROVIDER_LABELS[$activeProvider],
                 'model' => $activeModel,
@@ -230,6 +242,24 @@ class AdminHookManager extends BaseHook
             'source' => $model->getSource(),
             'pricedAt' => $model->getPricedAt()?->format('Y-m-d'),
             'lastSeenAt' => $model->getLastSeenAt()?->format('Y-m-d H:i'),
+        ];
+    }
+
+    /**
+     * @return array{modelId: string, name: string, tier: string, tierLabel: string, priceInput: string, priceOutput: string, currency: string, contextWindow: ?int, isDefault: bool}
+     */
+    private static function modelChoiceToArray(ModelChoice $choice): array
+    {
+        return [
+            'modelId' => $choice->modelId,
+            'name' => $choice->name,
+            'tier' => $choice->tier,
+            'tierLabel' => $choice->tierLabel,
+            'priceInput' => $choice->priceInput,
+            'priceOutput' => $choice->priceOutput,
+            'currency' => $choice->currency,
+            'contextWindow' => $choice->contextWindow,
+            'isDefault' => $choice->isDefault,
         ];
     }
 

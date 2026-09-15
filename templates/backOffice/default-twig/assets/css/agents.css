@@ -1,0 +1,150 @@
+/*
+ * CommerceAgents — Mistral hero (screen 1) and Agents IA (screen 2) styles.
+ * Extends the default-twig design tokens (_variables.scss: $primary #f26041,
+ * body bg #f4f7fa, radius .5rem) — no new tokens introduced (plan MYO-227 §6).
+ */
+
+/* ---- Shared: model picker (ARIA listbox, contract ModelChoice) ---- */
+.model-picker { position: relative; }
+.model-picker-toggle {
+    width: 100%;
+    text-align: left;
+    background: #fff;
+    border: 1px solid #ced4da;
+    border-radius: .5rem;
+    padding: .5rem .75rem;
+    min-height: 44px;
+}
+.model-picker-toggle:focus {
+    outline: 0;
+    border-color: #f26041;
+    box-shadow: 0 0 0 .2rem rgba(242, 96, 65, .2);
+}
+.model-menu {
+    position: absolute;
+    z-index: 1060;
+    left: 0;
+    right: 0;
+    margin-top: .25rem;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .5rem;
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .14);
+    max-height: 23rem;
+    overflow: auto;
+}
+.model-tier {
+    padding: .55rem .75rem .15rem;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #6c757d;
+}
+.model-tier .tier-hint {
+    display: block;
+    font-size: .74rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.model-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: none;
+    padding: .5rem .75rem;
+    min-height: 44px;
+}
+.model-option:hover, .model-option:focus { background: #fff7f2; outline: 0; }
+.model-option[aria-selected="true"] { background: #fff7f2; box-shadow: inset 3px 0 0 #f26041; }
+.model-price { font-size: .78rem; color: #6c757d; white-space: nowrap; }
+.model-menu-foot {
+    border-top: 1px solid #eee;
+    padding: .4rem .75rem;
+    font-size: .74rem;
+    color: #6c757d;
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+/* ---- Screen 1: provider hero ---- */
+.ca-hero { max-width: 860px; }
+.ca-brand-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 1rem;
+    background: #fff7f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+.ca-status-dot { width: .6rem; height: .6rem; border-radius: 50%; display: inline-block; }
+.ca-followup .value { font-weight: 600; color: #2c2c2c; }
+.ca-settings-panel { border-top: 3px solid rgba(242, 96, 65, .35); }
+.ca-eye-btn { min-width: 44px; }
+
+/* Variant B "Le Chat": discrete blink/tail, disabled under reduced-motion */
+.lechat-eye { transform-origin: center; animation: lechat-blink 6s infinite; }
+.lechat-tail { transform-origin: 8px 52px; animation: lechat-tail 7s ease-in-out infinite; }
+@keyframes lechat-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.08); } }
+@keyframes lechat-tail { 0%, 80%, 100% { transform: rotate(0deg); } 88% { transform: rotate(-14deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .lechat-eye, .lechat-tail { animation: none; }
+}
+
+/* ---- Screen 2: agent cards ---- */
+.agent-card { transition: box-shadow .15s ease; }
+.agent-card:hover { box-shadow: 0 .5rem 1rem rgba(31, 41, 55, .08); }
+.agent-card.is-inactive { opacity: .75; }
+.agent-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: .75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex: 0 0 auto;
+}
+.channel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: .78rem;
+    background: #f1f3f6;
+    border-radius: 2rem;
+    padding: .15rem .6rem;
+    color: #4f4f4f;
+}
+.preset-card { cursor: pointer; border: 1px solid #d9d9d9 !important; }
+.preset-card:hover, .preset-card:focus-within {
+    border-color: #f26041 !important;
+    box-shadow: 0 0 0 .2rem rgba(242, 96, 65, .15);
+}
+
+/* ---- Wizard stepper ---- */
+.step-dot {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    background: #e9ecef;
+    color: #6c757d;
+}
+.step.active .step-dot { background: #f26041; color: #fff; }
+.step.done .step-dot { background: #d1e7dd; color: #0f5132; }
+.step-label { font-size: .8rem; }
+.step.active .step-label { color: #2c2c2c; font-weight: 600; }
+.wizard-step[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .agent-card { transition: none; }
+}

@@ -11,91 +11,16 @@
     'all': 'All agents'|trans({}, 'commerceagents'),
 } %}
 
+<link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/agents.css') }}">
+<script src="{{ module_asset('CommerceAgents', 'assets/js/model-picker.js') }}"></script>
+
 <div data-testid="commerceagents-config" id="ca-config">
-
-    {# ---------------------------------------------------------------- Dashboard #}
-    <div class="row g-3 mb-3" data-testid="ca-dashboard">
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0 bo-kpi" data-testid="ca-kpi-provider">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
-                            <i class="bi bi-cpu fs-5" aria-hidden="true"></i>
-                        </div>
-                        <span class="badge {{ dashboard.apiKeyConfigured ? 'text-bg-success' : 'text-bg-danger' }}">{{ dashboard.apiKeyConfigured ? 'Key configured'|trans({}, 'commerceagents') : 'No key'|trans({}, 'commerceagents') }}</span>
-                    </div>
-                    <div class="text-muted small mt-3">{{ 'Active provider'|trans({}, 'commerceagents') }}</div>
-                    <div class="h5 mb-0 fw-semibold">{{ dashboard.providerLabel }}</div>
-                    <div class="small mt-1"><code>{{ dashboard.model }}</code></div>
-                    <div class="text-muted small">
-                        {% if dashboard.modelPriced %}
-                            ${{ dashboard.modelPriceInput }} {{ 'in'|trans({}, 'commerceagents') }} / ${{ dashboard.modelPriceOutput }} {{ 'out'|trans({}, 'commerceagents') }} {{ 'per 1M tokens'|trans({}, 'commerceagents') }}
-                        {% else %}
-                            {{ 'No price set for this model'|trans({}, 'commerceagents') }}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0 bo-kpi" data-testid="ca-kpi-spend">
-                <div class="card-body">
-                    <div class="rounded-circle bg-{{ stateAccent[dashboard.budgetState] }}-subtle text-{{ stateAccent[dashboard.budgetState] }} d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
-                        <i class="bi bi-cash-coin fs-5" aria-hidden="true"></i>
-                    </div>
-                    <div class="text-muted small mt-3">{{ 'Spent this month'|trans({}, 'commerceagents') }} ({{ dashboard.monthLabel }})</div>
-                    <div class="h4 mb-0 fw-semibold">{{ dashboard.spentMonth }}</div>
-                    <div class="text-muted small mt-1">{{ 'Today'|trans({}, 'commerceagents') }} : {{ dashboard.spentToday }}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0 bo-kpi" data-testid="ca-kpi-budget">
-                <div class="card-body">
-                    <div class="d-flex align-items-start justify-content-between">
-                        <div class="rounded-circle bg-{{ stateAccent[dashboard.budgetState] }}-subtle text-{{ stateAccent[dashboard.budgetState] }} d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
-                            <i class="bi bi-speedometer2 fs-5" aria-hidden="true"></i>
-                        </div>
-                        {% if dashboard.budgetBlocked %}
-                            <span class="badge text-bg-danger">{{ 'Assistants paused'|trans({}, 'commerceagents') }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="text-muted small mt-3">{{ 'Monthly budget'|trans({}, 'commerceagents') }}</div>
-                    {% if dashboard.budget is not null %}
-                        <div class="h4 mb-1 fw-semibold">{{ dashboard.budget }}</div>
-                        <div class="progress mb-1" role="progressbar" aria-valuenow="{{ dashboard.percentUsed }}" aria-valuemin="0" aria-valuemax="100" style="height: 6px;">
-                            <div class="progress-bar bg-{{ stateAccent[dashboard.budgetState] }}" style="width: {{ min(100, dashboard.percentUsed) }}%"></div>
-                        </div>
-                        <div class="text-muted small">{{ dashboard.percentUsed|number_format(1, '.', ' ') }} % {{ 'used'|trans({}, 'commerceagents') }}, {{ dashboard.remaining }} {{ 'left'|trans({}, 'commerceagents') }}</div>
-                    {% else %}
-                        <div class="h4 mb-1 fw-semibold">{{ 'No limit'|trans({}, 'commerceagents') }}</div>
-                        <div class="text-muted small"><a href="#budget" data-ca-tab-link="budget">{{ 'Set a budget'|trans({}, 'commerceagents') }}</a></div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6 col-xl-3">
-            <div class="card h-100 shadow-sm border-0 bo-kpi" data-testid="ca-kpi-calls">
-                <div class="card-body">
-                    <div class="rounded-circle bg-info-subtle text-info d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
-                        <i class="bi bi-chat-dots fs-5" aria-hidden="true"></i>
-                    </div>
-                    <div class="text-muted small mt-3">{{ 'LLM calls this month'|trans({}, 'commerceagents') }}</div>
-                    <div class="h4 mb-0 fw-semibold">{{ dashboard.callsMonth|number_format(0, '.', ' ') }}</div>
-                    <div class="text-muted small mt-1">{{ dashboard.tokensMonth|number_format(0, '.', ' ') }} {{ 'tokens'|trans({}, 'commerceagents') }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     {% if alerts %}
         <div class="row g-2 mb-3" data-testid="ca-alerts">
             {% for alert in alerts %}
                 <div class="col-md-6">
-                    <a href="#{{ alert.tab }}" data-ca-tab-link="{{ alert.tab }}" class="alert alert-{{ alert.level }} d-flex align-items-center gap-2 mb-0 text-decoration-none">
+                    <a href="#{{ alert.tab }}" data-open-settings="{{ alert.tab }}" class="alert alert-{{ alert.level }} d-flex align-items-center gap-2 mb-0 text-decoration-none">
                         <i class="bi {{ alert.icon }}" aria-hidden="true"></i>
                         <span>{{ alert.message|trans({}, 'commerceagents') }}</span>
                     </a>
@@ -108,318 +33,415 @@
     <form method="post" action="{{ saveUrl }}" id="ca-settings-form">
         <input type="hidden" name="_token" value="{{ csrfToken }}">
         <input type="hidden" name="_tab" value="providers" id="ca-settings-tab">
+        <input type="hidden" name="base_url_mistral" value="{{ hero.baseUrl }}">
     </form>
 
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-body">
-            <ul class="nav nav-tabs card-header-tabs" role="tablist" data-testid="ca-tabs">
-                {% set tabs = [
-                    ['providers', 'Providers'|trans({}, 'commerceagents'), 'bi-plug'],
-                    ['models', 'Models and prices'|trans({}, 'commerceagents'), 'bi-tags'],
-                    ['assistants', 'Assistants'|trans({}, 'commerceagents'), 'bi-robot'],
-                    ['budget', 'Budget'|trans({}, 'commerceagents'), 'bi-speedometer2'],
-                    ['usage', 'Usage'|trans({}, 'commerceagents'), 'bi-bar-chart'],
-                ] %}
-                {% for tab in tabs %}
-                    <li class="nav-item" role="presentation">
-                        <button type="button" class="nav-link {{ loop.first ? 'active' : '' }}" data-ca-tab="{{ tab[0] }}" role="tab" aria-selected="{{ loop.first ? 'true' : 'false' }}">
-                            <i class="bi {{ tab[2] }} me-1" aria-hidden="true"></i>{{ tab[1] }}
-                        </button>
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-
-        <div class="card-body">
-
-            {# ------------------------------------------------------------ Providers #}
-            <div class="ca-tab-pane" data-ca-pane="providers">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-5">
-                        <label class="form-label fw-semibold" for="ca-provider">{{ 'Active LLM provider'|trans({}, 'commerceagents') }}</label>
-                        <select class="form-select" id="ca-provider" name="provider" form="ca-settings-form">
-                            {% for provider in providers %}
-                                <option value="{{ provider.code }}" {{ activeProvider == provider.code ? 'selected' : '' }}>{{ provider.label }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">{{ 'Both assistants use the active provider. Keys and models of the other providers are kept.'|trans({}, 'commerceagents') }}</div>
+    {# ---------------------------------------------------------------- Hero: Mistral (screen 1, spec §3.1) #}
+    <div class="card shadow-sm ca-hero mx-auto mb-3" data-testid="ca-hero">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
+                <div class="d-flex gap-3 align-items-center">
+                    <div class="ca-brand-badge" role="img" aria-label="Mistral AI">
+                        <svg width="44" height="44" viewBox="0 0 40 40" aria-hidden="true">
+                            <rect x="2" y="4" width="7" height="7" fill="#ffd800"/><rect x="31" y="4" width="7" height="7" fill="#ffd800"/>
+                            <rect x="2" y="11" width="7" height="7" fill="#ffaf00"/><rect x="9" y="11" width="7" height="7" fill="#ffaf00"/><rect x="24" y="11" width="7" height="7" fill="#ffaf00"/><rect x="31" y="11" width="7" height="7" fill="#ffaf00"/>
+                            <rect x="2" y="18" width="7" height="7" fill="#ff8205"/><rect x="16" y="18" width="7" height="7" fill="#ff8205"/><rect x="31" y="18" width="7" height="7" fill="#ff8205"/>
+                            <rect x="2" y="25" width="7" height="7" fill="#fa500f"/><rect x="31" y="25" width="7" height="7" fill="#fa500f"/>
+                            <rect x="2" y="32" width="7" height="7" fill="#e10500"/><rect x="31" y="32" width="7" height="7" fill="#e10500"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <h2 class="h5 mb-0">Mistral AI</h2>
+                            <span class="badge {{ hero.apiKeyConfigured ? 'text-bg-success' : 'text-bg-danger' }}" data-testid="ca-hero-status" role="status" aria-live="polite"
+                                  data-connected-label="{{ 'Connected'|trans({}, 'commerceagents') }}" data-invalid-label="{{ 'Invalid key'|trans({}, 'commerceagents') }}">
+                                {{ hero.apiKeyConfigured ? 'Connected'|trans({}, 'commerceagents') : 'Missing key'|trans({}, 'commerceagents') }}
+                            </span>
+                        </div>
+                        <div class="text-muted small mt-1">{{ "The shop's AI provider"|trans({}, 'commerceagents') }}</div>
                     </div>
                 </div>
 
-                <div class="row g-3">
-                    {% for provider in providers %}
-                        <div class="col-lg-4">
-                            <div class="border rounded p-3 h-100 ca-provider-panel" data-provider="{{ provider.code }}" data-testid="ca-provider-{{ provider.code }}">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <strong>{{ provider.label }}</strong>
-                                    <span class="badge {{ provider.apiKeyConfigured ? 'text-bg-success' : 'text-bg-secondary' }}">
-                                        {{ provider.apiKeyConfigured ? 'Key configured'|trans({}, 'commerceagents') : 'No key'|trans({}, 'commerceagents') }}
-                                    </span>
-                                </div>
+                <button type="button" class="btn btn-outline-secondary" id="ca-gear-btn" aria-expanded="false" aria-controls="ca-settings-panel" data-testid="ca-gear-btn">
+                    <i class="bi bi-gear me-1" aria-hidden="true"></i>{{ 'General settings'|trans({}, 'commerceagents') }}
+                </button>
+            </div>
 
-                                <div class="mb-3">
-                                    <label class="form-label" for="ca-api-key-{{ provider.code }}">{{ 'API key'|trans({}, 'commerceagents') }}</label>
-                                    <input class="form-control" id="ca-api-key-{{ provider.code }}" name="api_key_{{ provider.code|replace({'-': '_'}) }}" type="password" autocomplete="off" form="ca-settings-form"
-                                           placeholder="{{ provider.apiKeyConfigured ? 'Configured — leave empty to keep'|trans({}, 'commerceagents') : '' }}">
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label" for="ca-model-{{ provider.code }}">{{ 'Model'|trans({}, 'commerceagents') }}</label>
-                                    <input class="form-control ca-model-input" id="ca-model-{{ provider.code }}" name="model_{{ provider.code|replace({'-': '_'}) }}" type="text" form="ca-settings-form"
-                                           value="{{ provider.model }}" list="ca-models-{{ provider.code }}" autocomplete="off">
-                                    <datalist id="ca-models-{{ provider.code }}">
-                                        {% for model in provider.models %}
-                                            <option value="{{ model.modelId }}" data-price-input="{{ model.priceInput ?? '' }}" data-price-output="{{ model.priceOutput ?? '' }}">{{ model.name }}{% if model.priceInput is not null and model.priceOutput is not null %} — ${{ model.priceInput }} / ${{ model.priceOutput }}{% endif %}</option>
-                                        {% endfor %}
-                                    </datalist>
-                                    <div class="form-text ca-model-hint" data-unpriced="{{ 'No price set for this model'|trans({}, 'commerceagents') }}" data-per="{{ 'per 1M tokens'|trans({}, 'commerceagents') }}">{{ 'Pick from the enabled models or type any model id.'|trans({}, 'commerceagents') }}</div>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label" for="ca-base-url-{{ provider.code }}">{{ 'Base URL (optional)'|trans({}, 'commerceagents') }}</label>
-                                    <input class="form-control" id="ca-base-url-{{ provider.code }}" name="base_url_{{ provider.code|replace({'-': '_'}) }}" type="url" form="ca-settings-form"
-                                           value="{{ provider.baseUrl }}" placeholder="{{ provider.defaultBaseUrl }}">
-                                </div>
-
-                                <div class="d-flex flex-wrap align-items-center gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-primary ca-test-connection" data-provider="{{ provider.code }}" data-test-url="{{ testUrl }}">{{ 'Test connection'|trans({}, 'commerceagents') }}</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary ca-refresh-models" data-provider="{{ provider.code }}" data-refresh-url="{{ refreshModelsUrl }}">{{ 'Refresh models'|trans({}, 'commerceagents') }}</button>
-                                    <span class="ca-provider-status small" role="status" aria-live="polite"></span>
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
+            <div class="row g-4">
+                <div class="col-md-7">
+                    <label class="form-label" for="ca-hero-key">{{ 'Mistral API key'|trans({}, 'commerceagents') }}</label>
+                    <div class="input-group">
+                        <input class="form-control" id="ca-hero-key" name="api_key_mistral" type="password" autocomplete="off" form="ca-settings-form"
+                               aria-describedby="ca-hero-key-help" data-testid="ca-hero-key"
+                               placeholder="{{ hero.apiKeyConfigured ? 'Configured — leave empty to keep'|trans({}, 'commerceagents') : '' }}">
+                        <button class="btn btn-outline-secondary ca-eye-btn" type="button" id="ca-hero-key-eye" aria-label="{{ 'Show the key'|trans({}, 'commerceagents') }}"
+                                data-show-label="{{ 'Show the key'|trans({}, 'commerceagents') }}" data-hide-label="{{ 'Hide the key'|trans({}, 'commerceagents') }}">
+                            <i class="bi bi-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="form-text" id="ca-hero-key-help">
+                        {{ 'No key yet?'|trans({}, 'commerceagents') }}
+                        <a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">{{ 'Create a key on console.mistral.ai'|trans({}, 'commerceagents') }} <i class="bi bi-box-arrow-up-right small" aria-hidden="true"></i></a>
+                        — {{ 'the key stays stored on your server.'|trans({}, 'commerceagents') }}
+                    </div>
                 </div>
-
-                <div class="mt-3 d-flex align-items-center gap-2">
-                    <button type="submit" class="btn btn-primary" form="ca-settings-form">{{ 'Save'|trans({}, 'commerceagents') }}</button>
-                    <span class="text-muted small">{{ 'Saves every tab of the settings.'|trans({}, 'commerceagents') }}</span>
+                <div class="col-md-5">
+                    <label class="form-label" id="ca-hero-model-label">{{ 'Default model'|trans({}, 'commerceagents') }}</label>
+                    {% include '@CommerceAgentsModule/backOffice/default-twig/components/model-picker.html.twig' with {
+                        name: 'model_mistral',
+                        id: 'ca-hero-model',
+                        choices: hero.modelChoices,
+                        selected: hero.model,
+                        pricedAt: hero.modelPricedAt,
+                        labelId: 'ca-hero-model-label',
+                        allowInherit: false,
+                        inheritModel: null,
+                        testid: 'ca-hero-model',
+                    } only %}
+                    <div class="form-text">{{ 'Used by every agent unless it has its own setting. Prices shown per million tokens.'|trans({}, 'commerceagents') }}</div>
                 </div>
             </div>
 
-            {# ------------------------------------------------------------ Models and prices #}
-            <div class="ca-tab-pane d-none" data-ca-pane="models">
-                <p class="form-text mb-3">{{ 'Prices in USD per million tokens, as published by each provider. Edit a price to override it; "Refresh models" asks the provider which models your key can use and adds the new ones, disabled and without price.'|trans({}, 'commerceagents') }}</p>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
+                <button type="submit" class="btn btn-primary" form="ca-settings-form">{{ 'Save'|trans({}, 'commerceagents') }}</button>
+                <button type="button" class="btn btn-outline-secondary" id="ca-hero-test" data-test-url="{{ testUrl }}" data-testid="ca-hero-test">{{ 'Test connection'|trans({}, 'commerceagents') }}</button>
+                <span class="small ms-1" role="status" aria-live="polite" id="ca-hero-test-status" data-testid="ca-hero-test-status" data-checking="{{ 'Checking…'|trans({}, 'commerceagents') }}"></span>
+            </div>
+        </div>
+    </div>
 
-                <form method="post" action="{{ saveModelsUrl }}" id="ca-models-form">
-                    <input type="hidden" name="_token" value="{{ csrfToken }}">
-
-                    {% for provider in providers %}
-                        {% set disabledCount = catalog[provider.code]|filter(m => not m.enabled)|length %}
-                        <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-2">
-                            <h6 class="mb-0">{{ provider.label }} <span class="badge text-bg-light">{{ catalog[provider.code]|length }}</span></h6>
-                            {% if disabledCount > 0 %}
-                                <div class="form-check form-switch small mb-0">
-                                    <input class="form-check-input ca-show-disabled" type="checkbox" id="ca-show-disabled-{{ provider.code }}" data-provider="{{ provider.code }}">
-                                    <label class="form-check-label" for="ca-show-disabled-{{ provider.code }}">{{ 'Show disabled models'|trans({}, 'commerceagents') }} ({{ disabledCount }})</label>
-                                </div>
-                            {% endif %}
+    {# ---------------------------------------------------------------- Read-only tracking banner (spec §3.1 point 2) #}
+    <div class="card shadow-sm ca-hero mx-auto ca-followup" data-testid="ca-followup">
+        <div class="card-body py-3 px-4">
+            <div class="row text-center text-md-start align-items-center g-3">
+                <div class="col-6 col-md-3">
+                    <div class="small text-muted">{{ 'Spend this month'|trans({}, 'commerceagents') }} ({{ dashboard.monthLabel }})</div>
+                    <div class="value">{{ dashboard.spentMonth }}</div>
+                </div>
+                <div class="col-6 col-md-4">
+                    {% if dashboard.budget is not null %}
+                        <div class="small text-muted mb-1">{{ 'Monthly budget'|trans({}, 'commerceagents') }}: {{ dashboard.budget }}</div>
+                        <div class="progress" role="progressbar" aria-label="{{ 'Budget used'|trans({}, 'commerceagents') }}" aria-valuenow="{{ dashboard.percentUsed }}" aria-valuemin="0" aria-valuemax="100" style="height:6px">
+                            <div class="progress-bar bg-{{ stateAccent[dashboard.budgetState] }}" style="width: {{ min(100, dashboard.percentUsed) }}%"></div>
                         </div>
+                    {% else %}
+                        <div class="small text-muted">{{ 'No monthly budget set'|trans({}, 'commerceagents') }} — <a href="#budget" data-open-settings="budget">{{ 'Set one'|trans({}, 'commerceagents') }}</a></div>
+                    {% endif %}
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="small text-muted">{{ 'AI calls this month'|trans({}, 'commerceagents') }}</div>
+                    <div class="value">{{ dashboard.callsMonth|number_format(0, '.', ' ') }}</div>
+                </div>
+                <div class="col-6 col-md-2 text-md-end">
+                    <a href="#usage" class="small text-decoration-none" id="ca-followup-detail-link" data-open-settings="usage" data-testid="ca-followup-detail">{{ 'Details'|trans({}, 'commerceagents') }} <i class="bi bi-chevron-right small" aria-hidden="true"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ---------------------------------------------------------------- "General settings" gear panel (spec §3.2) #}
+    <div class="card shadow-sm mt-3 ca-settings-panel d-none" id="ca-settings-panel" role="region" aria-label="{{ 'General settings'|trans({}, 'commerceagents') }}" data-testid="ca-settings-panel">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0"><i class="bi bi-gear me-2 text-muted" aria-hidden="true"></i>{{ 'General settings'|trans({}, 'commerceagents') }}</h2>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="ca-gear-close" aria-label="{{ 'Close general settings'|trans({}, 'commerceagents') }}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-3">
+                    <nav class="nav nav-pills flex-column gap-1" aria-label="{{ 'Settings sections'|trans({}, 'commerceagents') }}" data-testid="ca-tabs">
+                        {% set sections = [
+                            ['providers', 'Other providers'|trans({}, 'commerceagents'), 'bi-plug'],
+                            ['models', 'Models and prices'|trans({}, 'commerceagents'), 'bi-tags'],
+                            ['assistants', 'Shop assistant'|trans({}, 'commerceagents'), 'bi-chat-dots'],
+                            ['budget', 'Budget and guardrails'|trans({}, 'commerceagents'), 'bi-speedometer2'],
+                            ['usage', 'Detailed usage'|trans({}, 'commerceagents'), 'bi-bar-chart'],
+                        ] %}
+                        {% for section in sections %}
+                            <a href="#" class="nav-link {{ loop.first ? 'active' : '' }}" data-ca-tab="{{ section[0] }}" role="tab" aria-selected="{{ loop.first ? 'true' : 'false' }}">
+                                <i class="bi {{ section[2] }} me-2" aria-hidden="true"></i>{{ section[1] }}
+                            </a>
+                        {% endfor %}
+                    </nav>
+                </div>
+                <div class="col-md-9">
+
+                    {# ------------------------------------------------------------ Other providers #}
+                    <div class="ca-tab-pane" data-ca-pane="providers">
+                        <p class="text-muted small mb-3">{{ 'Mistral stays the active provider by default. You can set up a fallback provider or switch — keys already entered are kept.'|trans({}, 'commerceagents') }}</p>
+                        <div class="row g-3">
+                            {% for provider in otherProviders %}
+                                <div class="col-md-6">
+                                    <div class="border rounded p-3 h-100 ca-provider-panel" data-provider="{{ provider.code }}" data-testid="ca-provider-{{ provider.code }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong>{{ provider.label }}</strong>
+                                            <span class="badge {{ provider.apiKeyConfigured ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                                {{ provider.apiKeyConfigured ? 'Key configured'|trans({}, 'commerceagents') : 'No key'|trans({}, 'commerceagents') }}
+                                            </span>
+                                        </div>
+                                        <label class="form-label small" for="ca-api-key-{{ provider.code }}">{{ 'API key'|trans({}, 'commerceagents') }}</label>
+                                        <input class="form-control form-control-sm mb-2" id="ca-api-key-{{ provider.code }}" name="api_key_{{ provider.code|replace({'-': '_'}) }}" type="password" autocomplete="off" form="ca-settings-form"
+                                               placeholder="{{ provider.apiKeyConfigured ? 'Configured — leave empty to keep'|trans({}, 'commerceagents') : '' }}">
+                                        <label class="form-label small" for="ca-model-{{ provider.code }}">{{ 'Model'|trans({}, 'commerceagents') }}</label>
+                                        <input class="form-control form-control-sm ca-model-input mb-2" id="ca-model-{{ provider.code }}" name="model_{{ provider.code|replace({'-': '_'}) }}" type="text" form="ca-settings-form"
+                                               value="{{ provider.model }}" list="ca-models-{{ provider.code }}" autocomplete="off">
+                                        <datalist id="ca-models-{{ provider.code }}">
+                                            {% for model in provider.models %}
+                                                <option value="{{ model.modelId }}" data-price-input="{{ model.priceInput ?? '' }}" data-price-output="{{ model.priceOutput ?? '' }}">{{ model.name }}{% if model.priceInput is not null and model.priceOutput is not null %} — ${{ model.priceInput }} / ${{ model.priceOutput }}{% endif %}</option>
+                                            {% endfor %}
+                                        </datalist>
+                                        <div class="form-text ca-model-hint" data-unpriced="{{ 'No price set for this model'|trans({}, 'commerceagents') }}" data-per="{{ 'per 1M tokens'|trans({}, 'commerceagents') }}">{{ 'Pick from the enabled models or type any model id.'|trans({}, 'commerceagents') }}</div>
+                                        {% if provider.code == 'openai-compatible' %}
+                                            <label class="form-label small mt-2" for="ca-base-url-{{ provider.code }}">{{ 'Base URL (local server, proxy…)'|trans({}, 'commerceagents') }}</label>
+                                            <input class="form-control form-control-sm" id="ca-base-url-{{ provider.code }}" name="base_url_{{ provider.code|replace({'-': '_'}) }}" type="url" form="ca-settings-form"
+                                                   value="{{ provider.baseUrl }}" placeholder="{{ provider.defaultBaseUrl }}">
+                                        {% else %}
+                                            <input type="hidden" name="base_url_{{ provider.code|replace({'-': '_'}) }}" value="{{ provider.baseUrl }}" form="ca-settings-form">
+                                        {% endif %}
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-primary ca-test-connection" data-provider="{{ provider.code }}" data-test-url="{{ testUrl }}">{{ 'Test connection'|trans({}, 'commerceagents') }}</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary ca-refresh-models" data-provider="{{ provider.code }}" data-refresh-url="{{ refreshModelsUrl }}">{{ 'Refresh models'|trans({}, 'commerceagents') }}</button>
+                                            <span class="ca-provider-status small" role="status" aria-live="polite"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <label class="form-label" for="ca-provider">{{ 'Active provider'|trans({}, 'commerceagents') }}</label>
+                            <select class="form-select w-auto" id="ca-provider" name="provider" form="ca-settings-form">
+                                {% for provider in providers %}
+                                    <option value="{{ provider.code }}" {{ activeProvider == provider.code ? 'selected' : '' }}>{{ provider.code == 'mistral' ? (provider.label ~ ' (' ~ 'recommended'|trans({}, 'commerceagents') ~ ')') : provider.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    {# ------------------------------------------------------------ Models and prices #}
+                    <div class="ca-tab-pane d-none" data-ca-pane="models">
+                        <p class="form-text mb-3">{{ 'Prices in USD per million tokens, as published by each provider. Edit a price to override it; "Refresh models" asks the provider which models your key can use and adds the new ones, disabled and without price.'|trans({}, 'commerceagents') }}</p>
+
+                        <form method="post" action="{{ saveModelsUrl }}" id="ca-models-form">
+                            <input type="hidden" name="_token" value="{{ csrfToken }}">
+
+                            {% for provider in providers %}
+                                {% set disabledCount = catalog[provider.code]|filter(m => not m.enabled)|length %}
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 mb-2">
+                                    <h6 class="mb-0">{{ provider.label }} <span class="badge text-bg-light">{{ catalog[provider.code]|length }}</span></h6>
+                                    {% if disabledCount > 0 %}
+                                        <div class="form-check form-switch small mb-0">
+                                            <input class="form-check-input ca-show-disabled" type="checkbox" id="ca-show-disabled-{{ provider.code }}" data-provider="{{ provider.code }}">
+                                            <label class="form-check-label" for="ca-show-disabled-{{ provider.code }}">{{ 'Show disabled models'|trans({}, 'commerceagents') }} ({{ disabledCount }})</label>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle" data-provider="{{ provider.code }}">
+                                        <thead>
+                                            <tr>
+                                                <th>{{ 'Enabled'|trans({}, 'commerceagents') }}</th>
+                                                <th>{{ 'Model id'|trans({}, 'commerceagents') }}</th>
+                                                <th>{{ 'Name'|trans({}, 'commerceagents') }}</th>
+                                                <th class="text-end" style="min-width: 6rem">{{ 'Input $/1M'|trans({}, 'commerceagents') }}</th>
+                                                <th class="text-end" style="min-width: 6rem">{{ 'Output $/1M'|trans({}, 'commerceagents') }}</th>
+                                                <th>{{ 'Source'|trans({}, 'commerceagents') }}</th>
+                                                <th>{{ 'Priced on'|trans({}, 'commerceagents') }}</th>
+                                                <th>{{ 'Seen via API'|trans({}, 'commerceagents') }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for model in catalog[provider.code] %}
+                                                <tr data-model-id="{{ model.modelId }}" data-enabled="{{ model.enabled ? '1' : '0' }}" class="{{ model.enabled ? '' : 'd-none ca-disabled-row' }}">
+                                                    <td><input class="form-check-input" type="checkbox" name="models[{{ model.id }}][enabled]" value="1" {{ model.enabled ? 'checked' : '' }} aria-label="{{ model.modelId }}"></td>
+                                                    <td><code>{{ model.modelId }}</code></td>
+                                                    <td><input class="form-control form-control-sm" style="min-width: 12rem" type="text" name="models[{{ model.id }}][name]" value="{{ model.name }}"></td>
+                                                    <td><input class="form-control form-control-sm text-end" style="min-width: 6rem" type="text" inputmode="decimal" name="models[{{ model.id }}][price_input]" value="{{ model.priceInput ?? '' }}" placeholder="?"></td>
+                                                    <td><input class="form-control form-control-sm text-end" style="min-width: 6rem" type="text" inputmode="decimal" name="models[{{ model.id }}][price_output]" value="{{ model.priceOutput ?? '' }}" placeholder="?"></td>
+                                                    <td><span class="badge text-bg-light">{{ model.source }}</span></td>
+                                                    <td class="text-muted small">{{ model.pricedAt ?? '—' }}</td>
+                                                    <td class="text-muted small">{{ model.lastSeenAt ?? '—' }}</td>
+                                                </tr>
+                                            {% else %}
+                                                <tr><td colspan="8" class="text-muted">{{ 'No model yet. Use "Refresh models" or add one below.'|trans({}, 'commerceagents') }}</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endfor %}
+
+                            <button type="submit" class="btn btn-primary btn-sm">{{ 'Save prices'|trans({}, 'commerceagents') }}</button>
+                        </form>
+
+                        <hr>
+
+                        <form method="post" action="{{ addModelUrl }}" class="row g-2 align-items-end" data-testid="ca-add-model">
+                            <input type="hidden" name="_token" value="{{ csrfToken }}">
+                            <div class="col-md-2">
+                                <label class="form-label" for="ca-add-provider">{{ 'Provider'|trans({}, 'commerceagents') }}</label>
+                                <select class="form-select form-select-sm" id="ca-add-provider" name="provider">
+                                    {% for provider in providers %}
+                                        <option value="{{ provider.code }}">{{ provider.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="ca-add-model-id">{{ 'Model id'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control form-control-sm" id="ca-add-model-id" name="model_id" type="text" required placeholder="mistral-large-latest">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="ca-add-name">{{ 'Name'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control form-control-sm" id="ca-add-name" name="name" type="text">
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label" for="ca-add-price-in">{{ 'Input $/1M'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control form-control-sm" id="ca-add-price-in" name="price_input" type="text" inputmode="decimal">
+                            </div>
+                            <div class="col-md-1">
+                                <label class="form-label" for="ca-add-price-out">{{ 'Output $/1M'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control form-control-sm" id="ca-add-price-out" name="price_output" type="text" inputmode="decimal">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-outline-primary btn-sm">{{ 'Add model'|trans({}, 'commerceagents') }}</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {# ------------------------------------------------------------ Shop assistant #}
+                    <div class="ca-tab-pane d-none" data-ca-pane="assistants">
+                        <p class="text-muted small mb-3">{{ 'Historical settings of the shop visitor assistant.'|trans({}, 'commerceagents') }}</p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="ca-assistant-name">{{ 'Assistant name'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control" id="ca-assistant-name" name="assistant_name" type="text" value="{{ assistantName }}" form="ca-settings-form">
+                                <div class="form-text">{{ 'Name the shopping assistant introduces itself with.'|trans({}, 'commerceagents') }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="ca-daily-limit">{{ 'Daily message limit'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control" id="ca-daily-limit" name="daily_message_limit" type="number" min="1" value="{{ dailyMessageLimit }}" form="ca-settings-form">
+                                <div class="form-text">{{ 'Maximum messages per visitor session and day.'|trans({}, 'commerceagents') }}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="ca-policy-ids">{{ 'Policy content ids (CSV)'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control" id="ca-policy-ids" name="policy_content_ids" type="text" value="{{ policyContentIds }}" placeholder="4,5" form="ca-settings-form">
+                                <div class="form-text">{{ 'Contents holding terms, shipping and return policies.'|trans({}, 'commerceagents') }}</div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="fw-semibold mb-2">{{ 'Shopping assistant capabilities'|trans({}, 'commerceagents') }}</div>
+                                {% for toggle in [['enable_front_chat', 'ca-front-chat', enableFrontChat, 'Front chat'], ['enable_cart', 'ca-cart', enableCart, 'Cart'], ['enable_checkout', 'ca-checkout', enableCheckout, 'Checkout'], ['enable_orders', 'ca-orders', enableOrders, 'Orders']] %}
+                                    <div class="form-check form-switch form-check-inline">
+                                        <input class="form-check-input" type="checkbox" id="{{ toggle[1] }}" name="{{ toggle[0] }}" value="1" {{ toggle[2] ? 'checked' : '' }} form="ca-settings-form">
+                                        <label class="form-check-label" for="{{ toggle[1] }}">{{ toggle[3]|trans({}, 'commerceagents') }}</label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex align-items-center gap-2">
+                            <button type="submit" class="btn btn-primary" form="ca-settings-form">{{ 'Save'|trans({}, 'commerceagents') }}</button>
+                            <a class="btn btn-outline-secondary" href="{{ path('commerceagents_merchant_page') }}">{{ 'Open merchant assistant'|trans({}, 'commerceagents') }}</a>
+                        </div>
+                    </div>
+
+                    {# ------------------------------------------------------------ Budget & guardrails #}
+                    <div class="ca-tab-pane d-none" data-ca-pane="budget">
+                        <p class="form-text mb-3">{{ 'The budget applies to the calendar month and to both assistants together, at the prices of the models catalog. Leave empty for no limit.'|trans({}, 'commerceagents') }}</p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="ca-budget">{{ 'Monthly budget (USD)'|trans({}, 'commerceagents') }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input class="form-control" id="ca-budget" name="monthly_budget_usd" type="text" inputmode="decimal" value="{{ budgetSettings.monthlyBudgetUsd }}" placeholder="50.00" form="ca-settings-form">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="ca-budget-warning">{{ 'Warning threshold (%)'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control" id="ca-budget-warning" name="budget_warning_percent" type="number" min="0" max="100" value="{{ budgetSettings.warningPercent }}" form="ca-settings-form">
+                                <div class="form-text">{{ '0 disables the warning.'|trans({}, 'commerceagents') }}</div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="ca-budget-block" name="budget_block" value="1" {{ budgetSettings.block ? 'checked' : '' }} form="ca-settings-form">
+                                    <label class="form-check-label" for="ca-budget-block">{{ 'Pause agents at the cap'|trans({}, 'commerceagents') }}</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text mt-1">{{ 'Visitors and merchants get a "service unavailable" answer until next month or a higher budget.'|trans({}, 'commerceagents') }}</div>
+
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary" form="ca-settings-form">{{ 'Save'|trans({}, 'commerceagents') }}</button>
+                        </div>
+                    </div>
+
+                    {# ------------------------------------------------------------ Detailed usage #}
+                    <div class="ca-tab-pane d-none" data-ca-pane="usage" data-testid="commerceagents-token-usage">
+                        <p class="form-text mb-3">{{ 'Tokens billed by the LLM provider, as reported in its responses, and their cost at the price in force when the call was made. One call is one request to the provider; a single user message may need several calls when tools are used.'|trans({}, 'commerceagents') }}</p>
                         <div class="table-responsive">
-                            <table class="table table-sm align-middle" data-provider="{{ provider.code }}">
+                            <table class="table table-sm align-middle mb-4">
                                 <thead>
                                     <tr>
-                                        <th>{{ 'Enabled'|trans({}, 'commerceagents') }}</th>
-                                        <th>{{ 'Model id'|trans({}, 'commerceagents') }}</th>
-                                        <th>{{ 'Name'|trans({}, 'commerceagents') }}</th>
-                                        <th class="text-end" style="min-width: 6rem">{{ 'Input $/1M'|trans({}, 'commerceagents') }}</th>
-                                        <th class="text-end" style="min-width: 6rem">{{ 'Output $/1M'|trans({}, 'commerceagents') }}</th>
-                                        <th>{{ 'Source'|trans({}, 'commerceagents') }}</th>
-                                        <th>{{ 'Priced on'|trans({}, 'commerceagents') }}</th>
-                                        <th>{{ 'Seen via API'|trans({}, 'commerceagents') }}</th>
+                                        <th>{{ 'Period'|trans({}, 'commerceagents') }}</th>
+                                        <th>{{ 'Agent'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'LLM calls'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Input tokens'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Output tokens'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Total tokens'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Cost (USD)'|trans({}, 'commerceagents') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for model in catalog[provider.code] %}
-                                        <tr data-model-id="{{ model.modelId }}" data-enabled="{{ model.enabled ? '1' : '0' }}" class="{{ model.enabled ? '' : 'd-none ca-disabled-row' }}">
-                                            <td><input class="form-check-input" type="checkbox" name="models[{{ model.id }}][enabled]" value="1" {{ model.enabled ? 'checked' : '' }} aria-label="{{ model.modelId }}"></td>
-                                            <td><code>{{ model.modelId }}</code></td>
-                                            <td><input class="form-control form-control-sm" style="min-width: 12rem" type="text" name="models[{{ model.id }}][name]" value="{{ model.name }}"></td>
-                                            <td><input class="form-control form-control-sm text-end" style="min-width: 6rem" type="text" inputmode="decimal" name="models[{{ model.id }}][price_input]" value="{{ model.priceInput ?? '' }}" placeholder="?"></td>
-                                            <td><input class="form-control form-control-sm text-end" style="min-width: 6rem" type="text" inputmode="decimal" name="models[{{ model.id }}][price_output]" value="{{ model.priceOutput ?? '' }}" placeholder="?"></td>
-                                            <td><span class="badge text-bg-light">{{ model.source }}</span></td>
-                                            <td class="text-muted small">{{ model.pricedAt ?? '—' }}</td>
-                                            <td class="text-muted small">{{ model.lastSeenAt ?? '—' }}</td>
-                                        </tr>
-                                    {% else %}
-                                        <tr><td colspan="8" class="text-muted">{{ 'No model yet. Use "Refresh models" or add one below.'|trans({}, 'commerceagents') }}</td></tr>
+                                    {% for period, byAgent in tokenUsage %}
+                                        {% for agent in agentTypes|merge(['all']) %}
+                                            {% set counters = byAgent[agent] %}
+                                            <tr class="{{ agent == 'all' ? 'table-light fw-semibold' : '' }}" data-period="{{ period }}" data-agent="{{ agent }}">
+                                                {% if loop.first %}
+                                                    <th scope="rowgroup" rowspan="{{ agentTypes|length + 1 }}" class="fw-semibold">{{ periodLabels[period] }}</th>
+                                                {% endif %}
+                                                <td>{{ agentLabels[agent] }}</td>
+                                                <td class="text-end">{{ counters.calls|number_format(0, '.', ' ') }}</td>
+                                                <td class="text-end">{{ counters.input|number_format(0, '.', ' ') }}</td>
+                                                <td class="text-end">{{ counters.output|number_format(0, '.', ' ') }}</td>
+                                                <td class="text-end">{{ counters.total|number_format(0, '.', ' ') }}</td>
+                                                <td class="text-end">{{ counters.cost|number_format(4, '.', ' ') }}</td>
+                                            </tr>
+                                        {% endfor %}
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
-                    {% endfor %}
 
-                    <button type="submit" class="btn btn-primary btn-sm">{{ 'Save prices'|trans({}, 'commerceagents') }}</button>
-                </form>
-
-                <hr>
-
-                <form method="post" action="{{ addModelUrl }}" class="row g-2 align-items-end" data-testid="ca-add-model">
-                    <input type="hidden" name="_token" value="{{ csrfToken }}">
-                    <div class="col-md-2">
-                        <label class="form-label" for="ca-add-provider">{{ 'Provider'|trans({}, 'commerceagents') }}</label>
-                        <select class="form-select form-select-sm" id="ca-add-provider" name="provider">
-                            {% for provider in providers %}
-                                <option value="{{ provider.code }}">{{ provider.label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="ca-add-model-id">{{ 'Model id'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control form-control-sm" id="ca-add-model-id" name="model_id" type="text" required placeholder="mistral-large-latest">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="ca-add-name">{{ 'Name'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control form-control-sm" id="ca-add-name" name="name" type="text">
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label" for="ca-add-price-in">{{ 'Input $/1M'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control form-control-sm" id="ca-add-price-in" name="price_input" type="text" inputmode="decimal">
-                    </div>
-                    <div class="col-md-1">
-                        <label class="form-label" for="ca-add-price-out">{{ 'Output $/1M'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control form-control-sm" id="ca-add-price-out" name="price_output" type="text" inputmode="decimal">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-outline-primary btn-sm">{{ 'Add model'|trans({}, 'commerceagents') }}</button>
-                    </div>
-                </form>
-            </div>
-
-            {# ------------------------------------------------------------ Assistants #}
-            <div class="ca-tab-pane d-none" data-ca-pane="assistants">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label" for="ca-assistant-name">{{ 'Assistant name'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control" id="ca-assistant-name" name="assistant_name" type="text" value="{{ assistantName }}" form="ca-settings-form">
-                        <div class="form-text">{{ 'Name the shopping assistant introduces itself with.'|trans({}, 'commerceagents') }}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="ca-daily-limit">{{ 'Daily message limit'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control" id="ca-daily-limit" name="daily_message_limit" type="number" min="1" value="{{ dailyMessageLimit }}" form="ca-settings-form">
-                        <div class="form-text">{{ 'Maximum messages per visitor session and day.'|trans({}, 'commerceagents') }}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label" for="ca-policy-ids">{{ 'Policy content ids (CSV)'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control" id="ca-policy-ids" name="policy_content_ids" type="text" value="{{ policyContentIds }}" placeholder="4,5" form="ca-settings-form">
-                        <div class="form-text">{{ 'Contents holding terms, shipping and return policies.'|trans({}, 'commerceagents') }}</div>
-                    </div>
-
-                    <div class="col-12">
-                        <div class="fw-semibold mb-2">{{ 'Shopping assistant capabilities'|trans({}, 'commerceagents') }}</div>
-                        {% for toggle in [['enable_front_chat', 'ca-front-chat', enableFrontChat, 'Front chat'], ['enable_cart', 'ca-cart', enableCart, 'Cart'], ['enable_checkout', 'ca-checkout', enableCheckout, 'Checkout'], ['enable_orders', 'ca-orders', enableOrders, 'Orders']] %}
-                            <div class="form-check form-switch form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="{{ toggle[1] }}" name="{{ toggle[0] }}" value="1" {{ toggle[2] ? 'checked' : '' }} form="ca-settings-form">
-                                <label class="form-check-label" for="{{ toggle[1] }}">{{ toggle[3]|trans({}, 'commerceagents') }}</label>
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="mt-3 d-flex align-items-center gap-2">
-                    <button type="submit" class="btn btn-primary" form="ca-settings-form">{{ 'Save'|trans({}, 'commerceagents') }}</button>
-                    <a class="btn btn-outline-secondary" href="{{ path('commerceagents_merchant_page') }}">{{ 'Open Merchant Agent'|trans({}, 'commerceagents') }}</a>
-                </div>
-            </div>
-
-            {# ------------------------------------------------------------ Budget #}
-            <div class="ca-tab-pane d-none" data-ca-pane="budget">
-                <p class="form-text mb-3">{{ 'The budget applies to the calendar month and to both assistants together, at the prices of the models catalog. Leave empty for no limit.'|trans({}, 'commerceagents') }}</p>
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label" for="ca-budget">{{ 'Monthly budget (USD)'|trans({}, 'commerceagents') }}</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input class="form-control" id="ca-budget" name="monthly_budget_usd" type="text" inputmode="decimal" value="{{ budgetSettings.monthlyBudgetUsd }}" placeholder="50.00" form="ca-settings-form">
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label" for="ca-budget-warning">{{ 'Warning threshold (%)'|trans({}, 'commerceagents') }}</label>
-                        <input class="form-control" id="ca-budget-warning" name="budget_warning_percent" type="number" min="0" max="100" value="{{ budgetSettings.warningPercent }}" form="ca-settings-form">
-                        <div class="form-text">{{ '0 disables the warning.'|trans({}, 'commerceagents') }}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-check form-switch mt-md-4 pt-md-2">
-                            <input class="form-check-input" type="checkbox" id="ca-budget-block" name="budget_block" value="1" {{ budgetSettings.block ? 'checked' : '' }} form="ca-settings-form">
-                            <label class="form-check-label" for="ca-budget-block">{{ 'Pause both assistants when the budget is reached'|trans({}, 'commerceagents') }}</label>
-                        </div>
-                        <div class="form-text">{{ 'Visitors and merchants get a "service unavailable" answer until next month or a higher budget.'|trans({}, 'commerceagents') }}</div>
-                    </div>
-                </div>
-
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary" form="ca-settings-form">{{ 'Save'|trans({}, 'commerceagents') }}</button>
-                </div>
-            </div>
-
-            {# ------------------------------------------------------------ Usage #}
-            <div class="ca-tab-pane d-none" data-ca-pane="usage" data-testid="commerceagents-token-usage">
-                <p class="form-text mb-3">{{ 'Tokens billed by the LLM provider, as reported in its responses, and their cost at the price in force when the call was made. One call is one request to the provider; a single user message may need several calls when tools are used.'|trans({}, 'commerceagents') }}</p>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-4">
-                        <thead>
-                            <tr>
-                                <th>{{ 'Period'|trans({}, 'commerceagents') }}</th>
-                                <th>{{ 'Agent'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'LLM calls'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Input tokens'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Output tokens'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Total tokens'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Cost (USD)'|trans({}, 'commerceagents') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for period, byAgent in tokenUsage %}
-                                {% for agent in agentTypes|merge(['all']) %}
-                                    {% set counters = byAgent[agent] %}
-                                    <tr class="{{ agent == 'all' ? 'table-light fw-semibold' : '' }}" data-period="{{ period }}" data-agent="{{ agent }}">
-                                        {% if loop.first %}
-                                            <th scope="rowgroup" rowspan="{{ agentTypes|length + 1 }}" class="fw-semibold">{{ periodLabels[period] }}</th>
-                                        {% endif %}
-                                        <td>{{ agentLabels[agent] }}</td>
-                                        <td class="text-end">{{ counters.calls|number_format(0, '.', ' ') }}</td>
-                                        <td class="text-end">{{ counters.input|number_format(0, '.', ' ') }}</td>
-                                        <td class="text-end">{{ counters.output|number_format(0, '.', ' ') }}</td>
-                                        <td class="text-end">{{ counters.total|number_format(0, '.', ' ') }}</td>
-                                        <td class="text-end">{{ counters.cost|number_format(4, '.', ' ') }}</td>
+                        <h6>{{ 'Last 30 days by model'|trans({}, 'commerceagents') }}</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" data-testid="ca-usage-by-model">
+                                <thead>
+                                    <tr>
+                                        <th>{{ 'Model'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'LLM calls'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Input tokens'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Output tokens'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Total tokens'|trans({}, 'commerceagents') }}</th>
+                                        <th class="text-end">{{ 'Cost (USD)'|trans({}, 'commerceagents') }}</th>
                                     </tr>
-                                {% endfor %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </thead>
+                                <tbody>
+                                    {% for row in usageByModel %}
+                                        <tr>
+                                            <td><code>{{ row.model != '' ? row.model : 'unknown'|trans({}, 'commerceagents') }}</code></td>
+                                            <td class="text-end">{{ row.calls|number_format(0, '.', ' ') }}</td>
+                                            <td class="text-end">{{ row.input|number_format(0, '.', ' ') }}</td>
+                                            <td class="text-end">{{ row.output|number_format(0, '.', ' ') }}</td>
+                                            <td class="text-end">{{ row.total|number_format(0, '.', ' ') }}</td>
+                                            <td class="text-end">{{ row.cost|number_format(4, '.', ' ') }}</td>
+                                        </tr>
+                                    {% else %}
+                                        <tr><td colspan="6" class="text-muted">{{ 'No usage recorded over the period.'|trans({}, 'commerceagents') }}</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                <h6>{{ 'Last 30 days by model'|trans({}, 'commerceagents') }}</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0" data-testid="ca-usage-by-model">
-                        <thead>
-                            <tr>
-                                <th>{{ 'Model'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'LLM calls'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Input tokens'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Output tokens'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Total tokens'|trans({}, 'commerceagents') }}</th>
-                                <th class="text-end">{{ 'Cost (USD)'|trans({}, 'commerceagents') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in usageByModel %}
-                                <tr>
-                                    <td><code>{{ row.model != '' ? row.model : 'unknown'|trans({}, 'commerceagents') }}</code></td>
-                                    <td class="text-end">{{ row.calls|number_format(0, '.', ' ') }}</td>
-                                    <td class="text-end">{{ row.input|number_format(0, '.', ' ') }}</td>
-                                    <td class="text-end">{{ row.output|number_format(0, '.', ' ') }}</td>
-                                    <td class="text-end">{{ row.total|number_format(0, '.', ' ') }}</td>
-                                    <td class="text-end">{{ row.cost|number_format(4, '.', ' ') }}</td>
-                                </tr>
-                            {% else %}
-                                <tr><td colspan="6" class="text-muted">{{ 'No usage recorded over the period.'|trans({}, 'commerceagents') }}</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
                 </div>
             </div>
-
         </div>
     </div>
 </div>

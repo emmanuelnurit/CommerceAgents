@@ -1,0 +1,38 @@
+{# Wizard step 2 / edit section: identity, mission, AI model (spec MYO-227 §4.3 étape 2) #}
+<div class="mb-3">
+    <label class="form-label" for="agent-title">{{ 'Agent name'|trans({}, 'commerceagents') }}</label>
+    <input id="agent-title" name="title" class="form-control" value="{{ values.title }}" required data-testid="agent-title">
+</div>
+<div class="mb-3">
+    <label class="form-label" for="agent-role-prompt">{{ 'Its mission, in plain language'|trans({}, 'commerceagents') }}</label>
+    <textarea id="agent-role-prompt" name="role_prompt" class="form-control" rows="4" data-testid="agent-role-prompt">{{ values.rolePrompt }}</textarea>
+    <div class="form-text">{{ 'Describe what the agent should and should not do, as you would to an employee. The chosen preset pre-fills this text — edit it freely.'|trans({}, 'commerceagents') }}</div>
+</div>
+<div class="mb-3">
+    <label class="form-label" id="agent-model-label">{{ 'AI model for this agent'|trans({}, 'commerceagents') }}</label>
+    {% include '@CommerceAgentsModule/backOffice/default-twig/components/model-picker.html.twig' with {
+        name: 'model',
+        id: 'agent-model',
+        choices: modelChoices,
+        selected: values.model,
+        pricedAt: modelPricedAt,
+        labelId: 'agent-model-label',
+        allowInherit: true,
+        inheritModel: shopDefaultChoice,
+        testid: 'agent-model',
+    } only %}
+    <div class="form-text">{{ 'Pick according to how much reasoning this agent needs — the price shows on every option. Changeable at any time, effective on the next runs.'|trans({}, 'commerceagents') }}</div>
+</div>
+<details class="mb-2">
+    <summary class="text-muted small">{{ "Advanced options (this agent's own budget, limits)"|trans({}, 'commerceagents') }}</summary>
+    <div class="row g-3 mt-1">
+        <div class="col-md-6">
+            <label class="form-label" for="agent-budget">{{ "This agent's monthly cap (€)"|trans({}, 'commerceagents') }}</label>
+            <div class="input-group">
+                <span class="input-group-text">€</span>
+                <input id="agent-budget" name="monthly_budget_eur" class="form-control" inputmode="decimal" value="{{ values.monthlyBudgetEur }}" placeholder="{{ 'Unlimited (within the global budget)'|trans({}, 'commerceagents') }}">
+            </div>
+            <div class="form-text">{{ 'Always under the shop-wide budget cap.'|trans({}, 'commerceagents') }}</div>
+        </div>
+    </div>
+</details>

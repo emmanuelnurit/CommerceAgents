@@ -1,0 +1,49 @@
+{#
+    Model picker — shared ARIA-listbox component consuming the ModelChoice
+    contract (plan MYO-226 §3.8, spec MYO-227 §3.6). Used both by the
+    provider hero (screen 1) and the agent wizard/edit form (screen 2, step 2)
+    so the model choice is always the same widget (Consistency / Jakob's Law).
+
+    Props:
+        name          hidden input name posted with the form (required)
+        id            unique id prefix, e.g. "ca-model-shop" (required)
+        choices       list of ModelChoice arrays: modelId, name, tier, tierLabel,
+                       priceInput, priceOutput, currency, contextWindow, isDefault
+        selected      currently selected modelId, '' when none/inherit
+        pricedAt      "Tarifs Mistral (EUR) au <date>" footer date
+        labelId       id of the external <label> this control is for (aria-labelledby)
+        allowInherit  when true, adds a leading "Celui de la boutique" option (agent form)
+        inheritModel  the ModelChoice array the shop falls back to (required when allowInherit)
+        testid        base data-testid
+#}
+<div class="model-picker" data-testid="{{ testid ?? 'model-picker' }}">
+    <input type="hidden" name="{{ name }}" id="{{ id }}-value" value="{{ selected }}" data-model-picker-value>
+    <button type="button" class="model-picker-toggle" id="{{ id }}-toggle"
+            aria-haspopup="listbox" aria-expanded="false" aria-controls="{{ id }}-panel"
+            {% if labelId %}aria-labelledby="{{ labelId }} {{ id }}-toggle-text"{% endif %}
+            data-model-picker-toggle>
+        <span id="{{ id }}-toggle-text" data-model-picker-toggle-text>…</span>
+    </button>
+    <div class="model-menu" id="{{ id }}-panel" role="listbox" tabindex="-1"
+         {% if labelId %}aria-labelledby="{{ labelId }}"{% endif %}
+         hidden
+         data-model-picker-panel
+         data-selected="{{ selected }}"
+         data-allow-inherit="{{ allowInherit ? '1' : '0' }}"
+         data-inherit-choice="{{ (allowInherit ? inheritModel : null)|json_encode|e('html_attr') }}"
+         data-choices="{{ choices|json_encode|e('html_attr') }}"
+         data-inherit-label="{{ 'Shop default'|trans({}, 'commerceagents') }}"
+         data-unpriced-label="{{ 'price not set'|trans({}, 'commerceagents') }}"
+         data-default-badge="{{ 'shop default'|trans({}, 'commerceagents') }}"
+         data-tier-hints="{{ {
+             'fast': 'Simple, frequent tasks: reminders, notifications'|trans({}, 'commerceagents'),
+             'balanced': 'Good cost/quality trade-off'|trans({}, 'commerceagents'),
+             'deep': 'Complex analysis, careful writing'|trans({}, 'commerceagents'),
+         }|json_encode|e('html_attr') }}">
+        <div class="model-menu-options" data-model-picker-options></div>
+        <div class="model-menu-foot">
+            <span>{{ 'Mistral rates (EUR) as of %date%'|trans({'%date%': pricedAt}, 'commerceagents') }}</span>
+            <a href="#models" data-open-settings="models">{{ 'Full catalog'|trans({}, 'commerceagents') }}</a>
+        </div>
+    </div>
+</div>

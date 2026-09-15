@@ -8,7 +8,33 @@
     const token = settingsForm.querySelector('input[name="_token"]');
     const tabInput = document.getElementById('ca-settings-tab');
 
-    // --- Tabs (no dependency on the theme's JS) ---
+    // --- Model pickers (hero + wherever else on the page) ---
+    if (window.CommerceAgentsModelPicker) {
+        window.CommerceAgentsModelPicker.init(root);
+    }
+
+    // --- Gear panel ("Paramètres généraux", spec §3.2) ---
+    const panel = document.getElementById('ca-settings-panel');
+    const gearButton = document.getElementById('ca-gear-btn');
+    const gearClose = document.getElementById('ca-gear-close');
+    function togglePanel(show) {
+        panel.classList.toggle('d-none', !show);
+        gearButton.setAttribute('aria-expanded', show ? 'true' : 'false');
+        if (show) {
+            panel.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+        }
+    }
+    gearButton.addEventListener('click', function () {
+        togglePanel(panel.classList.contains('d-none'));
+    });
+    if (gearClose) {
+        gearClose.addEventListener('click', function () {
+            togglePanel(false);
+            gearButton.focus();
+        });
+    }
+
+    // --- Sections nav-pills inside the gear panel ---
     const tabButtons = root.querySelectorAll('[data-ca-tab]');
     const panes = root.querySelectorAll('[data-ca-pane]');
     function activateTab(name) {
@@ -27,23 +53,22 @@
             button.setAttribute('aria-selected', match ? 'true' : 'false');
         });
         tabInput.value = name;
-        if (window.location.hash !== '#' + name) {
-            history.replaceState(null, '', '#' + name);
-        }
     }
     tabButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
+        button.addEventListener('click', function (event) {
+            event.preventDefault();
             activateTab(button.dataset.caTab);
         });
     });
-    root.querySelectorAll('[data-ca-tab-link]').forEach(function (link) {
+    // Links outside the panel (alerts, "Details") open it on the right section.
+    root.querySelectorAll('[data-open-settings]').forEach(function (link) {
         link.addEventListener('click', function (event) {
             event.preventDefault();
-            activateTab(link.dataset.caTabLink);
-            root.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            togglePanel(true);
+            activateTab(link.dataset.openSettings);
         });
     });
-    activateTab((window.location.hash || '#providers').substring(1));
+    activateTab('providers');
 
     // --- Active provider highlight ---
     const activeSelect = document.getElementById('ca-provider');
@@ -86,7 +111,7 @@
         });
     });
 
-    // --- Provider actions ---
+    // --- Provider actions (other providers panel) ---
     async function post(url, provider) {
         const response = await fetch(url, {
             method: 'POST',
@@ -132,9 +157,48 @@
     bind('.ca-test-connection', 'testUrl', null);
     bind('.ca-refresh-models', 'refreshUrl', function (payload) {
         if (payload.added > 0) {
-            history.replaceState(null, '', '#models');
+            togglePanel(true);
+            activateTab('models');
             window.location.reload();
         }
     });
+
+    // --- Hero: show/hide the API key ---
+    const heroKeyInput = document.getElementById('ca-hero-key');
+    const heroKeyEye = document.getElementById('ca-hero-key-eye');
+    if (heroKeyInput && heroKeyEye) {
+        heroKeyEye.addEventListener('click', function () {
+            const show = heroKeyInput.type === 'password';
+            heroKeyInput.type = show ? 'text' : 'password';
+            heroKeyEye.setAttribute('aria-label', show ? heroKeyEye.dataset.hideLabel || 'Hide the key' : heroKeyEye.dataset.showLabel || 'Show the key');
+            heroKeyEye.firstElementChild.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+    }
+
+    // --- Hero: test connection (Mistral), feeds the status badge (spec §3.4) ---
+    const heroTestButton = document.getElementById('ca-hero-test');
+    const heroTestStatus = document.getElementById('ca-hero-test-status');
+    const heroBadge = document.querySelector('[data-testid="ca-hero-status"]');
+    if (heroTestButton) {
+        heroTestButton.addEventListener('click', async function () {
+            heroTestButton.disabled = true;
+            heroTestStatus.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>' + (heroTestStatus.dataset.checking || '…');
+            try {
+                const payload = await post(heroTestButton.dataset.testUrl, 'mistral');
+                heroTestStatus.textContent = payload.message || '';
+                if (payload.success) {
+                    heroBadge.className = 'badge text-bg-success';
+                    heroBadge.textContent = heroBadge.dataset.connectedLabel || heroBadge.textContent;
+                } else {
+                    heroBadge.className = 'badge text-bg-danger';
+                    heroBadge.textContent = heroBadge.dataset.invalidLabel || heroBadge.textContent;
+                }
+            } catch (error) {
+                heroTestStatus.textContent = 'Request failed';
+            } finally {
+                heroTestButton.disabled = false;
+            }
+        });
+    }
 })();
 </script>
