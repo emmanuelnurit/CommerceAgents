@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace CommerceAgents\Service\Channel;
 
 /**
- * Encrypts agent_channel.settings (tokens, webhook URLs…) with sodium
- * secretbox before it ever reaches the database, so a dump or an export
- * never carries a usable secret in the clear (plan MYO-226 §3.6). The key is
- * derived from Thelia's kernel secret via a keyed hash, not stored anywhere
- * else, so a settings blob only decrypts on an install sharing that secret.
+ * Encrypts agent_channel.settings (tokens, webhook URLs…) and LLM provider
+ * API keys with sodium secretbox before either ever reaches the database, so
+ * a dump or an export never carries a usable secret in the clear (plan
+ * MYO-226 §3.6, MYO-276). The key is derived from Thelia's kernel secret via
+ * a keyed hash, not stored anywhere else, so a stored blob only decrypts on
+ * an install sharing that secret.
  */
 final readonly class ChannelSettingsEncryptor
 {
@@ -22,10 +23,7 @@ final readonly class ChannelSettingsEncryptor
 
     public function encrypt(array $settings): string
     {
-        $nonce = random_bytes(\SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-        $ciphertext = sodium_crypto_secretbox(json_encode($settings, \JSON_THROW_ON_ERROR), $nonce, $this->key);
-
-        return base64_encode($nonce.$ciphertext);
+        return $this->encryptString(json_encode($settings, \JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -37,9 +35,27 @@ final readonly class ChannelSettingsEncryptor
             return [];
         }
 
+        $decoded = json_decode($this->decryptString($stored), true);
+
+        return \is_array($decoded) ? $decoded : [];
+    }
+
+    public function encryptString(string $value): string
+    {
+        $nonce = random_bytes(\SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
+        $ciphertext = sodium_crypto_secretbox($value, $nonce, $this->key);
+
+        return base64_encode($nonce.$ciphertext);
+    }
+
+    /**
+     * @throws \RuntimeException when the payload is corrupted or was encrypted with a different key
+     */
+    public function decryptString(string $stored): string
+    {
         $raw = base64_decode($stored, true);
         if ($raw === false || \strlen($raw) < \SODIUM_CRYPTO_SECRETBOX_NONCEBYTES) {
-            throw new \RuntimeException('Corrupted channel settings payload');
+            throw new \RuntimeException('Corrupted encrypted payload');
         }
 
         $nonce = substr($raw, 0, \SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
@@ -47,11 +63,9 @@ final readonly class ChannelSettingsEncryptor
 
         $plaintext = sodium_crypto_secretbox_open($ciphertext, $nonce, $this->key);
         if ($plaintext === false) {
-            throw new \RuntimeException('Unable to decrypt channel settings: wrong key or tampered payload');
+            throw new \RuntimeException('Unable to decrypt payload: wrong key or tampered data');
         }
 
-        $decoded = json_decode($plaintext, true);
-
-        return \is_array($decoded) ? $decoded : [];
+        return $plaintext;
     }
 }

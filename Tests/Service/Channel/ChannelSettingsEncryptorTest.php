@@ -64,4 +64,27 @@ class ChannelSettingsEncryptorTest extends TestCase
 
         $this->assertNotSame($encryptor->encrypt($settings), $encryptor->encrypt($settings));
     }
+
+    /**
+     * MYO-276: encryptString/decryptString back AgentConfigService's LLM
+     * provider API key storage, the same primitives as the channel settings
+     * array above but for a single opaque value (no JSON envelope).
+     */
+    public function testStringRoundTripReturnsTheOriginalValue(): void
+    {
+        $encryptor = new ChannelSettingsEncryptor('app-secret-for-tests');
+
+        $stored = $encryptor->encryptString('sk-live-abc123');
+
+        $this->assertSame('sk-live-abc123', $encryptor->decryptString($stored));
+        $this->assertStringNotContainsString('sk-live-abc123', $stored);
+    }
+
+    public function testDecryptingAPlaintextLegacyValueFails(): void
+    {
+        $encryptor = new ChannelSettingsEncryptor('app-secret-for-tests');
+
+        $this->expectException(\RuntimeException::class);
+        $encryptor->decryptString('sk-live-plaintext-legacy-key');
+    }
 }

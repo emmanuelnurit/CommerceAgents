@@ -7,6 +7,7 @@ namespace CommerceAgents\Service;
 use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Agent\Llm\LlmConfig;
 use CommerceAgents\CommerceAgents;
+use CommerceAgents\Service\Channel\ChannelSettingsEncryptor;
 
 /**
  * Module settings. Credentials, base URL and model are kept per provider so
@@ -14,6 +15,11 @@ use CommerceAgents\CommerceAgents;
  */
 final readonly class AgentConfigService
 {
+    public function __construct(
+        private ChannelSettingsEncryptor $encryptor,
+    ) {
+    }
+
     public function getProvider(): string
     {
         $provider = (string) CommerceAgents::getConfigValue('provider', LlmClientFactory::DEFAULT_PROVIDER);
@@ -52,9 +58,26 @@ final readonly class AgentConfigService
         );
     }
 
+    /**
+     * MYO-276: the key is encrypted at rest (sodium secretbox, see
+     * ChannelSettingsEncryptor) so a DB dump never carries a usable LLM
+     * credential in the clear. An install upgraded from before this fix may
+     * still hold a plaintext value; it is returned as-is (decryption fails
+     * safely on non-ciphertext) and gets migrated to the encrypted form the
+     * next time it is saved from the back office.
+     */
     public function getApiKey(string $provider): string
     {
-        return (string) CommerceAgents::getConfigValue(self::providerKey('api_key', $provider), '');
+        $stored = (string) CommerceAgents::getConfigValue(self::providerKey('api_key', $provider), '');
+        if ($stored === '') {
+            return '';
+        }
+
+        try {
+            return $this->encryptor->decryptString($stored);
+        } catch (\RuntimeException) {
+            return $stored;
+        }
     }
 
     public function hasApiKey(string $provider): bool
@@ -77,7 +100,7 @@ final readonly class AgentConfigService
     public function setProviderSettings(string $provider, ?string $apiKey, string $baseUrl, string $model): void
     {
         if ($apiKey !== null && $apiKey !== '') {
-            CommerceAgents::setConfigValue(self::providerKey('api_key', $provider), $apiKey);
+            CommerceAgents::setConfigValue(self::providerKey('api_key', $provider), $this->encryptor->encryptString($apiKey));
         }
         CommerceAgents::setConfigValue(self::providerKey('base_url', $provider), trim($baseUrl));
         CommerceAgents::setConfigValue(self::providerKey('model', $provider), trim($model));
@@ -130,7 +153,8 @@ final readonly class AgentConfigService
             if ($legacy === '' || CommerceAgents::getConfigValue(self::providerKey($setting, $provider))) {
                 continue;
             }
-            CommerceAgents::setConfigValue(self::providerKey($setting, $provider), $legacy);
+            $value = $setting === 'api_key' ? $this->encryptor->encryptString($legacy) : $legacy;
+            CommerceAgents::setConfigValue(self::providerKey($setting, $provider), $value);
         }
     }
 
