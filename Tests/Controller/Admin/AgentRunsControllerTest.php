@@ -100,6 +100,30 @@ final class AgentRunsControllerTest extends WebIntegrationTestCase
         self::assertStringContainsString($longError, $html);
     }
 
+    /**
+     * MYO-373: a run that recovers from a failed tool call (e.g. the LLM
+     * tried an unknown tool) still finishes STATUS_DONE with `error` set to
+     * the recovered warning — the list must not badge it as a plain,
+     * indistinguishable "Success" the way it used to.
+     */
+    public function testListPageBadgesADoneRunWithARecoveredToolFailureAsWarningNotPlainSuccess(): void
+    {
+        $agent = $this->createAgentDefinition('Recovered warning agent');
+        $clean = $this->createRun($agent, AgentRunQueue::STATUS_DONE, new \DateTimeImmutable('-1 hour'));
+        $withWarning = $this->createRun($agent, AgentRunQueue::STATUS_DONE, new \DateTimeImmutable('-30 minutes'), error: 'Unknown tool "report"');
+
+        $this->assertPageRenders('/admin/module/CommerceAgents/agents/runs');
+
+        $html = (string) $this->client->getResponse()->getContent();
+        $rowClean = self::extractRow($html, $clean->getId());
+        $rowWithWarning = self::extractRow($html, $withWarning->getId());
+
+        self::assertStringContainsString('text-bg-success', $rowClean);
+        self::assertStringNotContainsString('text-bg-warning', $rowClean);
+        self::assertStringContainsString('text-bg-warning', $rowWithWarning);
+        self::assertStringNotContainsString('text-bg-danger', $rowWithWarning);
+    }
+
     public function testDetailPageShowsTheFullSummaryAndLinkedActionsAndChanges(): void
     {
         $agent = $this->createAgentDefinition('Summary agent');
@@ -171,5 +195,20 @@ final class AgentRunsControllerTest extends WebIntegrationTestCase
         $run->save($this->getPropelConnection());
 
         return $run;
+    }
+
+    /**
+     * Isolates one run's <tr> so a badge class assertion cannot accidentally
+     * match a different row on the same list page.
+     */
+    private static function extractRow(string $html, int $runId): string
+    {
+        $marker = 'data-testid="commerceagents-run-'.$runId.'"';
+        $start = strpos($html, $marker);
+        self::assertNotFalse($start, \sprintf('Row for run %d not found in page', $runId));
+        $end = strpos($html, '</tr>', $start);
+        self::assertNotFalse($end);
+
+        return substr($html, $start, $end - $start);
     }
 }

@@ -382,6 +382,7 @@ return [
     'Running' => 'Running',
     'Budget exceeded' => 'Budget exceeded',
     'Success' => 'Success',
+    'Success (warnings)' => 'Success (warnings)',
     'Back to run history' => 'Back to run history',
     'Error' => 'Error',
     'Actions log' => 'Actions log',

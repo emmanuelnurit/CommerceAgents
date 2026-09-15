@@ -382,6 +382,7 @@ return [
     'Running' => 'In esecuzione',
     'Budget exceeded' => 'Budget superato',
     'Success' => 'Successo',
+    'Success (warnings)' => 'Successo (con avvisi)',
     'Back to run history' => 'Torna alla cronologia',
     'Error' => 'Errore',
     'Actions log' => 'Registro azioni',

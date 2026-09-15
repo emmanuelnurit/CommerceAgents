@@ -138,7 +138,7 @@ final readonly class AgentRunsController
                 'startedAt' => $run->getStartedAt(),
                 'finishedAt' => $run->getFinishedAt(),
                 'durationLabel' => $this->formatDuration($run->getStartedAt(), $run->getFinishedAt()),
-                'statusBadge' => $this->statusBadge($run->getStatus()),
+                'statusBadge' => $this->statusBadge($run->getStatus(), $run->getError() !== null),
                 'triggerLabel' => $this->triggerLabel($run->getAgentTrigger()),
                 'summary' => $run->getSummary(),
                 'error' => $run->getError(),
@@ -180,7 +180,7 @@ final readonly class AgentRunsController
             'agentEditUrl' => $this->urlGenerator->generate('commerceagents_agents_edit', ['id' => $definition->getId()]),
             'startedAt' => $run->getStartedAt(),
             'durationLabel' => $this->formatDuration($run->getStartedAt(), $run->getFinishedAt()),
-            'statusBadge' => $this->statusBadge($run->getStatus()),
+            'statusBadge' => $this->statusBadge($run->getStatus(), $run->getError() !== null),
             'triggerLabel' => $this->triggerLabel($run->getAgentTrigger()),
             'summaryExcerpt' => self::excerpt($run->getSummary()),
             'errorExcerpt' => self::excerpt($run->getError()),
@@ -202,10 +202,20 @@ final readonly class AgentRunsController
     }
 
     /**
+     * A DONE run with a non-null `error` succeeded (no AgentEvent::ERROR was
+     * raised) but recovered from at least one failed tool call along the way
+     * (MYO-373: e.g. the LLM tried an unknown tool) — that used to stay
+     * buried in agent_action_log with the run itself badged plain "Success".
+     * Surface it as a distinct warning badge instead of a silent success.
+     *
      * @return array{label: string, class: string}
      */
-    private function statusBadge(string $status): array
+    private function statusBadge(string $status, bool $hasWarning = false): array
     {
+        if ($status === AgentRunQueue::STATUS_DONE && $hasWarning) {
+            return ['label' => $this->translator->trans('Success (warnings)', [], 'commerceagents'), 'class' => 'text-bg-warning'];
+        }
+
         [$label, $class] = match ($status) {
             AgentRunQueue::STATUS_DONE => ['Success', 'text-bg-success'],
             AgentRunQueue::STATUS_FAILED, AgentRunQueue::STATUS_SKIPPED_BUDGET => ['Failed', 'text-bg-danger'],

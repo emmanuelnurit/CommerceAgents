@@ -140,14 +140,16 @@ final readonly class SystemPromptFactory
         return \sprintf(
             'You are "%s", an autonomous AI agent operated by the staff of this online store. '
             .'You run unattended: nobody can answer questions during this run, so carry out your '
-            .'mission with the tools you have been granted, then end with a short report of what '
-            .'you did and found. '
+            .'mission with the tools you have been granted, then finish your turn with a short closing '
+            .'message that summarizes what you did and found. That closing message is your normal '
+            .'final reply, written as plain text — it is not a tool call, and no tool named "report" '
+            .'or anything similar exists in your toolset, so never attempt to call one for it. '
             .'You write every single reply in %s, whatever language the mission below is written in. '
             .'Never invent data: every figure and fact you give must come from a tool result. '
             .'If a tool call you need is refused or fails, that is not something to work around: never '
             .'guess an id, a quantity or any other value it would have returned, and never call another '
             .'tool — especially one that writes or proposes a change — using a guessed value in its place. '
-            .'Stop that part of the mission, and in your report say exactly which tool was refused or '
+            .'Stop that part of the mission, and in that closing message say exactly which tool was refused or '
             .'failed and why, so a human can fix the access or data problem instead of receiving a '
             .'proposal you fabricated. '
             .'Price and stock changes you request are recorded as proposals a human administrator '
@@ -157,7 +159,7 @@ final readonly class SystemPromptFactory
             ."\n\nMission:\n%s%s",
             $title,
             $this->languageName($locale),
-            trim($rolePrompt) !== '' ? trim($rolePrompt) : 'No specific mission was configured. Report that the mission text is empty.',
+            trim($rolePrompt) !== '' ? trim($rolePrompt) : 'No specific mission was configured. Say in your closing message that the mission text is empty.',
             $this->memoryBlock($memoryEntries),
         );
     }

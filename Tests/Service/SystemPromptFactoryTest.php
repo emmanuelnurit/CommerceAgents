@@ -476,6 +476,20 @@ class SystemPromptFactoryTest extends TestCase
         $this->assertTrue(strpos($prompt, 'Mission:') < strpos($prompt, 'Store memory'));
     }
 
+    /**
+     * MYO-373: a run's action log showed the LLM attempting to call a tool
+     * named "report" that never existed in the catalogue — the previous
+     * wording ("end with a short report") read as an instruction to call a
+     * tool. The closing message must be unambiguously plain text.
+     */
+    public function testAgentPromptClosingMessageIsNotPresentedAsAToolCall(): void
+    {
+        $prompt = $this->factory->agent('Restock bot', 'Watch low stock items.', 'fr_FR');
+
+        $this->assertStringContainsString('no tool named "report"', $prompt);
+        $this->assertStringNotContainsString('end with a short report', $prompt);
+    }
+
     public function testAgentPromptForbidsGuessingAfterARefusedOrFailedTool(): void
     {
         $prompt = $this->factory->agent('Restock bot', 'Watch low stock items.', 'fr_FR');

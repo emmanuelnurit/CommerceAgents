@@ -131,6 +131,7 @@ final readonly class AgentRunner
             $assistantText = '';
             $pendingTokensIn = 0;
             $pendingTokensOut = 0;
+            $toolWarnings = [];
 
             $systemPrompt = $this->systemPromptFactory->agent(
                 $definition->getTitle(),
@@ -173,6 +174,14 @@ final readonly class AgentRunner
                             json_encode($event->payload['result'], \JSON_THROW_ON_ERROR),
                             ['tool_call_id' => $event->payload['id']],
                         );
+                        // A ToolException (unknown tool, denied capability, gateway failure) is
+                        // recovered by AgentRuntime as an ordinary tool_result so the LLM can react
+                        // to it, but that means it never reaches AgentEvent::ERROR below and the run
+                        // still finishes STATUS_DONE (MYO-373): collect it so it surfaces on the run
+                        // itself instead of staying buried in agent_action_log.
+                        if (isset($event->payload['result']['error'])) {
+                            $toolWarnings[] = \sprintf('%s: %s', $event->payload['name'], (string) $event->payload['result']['error']);
+                        }
                         break;
 
                     case AgentEvent::ERROR:
@@ -205,7 +214,19 @@ final readonly class AgentRunner
         $definition->setConsecutiveFailures(0);
         $definition->save();
 
-        return $this->finish($run, AgentRunQueue::STATUS_DONE, summary: $summary);
+        if ($toolWarnings !== []) {
+            $this->logger->warning('[commerce-agents] run finished successfully but recovered from tool call failures', [
+                'run_id' => $run->getId(),
+                'agent' => $definition->getCode(),
+                'tool_warnings' => $toolWarnings,
+            ]);
+        }
+
+        $warning = $toolWarnings !== []
+            ? \sprintf("Tool call(s) failed during this run; the agent recovered and still completed its mission:\n- %s", implode("\n- ", $toolWarnings))
+            : null;
+
+        return $this->finish($run, AgentRunQueue::STATUS_DONE, summary: $summary, error: $warning);
     }
 
     /**
