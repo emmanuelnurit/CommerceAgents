@@ -33,6 +33,11 @@ class FakeDetailsCatalogGateway implements CatalogGatewayInterface
 
         return $this->details;
     }
+
+    public function getDefaultCategoryId(int $productId): ?int
+    {
+        return null;
+    }
 }
 
 class GetProductDetailsToolTest extends TestCase

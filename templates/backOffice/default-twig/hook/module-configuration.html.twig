@@ -329,6 +329,11 @@
                                 <input class="form-control" id="ca-max-proactive-prompts" name="max_proactive_prompts" type="number" min="0" value="{{ maxProactivePrompts }}" form="ca-settings-form">
                                 <div class="form-text">{{ 'Maximum unsolicited proactive messages the widget may send per visitor session.'|trans({}, 'commerceagents') }}</div>
                             </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="ca-low-stock-threshold">{{ 'Low stock threshold'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control" id="ca-low-stock-threshold" name="low_stock_threshold" type="number" min="1" value="{{ lowStockThreshold }}" form="ca-settings-form">
+                                <div class="form-text">{{ 'Real stock level under which the assistant may warn a visitor a product is running low.'|trans({}, 'commerceagents') }}</div>
+                            </div>
 
                             <div class="col-12">
                                 <div class="fw-semibold mb-2">{{ 'Shopping assistant capabilities'|trans({}, 'commerceagents') }}</div>

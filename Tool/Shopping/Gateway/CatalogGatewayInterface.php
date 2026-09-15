@@ -50,4 +50,11 @@ interface CatalogGatewayInterface
      *                            promoPrice, stock, inStock, imageUrl}]}
      */
     public function getProductDetails(int $productId, ToolContext $ctx): ?array;
+
+    /**
+     * The product's default (primary) category id, used to find other
+     * products in the "same range" for cross-sell — null when the product
+     * does not exist or carries no category.
+     */
+    public function getDefaultCategoryId(int $productId): ?int;
 }

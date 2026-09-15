@@ -208,6 +208,20 @@ final readonly class AgentConfigService
     }
 
     /**
+     * Real stock level (per variant) under which scenario 5 (MYO-236 lot 4)
+     * warns the visitor a product is running low.
+     */
+    public function getLowStockThreshold(): int
+    {
+        return max(1, (int) CommerceAgents::getConfigValue('low_stock_threshold', 5));
+    }
+
+    public function setLowStockThreshold(int $lowStockThreshold): void
+    {
+        CommerceAgents::setConfigValue('low_stock_threshold', (string) max(1, $lowStockThreshold));
+    }
+
+    /**
      * @return int[] content ids holding the store policies (terms, shipping, returns)
      */
     public function getPolicyContentIds(): array

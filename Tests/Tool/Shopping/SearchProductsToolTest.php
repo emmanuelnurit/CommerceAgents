@@ -57,6 +57,11 @@ class FakeCatalogGateway implements CatalogGatewayInterface
     {
         return null;
     }
+
+    public function getDefaultCategoryId(int $productId): ?int
+    {
+        return null;
+    }
 }
 
 class FakeOptionGateway implements OptionGatewayInterface

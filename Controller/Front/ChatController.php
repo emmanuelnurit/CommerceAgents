@@ -6,6 +6,7 @@ namespace CommerceAgents\Controller\Front;
 
 use CommerceAgents\Agent\AgentRuntime;
 use CommerceAgents\Agent\Llm\LlmClientFactory;
+use CommerceAgents\Agent\Proactive\ProactiveMessage;
 use CommerceAgents\Agent\Proactive\ProactiveSignal;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolRegistry;
@@ -19,13 +20,21 @@ use CommerceAgents\Service\ProactiveScenarioRegistry;
 use CommerceAgents\Service\ProactiveSessionRepository;
 use CommerceAgents\Service\SystemPromptFactory;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Thelia\Condition\Exception\UnmatchableConditionException;
 use Thelia\Controller\Front\BaseFrontController;
+use Thelia\Core\Event\Coupon\CouponConsumeEvent;
+use Thelia\Core\Event\TheliaEvents;
 use Thelia\Core\HttpFoundation\Request;
 use Thelia\Domain\Cart\CartFacade;
+use Thelia\Domain\Promotion\Coupon\Exception\CouponExpiredException;
+use Thelia\Domain\Promotion\Coupon\Exception\CouponNotReleaseException;
+use Thelia\Domain\Promotion\Coupon\Exception\CouponNoUsageLeftException;
+use Thelia\Domain\Promotion\Coupon\Exception\InactiveCouponException;
 
 final class ChatController extends BaseFrontController
 {
@@ -44,6 +53,7 @@ final class ChatController extends BaseFrontController
         private readonly ProactiveGuard $proactiveGuard,
         private readonly ProactiveSessionRepository $proactiveSessionRepository,
         private readonly ProactiveScenarioRegistry $proactiveScenarioRegistry,
+        private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -179,7 +189,100 @@ final class ChatController extends BaseFrontController
             'signal_type' => $signalType,
         ]);
 
-        return new JsonResponse(['message' => $message->message]);
+        return new JsonResponse([
+            'scenario' => $signalType,
+            'text' => $message->message,
+            'card' => self::productCard($message) ?? self::couponCard($message),
+        ]);
+    }
+
+    /**
+     * The "Appliquer" button on the coupon card (MYO-245 UX spec, component
+     * 3) never applies the code itself — it calls this endpoint, which
+     * dispatches the same TheliaEvents::COUPON_CONSUME event the native
+     * cart coupon form uses (Thelia\Action\Coupon::consume,
+     * CouponManager::pushCouponInSession under the hood). The LLM only ever
+     * suggested a real code (SuggestApplicableCouponsTool); this endpoint
+     * re-validates it server-side before touching the session.
+     */
+    #[Route('/agent/chat/proactive-apply-coupon', name: 'commerceagents_chat_proactive_apply_coupon', methods: ['POST'])]
+    public function proactiveApplyCoupon(Request $request): Response
+    {
+        if (!$this->configService->isFrontChatEnabled()) {
+            throw new NotFoundHttpException();
+        }
+
+        $payload = json_decode((string) $request->getContent(), true);
+        $code = trim((string) ($payload['code'] ?? ''));
+
+        if ($code === '') {
+            return new JsonResponse(['error' => 'code is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $event = new CouponConsumeEvent($code);
+            $this->eventDispatcher->dispatch($event, TheliaEvents::COUPON_CONSUME);
+        } catch (CouponExpiredException|CouponNotReleaseException|CouponNoUsageLeftException|InactiveCouponException|UnmatchableConditionException $exception) {
+            $this->logger->info('[commerce-agents] proactive coupon apply rejected', [
+                'code' => $code,
+                'reason' => $exception->getMessage(),
+            ]);
+
+            return new JsonResponse(['applied' => false, 'error' => 'Ce code n\'est plus valide'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if (!$event->getIsValid()) {
+            return new JsonResponse(['applied' => false, 'error' => 'Ce code ne s\'applique pas à votre panier'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $this->logger->info('[commerce-agents] proactive coupon applied', ['code' => $code]);
+
+        return new JsonResponse(['applied' => true, 'discount' => $event->getDiscount()]);
+    }
+
+    /**
+     * @return array{type: string, data: array<string, mixed>}|null
+     */
+    private static function couponCard(ProactiveMessage $message): ?array
+    {
+        if ($message->couponCode === null && $message->tiers === null) {
+            return null;
+        }
+
+        $data = array_filter([
+            'code' => $message->couponCode,
+            'conditionLabel' => $message->conditionLabel,
+            'progressLabel' => $message->progressLabel,
+            'progressPercent' => $message->progressPercent,
+            'progressAria' => $message->progressAria,
+            'tiers' => $message->tiers,
+        ], static fn (mixed $value): bool => $value !== null);
+
+        return ['type' => 'coupon', 'data' => $data];
+    }
+
+    /**
+     * @return array{type: string, data: array<string, mixed>}|null
+     */
+    private static function productCard(ProactiveMessage $message): ?array
+    {
+        if ($message->productId === null) {
+            return null;
+        }
+
+        $data = array_filter([
+            'id' => $message->productId,
+            'title' => $message->productTitle,
+            'url' => $message->productUrl,
+            'imageUrl' => $message->productImageUrl,
+            'price' => $message->productPrice,
+            'promoPrice' => $message->productPromoPrice,
+            'currency' => $message->productCurrency,
+            'inStock' => $message->productInStock,
+            'stockLabel' => $message->productStockLabel,
+        ], static fn (mixed $value): bool => $value !== null);
+
+        return ['type' => 'product', 'data' => $data];
     }
 
     /**

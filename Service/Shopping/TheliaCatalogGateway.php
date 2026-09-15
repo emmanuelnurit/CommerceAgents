@@ -14,6 +14,7 @@ use Thelia\Core\Security\SecurityContext;
 use Thelia\Domain\Catalog\Product\PSEFacade;
 use Thelia\Domain\Taxation\TaxEngine\TaxEngine;
 use Propel\Runtime\ActiveQuery\Criteria;
+use Thelia\Model\ProductQuery;
 use Thelia\Model\ProductSaleElements;
 use Thelia\Model\ProductSaleElementsQuery;
 
@@ -173,6 +174,18 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
         );
 
         return $product;
+    }
+
+    public function getDefaultCategoryId(int $productId): ?int
+    {
+        $product = ProductQuery::create()->findPk($productId);
+        if ($product === null) {
+            return null;
+        }
+
+        $categoryId = $product->getDefaultCategoryId();
+
+        return $categoryId > 0 ? $categoryId : null;
     }
 
     /**

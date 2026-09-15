@@ -178,6 +178,7 @@ class AdminHookManager extends BaseHook
             'enableOrders' => $this->configService->areOrdersEnabled(),
             'dailyMessageLimit' => $this->configService->getDailyMessageLimit(),
             'maxProactivePrompts' => $this->configService->getMaxProactivePrompts(),
+            'lowStockThreshold' => $this->configService->getLowStockThreshold(),
             'policyContentIds' => implode(',', $this->configService->getPolicyContentIds()),
             'saveUrl' => $this->urlGenerator->generate('commerceagents_config_save'),
             'testUrl' => $this->urlGenerator->generate('commerceagents_config_test'),

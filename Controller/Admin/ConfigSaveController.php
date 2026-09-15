@@ -127,6 +127,7 @@ final readonly class ConfigSaveController
         CommerceAgents::setConfigValue('assistant_name', trim((string) $request->request->get('assistant_name')) ?: 'Alex');
         CommerceAgents::setConfigValue('daily_message_limit', (string) max(1, (int) $request->request->get('daily_message_limit', 200)));
         $this->configService->setMaxProactivePrompts((int) $request->request->get('max_proactive_prompts', 3));
+        $this->configService->setLowStockThreshold((int) $request->request->get('low_stock_threshold', 5));
         CommerceAgents::setConfigValue('policy_content_ids', trim((string) $request->request->get('policy_content_ids')));
 
         foreach (self::TOGGLES as $toggle) {
