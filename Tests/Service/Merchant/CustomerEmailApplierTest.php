@@ -8,7 +8,9 @@ use CommerceAgents\Channel\ChannelConnectorRegistry;
 use CommerceAgents\Channel\Connector\MailChannelConnector;
 use CommerceAgents\Service\Merchant\CustomerEmailApplier;
 use CommerceAgents\StagedChange\StagedChangeData;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Mailer\MailerInterface;
+use Thelia\Core\Translation\Translator;
 use Thelia\Model\ConfigQuery;
 use Thelia\Test\IntegrationTestCase;
 
@@ -40,7 +42,7 @@ final class CustomerEmailApplierTest extends IntegrationTestCase
     {
         $mailer = static::getContainer()->get(MailerInterface::class);
 
-        return new ChannelConnectorRegistry([new MailChannelConnector($mailer)]);
+        return new ChannelConnectorRegistry([new MailChannelConnector($mailer, new Translator(new RequestStack()))]);
     }
 
     private function change(array $after): StagedChangeData

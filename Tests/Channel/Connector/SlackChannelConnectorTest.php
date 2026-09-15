@@ -10,12 +10,14 @@ use CommerceAgents\Channel\Connector\SlackChannelConnector;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Thelia\Core\Translation\Translator;
 
 class SlackChannelConnectorTest extends TestCase
 {
     public function testCodeAndLabelAreDistinctFromMattermost(): void
     {
-        $connector = new SlackChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator());
+        $connector = new SlackChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $this->assertSame('slack', $connector->getCode());
         $this->assertSame('Slack', $connector->getLabel());
@@ -24,7 +26,7 @@ class SlackChannelConnectorTest extends TestCase
     public function testSendWithoutSubjectSendsBodyOnly(): void
     {
         $http = new MockHttpClient(static fn () => new MockResponse('ok', ['http_code' => 200]));
-        $connector = new SlackChannelConnector($http, new FakeOutboundUrlValidator());
+        $connector = new SlackChannelConnector($http, new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $connector->send(new ChannelMessage(null, 'Ping'), ['url' => 'https://hooks.slack.example/local-fake']);
 
@@ -34,7 +36,7 @@ class SlackChannelConnectorTest extends TestCase
     public function testTestAgainstLocalFakeEndpointReportsSuccess(): void
     {
         $http = new MockHttpClient(static fn () => new MockResponse('ok', ['http_code' => 200]));
-        $connector = new SlackChannelConnector($http, new FakeOutboundUrlValidator());
+        $connector = new SlackChannelConnector($http, new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $result = $connector->test(['url' => 'https://hooks.slack.example/local-fake']);
 
@@ -43,7 +45,7 @@ class SlackChannelConnectorTest extends TestCase
 
     public function testGetSettingsSchemaMentionsSlackInDescription(): void
     {
-        $connector = new SlackChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator());
+        $connector = new SlackChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $schema = $connector->getSettingsSchema();
 

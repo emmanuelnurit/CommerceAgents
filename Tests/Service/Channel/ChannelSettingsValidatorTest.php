@@ -10,18 +10,20 @@ use CommerceAgents\Service\Channel\ChannelSettingsValidator;
 use CommerceAgents\Tests\Channel\Connector\FakeOutboundUrlValidator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Mailer\MailerInterface;
+use Thelia\Core\Translation\Translator;
 
 class ChannelSettingsValidatorTest extends TestCase
 {
     private function mattermostSchema(): array
     {
-        return (new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator()))->getSettingsSchema();
+        return (new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator(), new Translator(new RequestStack())))->getSettingsSchema();
     }
 
     private function mailSchema(): array
     {
-        return (new MailChannelConnector($this->createStub(MailerInterface::class)))->getSettingsSchema();
+        return (new MailChannelConnector($this->createStub(MailerInterface::class), new Translator(new RequestStack())))->getSettingsSchema();
     }
 
     public function testRequiredFieldMissingIsReported(): void

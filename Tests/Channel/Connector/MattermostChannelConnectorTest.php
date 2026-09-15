@@ -10,12 +10,14 @@ use CommerceAgents\Channel\Connector\MattermostChannelConnector;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Thelia\Core\Translation\Translator;
 
 class MattermostChannelConnectorTest extends TestCase
 {
     public function testCodeAndLabelAreDistinctFromSlack(): void
     {
-        $connector = new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator());
+        $connector = new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $this->assertSame('mattermost', $connector->getCode());
         $this->assertSame('Mattermost', $connector->getLabel());
@@ -34,7 +36,7 @@ class MattermostChannelConnectorTest extends TestCase
             return new MockResponse('ok', ['http_code' => 200]);
         });
 
-        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator());
+        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
         $connector->send(new ChannelMessage('Rupture de stock', 'Le produit X est épuisé.'), ['url' => 'https://hooks.mattermost.example/local-fake']);
 
         $this->assertSame('https://hooks.mattermost.example/local-fake', $capturedUrl);
@@ -45,7 +47,7 @@ class MattermostChannelConnectorTest extends TestCase
 
     public function testSendRejectsInvalidUrl(): void
     {
-        $connector = new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator());
+        $connector = new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $this->expectException(ChannelException::class);
         $connector->send(new ChannelMessage(null, 'body'), ['url' => 'not-a-url']);
@@ -53,7 +55,7 @@ class MattermostChannelConnectorTest extends TestCase
 
     public function testSendRejectsUrlBlockedBySsrfGuard(): void
     {
-        $connector = new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator(false));
+        $connector = new MattermostChannelConnector(new MockHttpClient(), new FakeOutboundUrlValidator(false), new Translator(new RequestStack()));
 
         $this->expectException(ChannelException::class);
         $connector->send(new ChannelMessage(null, 'body'), ['url' => 'https://169.254.169.254/latest/meta-data']);
@@ -62,7 +64,7 @@ class MattermostChannelConnectorTest extends TestCase
     public function testSendThrowsOnNonSuccessStatus(): void
     {
         $http = new MockHttpClient(static fn () => new MockResponse('nope', ['http_code' => 500]));
-        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator());
+        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $this->expectException(ChannelException::class);
         $connector->send(new ChannelMessage(null, 'body'), ['url' => 'https://hooks.mattermost.example/local-fake']);
@@ -71,7 +73,7 @@ class MattermostChannelConnectorTest extends TestCase
     public function testTestAgainstLocalFakeEndpointReportsSuccess(): void
     {
         $http = new MockHttpClient(static fn () => new MockResponse('ok', ['http_code' => 200]));
-        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator());
+        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $result = $connector->test(['url' => 'https://hooks.mattermost.example/local-fake']);
 
@@ -81,7 +83,7 @@ class MattermostChannelConnectorTest extends TestCase
     public function testTestAgainstLocalFakeEndpointReportsFailure(): void
     {
         $http = new MockHttpClient(static fn () => new MockResponse('', ['http_code' => 404]));
-        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator());
+        $connector = new MattermostChannelConnector($http, new FakeOutboundUrlValidator(), new Translator(new RequestStack()));
 
         $result = $connector->test(['url' => 'https://hooks.mattermost.example/local-fake']);
 

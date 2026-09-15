@@ -12,6 +12,8 @@ use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\RawMessage;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Thelia\Core\Translation\Translator;
 
 class FakeMailer implements MailerInterface
 {
@@ -34,7 +36,7 @@ class MailChannelConnectorTest extends TestCase
     public function testSendBuildsEmailWithSubjectAndBody(): void
     {
         $mailer = new FakeMailer();
-        $connector = new MailChannelConnector($mailer);
+        $connector = new MailChannelConnector($mailer, new Translator(new RequestStack()));
 
         $connector->send(new ChannelMessage('Alerte stock', 'Le produit X est en rupture.'), ['to' => 'merchant@example.com']);
 
@@ -48,7 +50,7 @@ class MailChannelConnectorTest extends TestCase
 
     public function testSendRejectsInvalidRecipient(): void
     {
-        $connector = new MailChannelConnector(new FakeMailer());
+        $connector = new MailChannelConnector(new FakeMailer(), new Translator(new RequestStack()));
 
         $this->expectException(\CommerceAgents\Channel\ChannelException::class);
         $connector->send(new ChannelMessage(null, 'body'), ['to' => 'not-an-email']);
@@ -56,7 +58,7 @@ class MailChannelConnectorTest extends TestCase
 
     public function testTestSucceedsWhenMailerAccepts(): void
     {
-        $connector = new MailChannelConnector(new FakeMailer());
+        $connector = new MailChannelConnector(new FakeMailer(), new Translator(new RequestStack()));
 
         $result = $connector->test(['to' => 'merchant@example.com']);
 
@@ -67,7 +69,7 @@ class MailChannelConnectorTest extends TestCase
     {
         $mailer = new FakeMailer();
         $mailer->throwOnSend = new TransportException('Connection refused');
-        $connector = new MailChannelConnector($mailer);
+        $connector = new MailChannelConnector($mailer, new Translator(new RequestStack()));
 
         $result = $connector->test(['to' => 'merchant@example.com']);
 
