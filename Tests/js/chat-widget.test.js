@@ -11,12 +11,13 @@ const path = require('node:path');
 
 const SOURCE = path.join(__dirname, '../../templates/frontOffice/default/assets/js/chat-widget.js');
 
-function loadFactory(config, storage) {
+function loadFactory(config, storage, windowExtras) {
     global.document = {
         body: { classList: { toggle() {}, add() {}, remove() {} } },
         getElementById: (id) => (id === 'commerce-agents-widget'
             ? { dataset: { config: config === undefined ? undefined : JSON.stringify(config) } }
             : null),
+        querySelector: () => null,
     };
     global.sessionStorage = storage || {
         store: {},
@@ -24,14 +25,17 @@ function loadFactory(config, storage) {
         setItem(key, value) { this.store[key] = value; },
         removeItem(key) { delete this.store[key]; },
     };
-    const fakeWindow = {};
+    // MYO-236 Lot 3 instrumentation reads window.location / window.CommerceAgentsPageContext:
+    // the source is wrapped as `new Function('window', source)`, so `window` inside it is this
+    // object, not Node's (nonexistent) global — tests inject what they need through windowExtras.
+    const fakeWindow = Object.assign({ location: { pathname: '/', origin: 'https://shop.example' } }, windowExtras || {});
     new Function('window', fs.readFileSync(SOURCE, 'utf8'))(fakeWindow);
 
     return fakeWindow.commerceAgentsChat;
 }
 
-function component(config, saved) {
-    const widget = loadFactory(config)();
+function component(config, saved, windowExtras) {
+    const widget = loadFactory(config, undefined, windowExtras)();
     widget.$nextTick = () => {};
     widget.$watch = () => {};
     if (saved !== undefined) {
@@ -663,4 +667,221 @@ test('a section heading that names no product keeps its numbering', () => {
     assert.ok(shown.includes('1. Fauteuils en noir'));
     assert.ok(shown.includes('2. Tables basses'));
     assert.equal(shown.includes('586,80'), false);
+});
+
+// ---------- MYO-236 Lot 3: proactive signal instrumentation ----------
+
+function stubFetch(responsePayload) {
+    const calls = [];
+    global.fetch = (url, options) => {
+        calls.push({ url, options });
+        return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(responsePayload === undefined ? {} : responsePayload),
+        });
+    };
+    return calls;
+}
+
+test('signals read back what was written, and default when nothing was stored', () => {
+    const widget = component({ locale: 'fr_FR' });
+
+    assert.deepEqual(widget.readSignals(), {
+        cartOpens: 0, hesitationSent: false, cartAbandonedSent: false, dismissed: false, lastCartActivityAt: null,
+    });
+
+    widget.writeSignals(Object.assign(widget.readSignals(), { cartOpens: 2 }));
+
+    assert.equal(widget.readSignals().cartOpens, 2);
+});
+
+test('the checkout URL comes from the server payload, for cart-open detection', () => {
+    const widget = component({ locale: 'fr_FR', checkoutUrl: '/panier' });
+
+    assert.equal(widget.checkoutUrl, '/panier');
+});
+
+test('triggerHesitation sends the hesitation signal once, with the real product id', async () => {
+    const calls = stubFetch();
+    const widget = component({ locale: 'fr_FR' });
+
+    await widget.triggerHesitation(42);
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/agent/chat/proactive-check');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { signal_type: 'hesitation', context: { product_id: 42 } });
+    assert.equal(widget.readSignals().hesitationSent, true);
+
+    await widget.triggerHesitation(42);
+    assert.equal(calls.length, 1, 'a second trigger this session must not call the server again');
+});
+
+test('the server response ({scenario, text, card}, not {message}) is what actually shows as a suggestion', async () => {
+    stubFetch({ scenario: 'hesitation', text: 'Il reste 5 en stock.', card: null });
+    const widget = component({ locale: 'fr_FR' });
+
+    await widget.triggerHesitation(42);
+
+    assert.deepEqual(widget.proactive, { scenario: 'hesitation', text: 'Il reste 5 en stock.', card: null });
+});
+
+test('triggerHesitation without a product id sends an empty context, never a made-up one', async () => {
+    const calls = stubFetch();
+    const widget = component({ locale: 'fr_FR' });
+
+    await widget.triggerHesitation(null);
+
+    assert.deepEqual(JSON.parse(calls[0].options.body).context, {});
+});
+
+test('armHesitationTimerForProductPage only arms on a real product page context', () => {
+    const scheduled = [];
+    const originalSetTimeout = global.setTimeout;
+    global.setTimeout = (fn, ms) => { scheduled.push({ fn, ms }); return 1; };
+
+    try {
+        const noContext = component({ locale: 'fr_FR' });
+        noContext.armHesitationTimerForProductPage();
+        assert.equal(scheduled.length, 0);
+
+        const onProduct = component({ locale: 'fr_FR' }, undefined, { CommerceAgentsPageContext: { type: 'product', productId: 42 } });
+        onProduct.armHesitationTimerForProductPage();
+        assert.equal(scheduled.length, 1);
+    } finally {
+        global.setTimeout = originalSetTimeout;
+    }
+});
+
+test('cart-open counting only reacts to the real checkout path, and fires hesitation at the threshold', async () => {
+    const calls = stubFetch();
+    const widget = component(
+        { locale: 'fr_FR', checkoutUrl: '/checkout/cart' },
+        undefined,
+        { location: { pathname: '/checkout/cart', origin: 'https://shop.example' } },
+    );
+
+    widget.trackCartOpen();
+    assert.equal(widget.readSignals().cartOpens, 1);
+    assert.equal(calls.length, 0, 'one visit is not hesitation yet');
+
+    widget.trackCartOpen();
+    await Promise.resolve().then(() => Promise.resolve());
+    assert.equal(widget.readSignals().cartOpens, 2);
+    assert.equal(calls.length, 1, 'a second cart visit without checkout reads as hesitation');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { signal_type: 'hesitation', context: {} });
+});
+
+test('visiting a page that is not the cart page does not count as a cart open', () => {
+    const widget = component(
+        { locale: 'fr_FR', checkoutUrl: '/checkout/cart' },
+        undefined,
+        { location: { pathname: '/product/wilson', origin: 'https://shop.example' } },
+    );
+
+    widget.trackCartOpen();
+
+    assert.equal(widget.readSignals().cartOpens, 0);
+});
+
+test('checkCartAbandoned sends the signal once while the cart is non-empty', async () => {
+    const calls = stubFetch();
+    const widget = component({ locale: 'fr_FR', cart: { items: [], totalTaxedAmount: 10, currency: 'EUR', itemCount: 1 } });
+
+    await widget.checkCartAbandoned();
+    assert.equal(calls.length, 1);
+    assert.equal(JSON.parse(calls[0].options.body).signal_type, 'cart_abandoned_session');
+    assert.equal(widget.readSignals().cartAbandonedSent, true);
+
+    await widget.checkCartAbandoned();
+    assert.equal(calls.length, 1, 'only one relaunch per cart/session');
+});
+
+test('checkCartAbandoned does nothing once the cart is empty again', async () => {
+    const calls = stubFetch();
+    const widget = component({ locale: 'fr_FR', cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 } });
+
+    await widget.checkCartAbandoned();
+
+    assert.equal(calls.length, 0);
+});
+
+test('a native add-to-cart bumps the local item count so an idle check right after does not see a falsely-empty cart', () => {
+    const widget = component({ locale: 'fr_FR', cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 } });
+    widget.recordCartActivity = () => {};
+    const toast = { classList: { contains: () => false } };
+    global.document.querySelector = () => toast;
+
+    // The stub MutationObserver invokes its callback synchronously, once the
+    // toast's hidden class has (supposedly) just been removed by the theme's
+    // Live Component re-render.
+    const originalMutationObserver = global.MutationObserver;
+    global.MutationObserver = class {
+        constructor(callback) { this.callback = callback; }
+        observe() { toast.classList.contains = () => false; this.callback(); }
+    };
+    try {
+        widget.observeNativeAddToCart();
+    } finally {
+        global.MutationObserver = originalMutationObserver;
+    }
+
+    assert.equal(widget.cart.itemCount, 1);
+});
+
+test('dismissProactive notifies the server once and blocks further proactive signals', async () => {
+    const calls = stubFetch();
+    const widget = component({ locale: 'fr_FR' });
+    widget.proactive = { scenario: 'hesitation', text: 'Still there?' };
+
+    await widget.dismissProactive();
+
+    assert.equal(widget.proactive, null);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/agent/chat/proactive-dismiss');
+    assert.equal(widget.readSignals().dismissed, true);
+
+    const sent = await widget.sendProactiveSignal('hesitation', {});
+    assert.equal(calls.length, 1, 'a refused session must not call proactive-check again');
+    assert.equal(sent, undefined);
+});
+
+test('a proactive message shows as a floating card when the widget is closed', () => {
+    const widget = component({ locale: 'fr_FR' });
+
+    widget.receiveProactiveMessage('hesitation', 'Il reste 3 en stock.');
+
+    assert.deepEqual(widget.proactive, { scenario: 'hesitation', text: 'Il reste 3 en stock.', card: null });
+    assert.equal(widget.messages.length, 0);
+});
+
+test('a proactive message with a card (scenario 4 relaunch, once a coupon exists) carries it through', () => {
+    const widget = component({ locale: 'fr_FR' });
+    const card = { type: 'coupon', data: { code: 'PANIER10' } };
+
+    widget.receiveProactiveMessage('cart_abandoned_session', 'Votre panier vous attend.', card);
+
+    assert.deepEqual(widget.proactive.card, card);
+});
+
+test('a proactive message joins the thread directly when the overlay is already open', () => {
+    const widget = component({ locale: 'fr_FR' });
+    widget.state = 'open';
+
+    widget.receiveProactiveMessage('cart_abandoned_session', 'Votre panier vous attend.');
+
+    assert.equal(widget.proactive, null);
+    assert.equal(widget.messages[0].kind, 'proactive');
+    assert.equal(widget.messages[0].text, 'Votre panier vous attend.');
+});
+
+test('acceptProactive moves the floating suggestion into the thread and opens the widget', () => {
+    const widget = component({ locale: 'fr_FR' });
+    widget.proactive = { scenario: 'hesitation', text: 'Still there?' };
+
+    widget.acceptProactive();
+
+    assert.equal(widget.proactive, null);
+    assert.equal(widget.state, 'open');
+    assert.equal(widget.messages[0].kind, 'proactive');
+    assert.equal(widget.messages[0].text, 'Still there?');
 });

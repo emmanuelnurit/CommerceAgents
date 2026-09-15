@@ -9,6 +9,7 @@ use CommerceAgents\Service\Shopping\AccountSummaryProvider;
 use CommerceAgents\Service\Shopping\TheliaCartGateway;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Thelia\Api\Resource\Product;
 use Thelia\Core\Hook\Theme\ThemeHookInterface;
 use Thelia\Core\HttpFoundation\Session\Session;
 use Thelia\Core\Translation\Translator;
@@ -16,6 +17,16 @@ use Twig\Environment;
 
 final readonly class ChatWidgetThemeHook implements ThemeHookInterface
 {
+    /**
+     * Fires within the product page body, well before layout.body.bottom: the
+     * inline script it renders sets window.CommerceAgentsPageContext, which
+     * chat-widget.js reads once it initialises at the end of the page — so
+     * the JS instrumentation (MYO-236 Lot 3) knows the real product id for
+     * the "time spent on a product page" hesitation signal, instead of
+     * guessing it from the (rewritten, unpredictable) URL.
+     */
+    private const PRODUCT_CONTEXT_HOOK = 'product.bottom';
+
     /**
      * module_asset() serves the published copy under a stable URL and nginx sends
      * no Cache-Control, so a browser keeps yesterday's widget until a hard
@@ -40,13 +51,17 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
 
     public function supports(string $hookName): bool
     {
-        return $hookName === 'layout.body.bottom';
+        return $hookName === 'layout.body.bottom' || $hookName === self::PRODUCT_CONTEXT_HOOK;
     }
 
     public function render(string $hookName, array $parameters): string
     {
         if (!$this->configService->isFrontChatEnabled()) {
             return '';
+        }
+
+        if ($hookName === self::PRODUCT_CONTEXT_HOOK) {
+            return $this->renderProductContext($parameters);
         }
 
         $session = $this->requestStack->getMainRequest()?->getSession();
@@ -65,6 +80,8 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
         $account = $customerId !== null
             ? $this->accountSummaryProvider->forCustomer($customerId, $locale)
             : $this->accountSummaryProvider->forAnonymous();
+
+        $checkoutUrl = $this->urlGenerator->generate('checkout_cart');
 
         return $this->twig->render('@CommerceAgentsModule/theme-hook/chat_widget.html.twig', [
             'assistantName' => $assistantName,
@@ -109,14 +126,48 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'myAccount' => $translate('Go to my account'),
                 'noOrdersYet' => $translate('No orders yet.'),
                 'viewAllOrders' => $translate('View all my orders'),
+                'proactiveLabel' => $translate('Assistant suggestion'),
+                'suggestionBadge' => $translate('Suggestion'),
+                'dismissSuggestion' => $translate('Dismiss suggestion'),
+                'proactiveSeeMore' => $translate('Tell me more'),
+                'noThanks' => $translate('No thanks'),
             ],
             'assetVersion' => self::assetVersion(),
             'cart' => $this->cartGateway->snapshot(),
             'account' => $account,
             'locale' => $locale,
-            'checkoutUrl' => $this->urlGenerator->generate('checkout_cart'),
+            'checkoutUrl' => $checkoutUrl,
             'isCustomerLoggedIn' => $account['loggedIn'],
         ]);
+    }
+
+    /**
+     * The instrumentation (MYO-236 Lot 3) needs a real product id to fire the
+     * "hesitation" signal with, and never invents one: product.bottom is the
+     * only place in the page that actually carries the resolved product.
+     */
+    private function renderProductContext(array $parameters): string
+    {
+        $product = $parameters['product'] ?? null;
+        // resources() (Flexy's DataAccessExtension) normalizes with no format,
+        // which the serializer turns into a plain array, not a hydrated
+        // Product object — only jsonld/other explicit formats keep the object.
+        $productId = match (true) {
+            $product instanceof Product => $product->getId(),
+            \is_array($product) && isset($product['id']) => (int) $product['id'],
+            default => null,
+        };
+
+        if ($productId === null || $productId <= 0) {
+            return '';
+        }
+
+        $context = json_encode(
+            ['type' => 'product', 'productId' => $productId],
+            \JSON_HEX_TAG | \JSON_HEX_AMP | \JSON_THROW_ON_ERROR,
+        );
+
+        return '<script>window.CommerceAgentsPageContext = '.$context.';</script>';
     }
 
     private static function assetVersion(): string

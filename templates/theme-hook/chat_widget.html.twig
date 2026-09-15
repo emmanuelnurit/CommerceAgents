@@ -5,8 +5,36 @@
 
 <div id="commerce-agents-widget"
      x-data="commerceAgentsChat()"
-     data-config="{{ { cart: cart, account: account, locale: locale, i18n: i18n }|json_encode|e('html_attr') }}"
+     data-config="{{ { cart: cart, account: account, locale: locale, i18n: i18n, checkoutUrl: checkoutUrl }|json_encode|e('html_attr') }}"
      x-cloak>
+
+    {# ---------- Proactive bubble: floating, shown only when the widget is closed/collapsed ---------- #}
+    <div class="caw-proactive" x-show="proactive && !isOpen" x-cloak
+         x-on:keydown.escape.window="proactive && !isOpen && dismissProactive()"
+         x-transition:enter="caw-proactive-enter"
+         x-transition:enter-start="caw-proactive-enter-start"
+         x-transition:enter-end="caw-proactive-enter-end"
+         x-transition:leave="caw-proactive-leave"
+         x-transition:leave-start="caw-proactive-leave-start"
+         x-transition:leave-end="caw-proactive-leave-end">
+        <section class="caw-proactive-card" role="status" aria-live="polite" aria-label="{{ i18n.proactiveLabel }}">
+            <header class="caw-proactive-head">
+                <span class="caw-proactive-badge">
+                    <span class="caw-proactive-badge-icon" aria-hidden="true">✨</span>
+                    <span x-text="i18n.suggestionBadge"></span>
+                </span>
+                <button type="button" class="caw-icon-button" x-on:click="dismissProactive()"
+                        title="{{ i18n.dismissSuggestion }}" aria-label="{{ i18n.dismissSuggestion }}">✕</button>
+            </header>
+
+            <p class="caw-proactive-text" x-show="proactive" x-text="proactive?.text"></p>
+
+            <div class="caw-proactive-actions">
+                <button type="button" class="caw-btn caw-btn-primary" x-on:click="acceptProactive()" x-text="i18n.proactiveSeeMore"></button>
+                <button type="button" class="caw-btn caw-btn-ghost" x-on:click="dismissProactive()" x-text="i18n.noThanks"></button>
+            </div>
+        </section>
+    </div>
 
     {# ---------- Dock: slim bar anchored at the bottom, grows into the overlay ---------- #}
     <div class="caw-dock" x-show="!isOpen" x-transition.opacity>
@@ -267,6 +295,20 @@
                                         <span x-text="message.text"></span>
                                         <button type="button" class="caw-retry" x-on:click="retry()">↻</button>
                                     </p>
+                                </template>
+
+                                {# A proactive suggestion that arrived while the overlay was already
+                                   open: same content as the floating card, inline in the thread. #}
+                                <template x-if="message.kind === 'proactive'">
+                                    <div class="caw-message-proactive" role="status" aria-label="{{ i18n.proactiveLabel }}">
+                                        <header class="caw-proactive-head">
+                                            <span class="caw-proactive-badge">
+                                                <span class="caw-proactive-badge-icon" aria-hidden="true">✨</span>
+                                                <span x-text="i18n.suggestionBadge"></span>
+                                            </span>
+                                        </header>
+                                        <p class="caw-proactive-text" x-text="message.text"></p>
+                                    </div>
                                 </template>
                             </div>
                         </template>

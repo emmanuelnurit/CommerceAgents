@@ -321,4 +321,9 @@ return [
     'Price to adjust: %ref%' => 'Price to adjust: %ref%',
     'Stock to correct: %ref%' => 'Stock to correct: %ref%',
     '%before% → %after%' => '%before% → %after%',
+    'Assistant suggestion' => 'Assistant suggestion',
+    'Suggestion' => 'Suggestion',
+    'Dismiss suggestion' => 'Dismiss suggestion',
+    'Tell me more' => 'Tell me more',
+    'No thanks' => 'No thanks',
 ];

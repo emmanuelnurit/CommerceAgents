@@ -11,6 +11,14 @@ var COMMERCE_AGENTS_MAX_PERSISTED = 50;
 var COMMERCE_AGENTS_MAX_HIGHLIGHTS = 3;
 var COMMERCE_AGENTS_MAX_RECALLED = 6;
 
+// MYO-236 Lot 3: client-side signal instrumentation, kept in its own
+// sessionStorage entry so it survives independently of the truncated
+// conversation history in COMMERCE_AGENTS_STORAGE_KEY.
+var COMMERCE_AGENTS_SIGNALS_KEY = 'commerceagents.signals';
+var COMMERCE_AGENTS_HESITATION_PRODUCT_SECONDS = 45;
+var COMMERCE_AGENTS_HESITATION_CART_OPENS = 2;
+var COMMERCE_AGENTS_CART_IDLE_SECONDS = 60;
+
 
 /**
  * Removes what the cards already say. Three shapes get dropped: a bullet
@@ -106,7 +114,11 @@ function commerceAgentsChat() {
         cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 },
         account: { loggedIn: false, loginUrl: '#', registerUrl: '#' },
         locale: 'en-US',
+        checkoutUrl: null,
         pendingNavigationUrl: null,
+        // MYO-236: a pending proactive suggestion, shown as a floating card
+        // when the widget is closed/collapsed (null when there is none).
+        proactive: null,
         i18n: {
             itemsLabel: 'item(s)',
             otherLines: 'other line(s)',
@@ -121,6 +133,11 @@ function commerceAgentsChat() {
             connectionLost: 'Connection lost',
             serviceUnavailable: 'Service unavailable',
             error: 'Something went wrong',
+            proactiveLabel: 'Assistant suggestion',
+            suggestionBadge: 'Suggestion',
+            dismissSuggestion: 'Dismiss suggestion',
+            proactiveSeeMore: 'Tell me more',
+            noThanks: 'No thanks',
         },
 
         init() {
@@ -140,6 +157,8 @@ function commerceAgentsChat() {
                 document.body.classList.add('caw-body-locked');
                 this.scrollDownSoon();
             }
+
+            this.initInstrumentation();
         },
 
         get isOpen() {
@@ -185,6 +204,9 @@ function commerceAgentsChat() {
             }
             if (config.i18n) {
                 this.i18n = Object.assign({}, this.i18n, config.i18n);
+            }
+            if (config.checkoutUrl) {
+                this.checkoutUrl = config.checkoutUrl;
             }
             // The server speaks Thelia locales (fr_FR), Intl speaks BCP 47 (fr-FR).
             this.locale = (config.locale || 'en_US').replace('_', '-');
@@ -630,6 +652,9 @@ function commerceAgentsChat() {
             } else if ((payload.name === 'get_cart' || payload.name === 'add_to_cart') && result.cart) {
                 this.messages.push({ kind: 'cart', role: 'assistant', data: result.cart });
                 this.updateCartFromResult(result.cart);
+                if (payload.name === 'add_to_cart') {
+                    this.recordCartActivity();
+                }
             } else if (payload.name === 'open_page' && result.navigation && result.navigation.url) {
                 this.pendingNavigationUrl = result.navigation.url;
             }
@@ -654,6 +679,252 @@ function commerceAgentsChat() {
                     container.scrollTop = container.scrollHeight;
                 }
             });
+        },
+
+        // ---------- MYO-236 Lot 3: proactive signal instrumentation ----------
+        //
+        // The JS only ever *emits* signals; whether a message actually comes
+        // back is entirely a server-side decision (ProactiveGuard, then the
+        // scenario resolvers) — the client never invents a stock number, a
+        // shipping claim or a promo code, it just tells the server what the
+        // visitor did.
+
+        readSignals() {
+            const defaults = { cartOpens: 0, hesitationSent: false, cartAbandonedSent: false, dismissed: false, lastCartActivityAt: null };
+            try {
+                const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_SIGNALS_KEY) || 'null');
+                return Object.assign({}, defaults, saved || {});
+            } catch (error) {
+                return defaults;
+            }
+        },
+
+        writeSignals(signals) {
+            try {
+                sessionStorage.setItem(COMMERCE_AGENTS_SIGNALS_KEY, JSON.stringify(signals));
+            } catch (error) {
+                // storage full or unavailable: instrumentation is best-effort only
+            }
+        },
+
+        /**
+         * Set by ChatWidgetThemeHook on product pages only (product.bottom hook),
+         * with the real product id — never guessed from the URL, which Thelia
+         * rewrites unpredictably per catalog.
+         */
+        readPageContext() {
+            return (window.CommerceAgentsPageContext && typeof window.CommerceAgentsPageContext === 'object')
+                ? window.CommerceAgentsPageContext
+                : null;
+        },
+
+        initInstrumentation() {
+            this.trackCartOpen();
+            this.armHesitationTimerForProductPage();
+            this.watchCartActivity();
+        },
+
+        proactiveRefused() {
+            return this.readSignals().dismissed === true;
+        },
+
+        sendProactiveSignal(signalType, context) {
+            if (this.proactiveRefused()) {
+                return Promise.resolve();
+            }
+            return fetch('/agent/chat/proactive-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signal_type: signalType, context: context || {} }),
+            }).then((response) => (response.ok ? response.json() : null))
+                .then((payload) => {
+                    if (payload && payload.text) {
+                        this.receiveProactiveMessage(payload.scenario || signalType, payload.text, payload.card || null);
+                    }
+                })
+                .catch(() => {
+                    // best-effort: a lost connection here must not surface as a chat error
+                });
+        },
+
+        receiveProactiveMessage(scenario, text, card) {
+            if (this.proactiveRefused()) {
+                return;
+            }
+            if (this.isOpen) {
+                this.messages.push({ kind: 'proactive', role: 'assistant', scenario: scenario, text: text, card: card || null });
+                this.persist();
+                this.scrollDown();
+            } else {
+                // Only one suggestion is ever visible at a time (plan MYO-236
+                // frequency guard): a later one simply replaces an unread one.
+                this.proactive = { scenario: scenario, text: text, card: card || null };
+            }
+        },
+
+        acceptProactive() {
+            if (!this.proactive) {
+                return;
+            }
+            const proactive = this.proactive;
+            this.proactive = null;
+            this.messages.push({ kind: 'proactive', role: 'assistant', scenario: proactive.scenario, text: proactive.text, card: proactive.card || null });
+            this.persist();
+            this.expand();
+        },
+
+        dismissProactive() {
+            this.proactive = null;
+            return this.notifyProactiveDismissed();
+        },
+
+        notifyProactiveDismissed() {
+            const signals = this.readSignals();
+            if (signals.dismissed) {
+                return;
+            }
+            signals.dismissed = true;
+            this.writeSignals(signals);
+            return fetch('/agent/chat/proactive-dismiss', { method: 'POST' }).catch(() => {});
+        },
+
+        // ---------- Scenario 3: hesitation ----------
+
+        triggerHesitation(productId) {
+            const signals = this.readSignals();
+            if (signals.hesitationSent) {
+                return;
+            }
+            signals.hesitationSent = true;
+            this.writeSignals(signals);
+            return this.sendProactiveSignal('hesitation', productId ? { product_id: productId } : {});
+        },
+
+        armHesitationTimerForProductPage() {
+            const context = this.readPageContext();
+            if (!context || context.type !== 'product' || !context.productId) {
+                return;
+            }
+            if (this.readSignals().hesitationSent) {
+                return;
+            }
+            setTimeout(() => {
+                this.triggerHesitation(context.productId);
+            }, COMMERCE_AGENTS_HESITATION_PRODUCT_SECONDS * 1000);
+        },
+
+        /**
+         * The theme has no mini-cart dropdown: "opening the cart" is a visit to
+         * the cart page, detected against the server-provided checkout URL
+         * rather than a hardcoded path (Thelia URLs are locale/theme-dependent).
+         */
+        trackCartOpen() {
+            if (!this.checkoutUrl) {
+                return;
+            }
+            let cartPath;
+            try {
+                cartPath = new URL(this.checkoutUrl, window.location.origin).pathname;
+            } catch (error) {
+                return;
+            }
+            if (window.location.pathname !== cartPath) {
+                return;
+            }
+
+            const signals = this.readSignals();
+            if (signals.hesitationSent) {
+                return;
+            }
+            signals.cartOpens += 1;
+            this.writeSignals(signals);
+            if (signals.cartOpens >= COMMERCE_AGENTS_HESITATION_CART_OPENS) {
+                this.triggerHesitation(null);
+            }
+        },
+
+        // ---------- Scenario 4: abandoned cart (session in progress) ----------
+
+        /**
+         * Native "Add to cart" (outside the chat) re-renders the theme's
+         * AddToCartToast Live Component in place — no page reload, no plain
+         * DOM CustomEvent to listen for. Watching its hidden class is the
+         * generic, theme-contract-free way to notice a native add happened.
+         */
+        observeNativeAddToCart() {
+            if (typeof MutationObserver === 'undefined') {
+                return;
+            }
+            const toast = document.querySelector('.AddToCartToast');
+            if (!toast) {
+                return;
+            }
+            const observer = new MutationObserver(() => {
+                if (!toast.classList.contains('hidden')) {
+                    // A native add is not reflected in this.cart (only a chat
+                    // add_to_cart tool result updates it): the local count would
+                    // stay stale until the next page load, so it is bumped here
+                    // too, if only so checkCartAbandoned() does not read a
+                    // falsely-empty cart on this same page.
+                    this.cart = Object.assign({}, this.cart, { itemCount: this.cart.itemCount + 1 });
+                    this.recordCartActivity();
+                }
+            });
+            observer.observe(toast, { attributes: true, attributeFilter: ['class'] });
+        },
+
+        watchCartActivity() {
+            const signals = this.readSignals();
+            if (this.cart.itemCount > 0 && signals.lastCartActivityAt) {
+                this.armCartIdleCheck(signals.lastCartActivityAt);
+            }
+            this.observeNativeAddToCart();
+        },
+
+        recordCartActivity() {
+            const signals = this.readSignals();
+            signals.lastCartActivityAt = Date.now();
+            this.writeSignals(signals);
+            this.armCartIdleCheck(signals.lastCartActivityAt);
+        },
+
+        /**
+         * The idle clock is tracked in sessionStorage, not just in this page's
+         * timer: across a full page navigation (this is a classic MPA, not an
+         * SPA) a fresh page picks up wherever the clock was left, so the idle
+         * threshold is measured from the real last activity, not reset by
+         * navigation.
+         */
+        armCartIdleCheck(activityAt) {
+            if (this.cartIdleTimer) {
+                clearTimeout(this.cartIdleTimer);
+            }
+            const remaining = (COMMERCE_AGENTS_CART_IDLE_SECONDS * 1000) - (Date.now() - activityAt);
+            if (remaining <= 0) {
+                this.checkCartAbandoned();
+                return;
+            }
+            this.cartIdleTimer = setTimeout(() => this.checkCartAbandoned(), remaining);
+            // A plain number (browser setTimeout) has no unref(): only Node's test
+            // environment returns a Timeout object, and only there does this matter —
+            // a still-armed idle check must not hold a test process open for up to
+            // COMMERCE_AGENTS_CART_IDLE_SECONDS.
+            if (this.cartIdleTimer && typeof this.cartIdleTimer.unref === 'function') {
+                this.cartIdleTimer.unref();
+            }
+        },
+
+        checkCartAbandoned() {
+            const signals = this.readSignals();
+            // The cart itemCount reflects this page's server-rendered snapshot:
+            // it is naturally 0 again once the order is placed, which is what
+            // stops this from ever firing after checkout.
+            if (signals.cartAbandonedSent || this.cart.itemCount === 0) {
+                return;
+            }
+            signals.cartAbandonedSent = true;
+            this.writeSignals(signals);
+            return this.sendProactiveSignal('cart_abandoned_session', {});
         },
     };
 }

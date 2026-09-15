@@ -1300,3 +1300,151 @@ body.caw-body-locked {
         max-width: 92%;
     }
 }
+
+/* ---------- Proactive bubble (MYO-236, spec doc ux-spec-proactive on MYO-245) ---------- */
+
+#commerce-agents-widget {
+    /* Identité "suggestion" : reprend le violet du dégradé IA, jamais utilisé
+       ailleurs en aplat statique — garde le dégradé animé de .caw-glow réservé
+       à l'input tout en restant dans la même famille de teinte. */
+    --caw-proactive-accent: var(--caw-violet);
+    --caw-proactive-badge-bg: var(--caw-violet);
+    --caw-proactive-badge-ink: #ffffff; /* 5.70:1 sur #7c3aed — AA */
+}
+
+#commerce-agents-widget .caw-proactive {
+    position: fixed;
+    left: 50%;
+    bottom: 5.25rem; /* même offset que .caw-collapsed : au-dessus de la barre dock */
+    transform: translateX(-50%);
+    width: min(400px, calc(100vw - 2rem));
+    z-index: 1049;
+}
+
+#commerce-agents-widget .caw-proactive-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.875rem;
+    border: 1px solid var(--caw-line);
+    /* Liseré coloré à gauche : seul rappel visuel discret que ce n'est pas un
+       message de conversation classique, sans dupliquer un avatar animé. */
+    border-left: 3px solid var(--caw-proactive-accent);
+    border-radius: 0.875rem;
+    background: var(--caw-surface);
+    box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.45);
+}
+
+#commerce-agents-widget .caw-proactive-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#commerce-agents-widget .caw-proactive-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    margin-right: auto;
+    padding: 0.1875rem 0.5625rem;
+    border-radius: 999px;
+    background: var(--caw-proactive-badge-bg);
+    color: var(--caw-proactive-badge-ink);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+#commerce-agents-widget .caw-proactive-badge-icon {
+    font-size: 0.75rem;
+}
+
+#commerce-agents-widget .caw-proactive-text {
+    margin: 0;
+    color: var(--caw-ink);
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+#commerce-agents-widget .caw-proactive-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#commerce-agents-widget .caw-proactive-actions .caw-btn {
+    flex: 1 1 0;
+}
+
+/* Variante "inline dans le fil" (overlay déjà ouvert) : même contenu interne
+   (head / text / actions), sans le positionnement fixed. */
+#commerce-agents-widget .caw-message-proactive {
+    align-self: flex-start;
+    max-width: 88%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    padding: 0.75rem 0.875rem;
+    border: 1px solid var(--caw-line);
+    border-left: 3px solid var(--caw-proactive-accent);
+    border-radius: 0.875rem;
+    border-bottom-left-radius: 0.25rem; /* aligné sur .caw-assistant */
+    background: #f4f4f8;
+}
+
+/* ---------- Proactive bubble: entrance/exit animation ---------- */
+
+#commerce-agents-widget .caw-proactive-enter {
+    transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+}
+
+#commerce-agents-widget .caw-proactive-enter-start {
+    opacity: 0;
+    transform: translate(-50%, 0.5rem);
+}
+
+#commerce-agents-widget .caw-proactive-enter-end {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+#commerce-agents-widget .caw-proactive-leave {
+    transition: opacity 0.15s ease-in;
+}
+
+#commerce-agents-widget .caw-proactive-leave-start {
+    opacity: 1;
+}
+
+#commerce-agents-widget .caw-proactive-leave-end {
+    opacity: 0;
+}
+
+/* Rappel d'attention ponctuel sur le badge, une seule fois, pas de boucle. */
+#commerce-agents-widget .caw-proactive-badge-icon {
+    animation: caw-proactive-pulse 0.6s ease-out 1;
+}
+
+@keyframes caw-proactive-pulse {
+    0% { transform: scale(0.7); }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #commerce-agents-widget .caw-proactive-enter,
+    #commerce-agents-widget .caw-proactive-leave {
+        transition: opacity 0.01s linear;
+    }
+
+    #commerce-agents-widget .caw-proactive-enter-start,
+    #commerce-agents-widget .caw-proactive-enter-end,
+    #commerce-agents-widget .caw-proactive-leave-start,
+    #commerce-agents-widget .caw-proactive-leave-end {
+        transform: none;
+    }
+
+    #commerce-agents-widget .caw-proactive-badge-icon {
+        animation: none;
+    }
+}

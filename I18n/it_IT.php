@@ -50,4 +50,9 @@ return [
     'Stock to correct: %ref%' => 'Scorta da correggere: %ref%',
     '%before% → %after%' => '%before% → %after%',
     'Approve' => 'Approva',
+    'Assistant suggestion' => "Suggerimento dell'assistente",
+    'Suggestion' => 'Suggerimento',
+    'Dismiss suggestion' => 'Ignora il suggerimento',
+    'Tell me more' => 'Dimmi di più',
+    'No thanks' => 'No grazie',
 ];
