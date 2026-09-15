@@ -120,3 +120,43 @@ Aucun constat Critique confirmé : aucune RCE, aucun contournement d'authentific
 ## Non corrigé dans ce ticket
 
 Les constats Moyenne (M1–M6) et Basse (B1–B6) sont documentés ci-dessus mais non corrigés ici, conformément au périmètre du ticket (« corriger Critique/Haute, lister le reste »). Le volume ne justifie pas de sous-issues systématiques ; les plus actionnables à reprendre en premier si une suite est priorisée : M3/M4 (CSRF front + chat marchand) et M5 (TOCTOU staged changes), qui touchent des surfaces déjà modifiées par ce ticket.
+
+---
+
+## MYO-284 — Lot 2 (résiduel de MYO-276)
+
+Arbitrage CEO (voir la description du ticket) : priorise les constats qui sont un écart aux conventions Thelia du module lui-même, un risque d'écriture erronée en base, ou un correctif à coût quasi nul. Le reste est renvoyé avec une justification écrite plutôt que traité en doublon ou repoussé sans raison.
+
+### Statuts
+
+| # | Statut | Correctif |
+|---|---|---|
+| M3 | **Corrigé** | Les 4 routes front JSON de `ChatController` (`chat`, `proactive-check`, `proactive-apply-coupon`, `proactive-dismiss`) exigent désormais un en-tête `X-Requested-With: XMLHttpRequest` explicite (`ChatController::assertRequestedWithHeader()`), en plus de `cookie_samesite: lax` + CORS. Un `<form>` cross-site classique ne peut pas poser cet en-tête ; une requête fetch/XHR cross-origin qui l'essaierait déclenche un préflight CORS que ce site ne whiteliste pas. La protection appartient désormais au module. `chat-widget.js` mis à jour pour l'envoyer sur ses 4 appels. Tests : `Tests/Controller/Front/ChatControllerCsrfTest.php` (403 sans l'en-tête sur les 4 routes, gate franchie avec). |
+| M4 | **Corrigé** | `MerchantChatController::chat()` valide désormais un jeton CSRF dédié (`MerchantChatController::CSRF_TOKEN_ID`), transmis en en-tête `X-CSRF-Token` (le seul mécanisme possible ici : c'est un POST JSON via `fetch()`, pas un formulaire classique avec champ `_token`). Rendu et JS (`page.html.twig`, `merchant-chat.js`) mis à jour pour le fournir. Tests : `Tests/Controller/Admin/MerchantChatControllerTest.php` (403 sans jeton / jeton invalide, gate franchie avec un jeton valide). |
+| M5 | **Corrigé** | Deux garde-fous ajoutés : (1) `PsePriceApplier`/`PseStockApplier` comparent désormais l'état réel en base (via `PseUpdateEventBuilder::buildForCurrentValues()`) à `payloadBefore` avant d'appliquer — divergence détectée → `RuntimeException`, capturée par `StagedChangeManager::approve()` qui bascule la proposition en statut `failed` avec un message explicite (déjà lisible en BO via la colonne `error` existante) ; (2) `StagedChangeManager` refuse désormais toute approbation d'une proposition `pending` depuis plus de 24 h (`PENDING_MAX_AGE_HOURS`), avec le même statut `failed`. Tests : `Tests/Service/Merchant/PsePriceApplierTest.php`, `PseStockApplierTest.php` (refus si le prix/stock a divergé, écriture inchangée), `Tests/StagedChange/StagedChangeManagerTest.php` (refus si `createdAt` dépasse le délai). |
+| B2 | **Corrigé** | `timeout => 10` (aligné sur `WebhookChannelConnector::TIMEOUT_SECONDS`) ajouté aux appels HTTP de `MistralClient`, `AnthropicClient`, `OpenAiCompatibleClient` et `ModelDiscovery::fetch()`. Tests : assertions ajoutées dans les 4 suites `Tests/Agent/Llm/*Test.php` existantes/`ModelDiscoveryTest.php`. |
+| B3 | **Corrigé** | `Command/McpServeCommand.php` refuse désormais de démarrer avec `--admin=<login>` tant que la variable d'environnement dédiée `COMMERCEAGENTS_MCP_ADMIN_CONFIRMED` n'est pas positionnée à une valeur vraie (`1`/`true`/`yes`). Un prompt interactif était exclu : stdin est réservé au transport JSON-RPC MCP dès que la commande démarre. `McpDocController`/`mcp.html.twig` mis à jour pour que la commande, la config Claude Desktop et la commande Claude Code générées incluent la variable. Tests : `Tests/Command/McpServeCommandTest.php` (refus `INVALID` sans la variable, message nommant la variable). |
+| B4 | **Corrigé (retiré)** | La case à cocher « Apply this agent's proposed changes automatically, without review » (`auto_apply`) est retirée de l'assistant wizard/edit (`_step-channels.html.twig`) et n'est plus lue ni écrite par `AgentsController`/`AgentDefinitionManager::save()`. Choix retenu = celui par défaut proposé par le CEO : l'auto-application contredirait le maker-checker (H2/H3). La colonne `agent_definition.auto_apply` reste en base (aucune ligne ne peut plus la faire passer à 1 depuis le formulaire) ; aucune migration de suppression de colonne n'a été jugée nécessaire pour ce correctif, la donnée étant déjà inerte. Tests : `Tests/Controller/Admin/AgentsControllerTest.php` (poster `auto_apply=1` n'a plus d'effet, le formulaire ne rend plus le champ). |
+| B5 | **Corrigé** | `mcp.html.twig:33` n'utilise plus `|raw` : la liste `protocolVersions` est désormais parcourue avec une boucle Twig (`{% for version in protocolVersions %}<code>{{ version }}</code>...{% endfor %}`), chaque valeur passant par l'échappement automatique. Test : `Tests/Controller/Admin/McpDocTemplateTest.php` (source sans `|raw` + rendu qui échappe une valeur hostile). |
+
+### Non retenu (renvoyé, non traité dans ce lot)
+
+- **M1** (throttle par IP) : relève de l'infra (proxy / Symfony RateLimiter au niveau kernel), pas du code du module — voir « Prérequis de déploiement » ci-dessous.
+- **M2** (DNS rebinding) : `OutboundUrlValidator` couvre le cas réaliste ; le rebinding suppose déjà un admin hostile en contrôle de la config. Durcissement de second ordre, non priorisé.
+- **M6** (délimitation instructions/données dans les prompts) : traité avec MYO-279/MYO-280 (prompts système + mémoire agents), pas en doublon ici.
+- **B1** (taille des payloads front) : borné par la configuration serveur (PHP/nginx) — voir « Prérequis de déploiement ».
+- **B6** (entropie de `kernel.secret`) : documentation/rotation, pas un correctif de code — voir « Prérequis de déploiement ».
+
+### Prérequis de déploiement (M1, B1, B6)
+
+Ces trois constats ne se corrigent pas dans le code du module ; ce sont des prérequis d'exploitation à appliquer sur l'environnement de production qui héberge CommerceAgents :
+
+- **M1 — Throttle par IP** : mettre en place un rate-limit en amont du module sur `/agent/chat*` (Symfony RateLimiter au niveau kernel, ou règle sur le reverse proxy/CDN) pour compléter la limite quotidienne par conversation déjà appliquée par le module (H1).
+- **B1 — Taille des payloads front** : borner la taille maximale du corps de requête HTTP au niveau serveur (`client_max_body_size` nginx, `post_max_size`/`upload_max_filesize` PHP) pour les routes `/agent/chat*`, en plus de la validation applicative existante (longueur de message).
+- **B6 — Entropie de `kernel.secret`** : s'assurer que `kernel.secret` est une valeur générée aléatoirement forte (pas la valeur par défaut d'un squelette Symfony) en production, puisque la confidentialité des secrets chiffrés (`ChannelSettingsEncryptor`, clés API LLM depuis H4) en dépend entièrement ; documenter une procédure de rotation.
+
+### Gates (lot 2)
+
+- **PHPUnit** (`local/modules/CommerceAgents/Tests`) : référence MYO-276 = 395/395 verts, plus les nouveaux tests de ce lot (appliers TOCTOU, expiration staged change, timeouts LLM, McpServeCommand, CSRF front/BO, template MCP, formulaire agents).
+- **PHPStan** (niveau 6, `local/modules/CommerceAgents`) : aucun nouveau constat introduit sur les fichiers modifiés/créés par ce lot.
+- Commits séparés par famille sur la branche `myorg`, référence MYO-284 dans chaque message.
