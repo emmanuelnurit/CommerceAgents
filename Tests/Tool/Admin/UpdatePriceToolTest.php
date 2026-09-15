@@ -44,6 +44,13 @@ class FakeStagingGateway implements StagingGatewayInterface
 
         return $this->result;
     }
+
+    public function stageCustomerEmail(int $customerId, string $recipient, ?string $subject, string $body, ToolContext $ctx): array
+    {
+        $this->lastCall = ['stageCustomerEmail', $customerId, $recipient, $subject, $body];
+
+        return $this->result;
+    }
 }
 
 class UpdatePriceToolTest extends TestCase

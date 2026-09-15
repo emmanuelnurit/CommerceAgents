@@ -29,4 +29,15 @@ interface StagingGatewayInterface
      *                                                                       when the review is unknown or already has a reply proposal pending
      */
     public function stageReviewReply(int $commentId, string $replyContent, ToolContext $ctx): array;
+
+    /**
+     * A third-party action (send an e-mail to a customer), never an in-place
+     * modification -- same shape as stageCouponApplication(). Unlike the
+     * other stageXxx() methods, this one does not require $ctx->adminId:
+     * cart_abandoned_relaunch / welcome_new_customer only ever run
+     * automatically (MYO-340), and automatic runs never carry an admin_id.
+     *
+     * @return array {changeId, targetType, targetId, before, after, status} or {error}
+     */
+    public function stageCustomerEmail(int $customerId, string $recipient, ?string $subject, string $body, ToolContext $ctx): array;
 }

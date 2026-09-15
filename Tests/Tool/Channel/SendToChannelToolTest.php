@@ -79,12 +79,12 @@ class FakeChannelGateway implements ChannelGatewayInterface
 
 class FakeOutboundMessageLogger implements AgentOutboundMessageLoggerInterface
 {
-    /** @var list<array{ctx: ToolContext, channel: string, recipient: ?string, status: string, error: ?string}> */
+    /** @var list<array{ctx: ToolContext, channel: string, recipient: ?string, status: string, error: ?string, bodyExcerpt: ?string}> */
     public array $logged = [];
 
-    public function log(ToolContext $ctx, string $channel, ?string $recipient, string $status, ?string $error = null): void
+    public function log(ToolContext $ctx, string $channel, ?string $recipient, string $status, ?string $error = null, ?string $bodyExcerpt = null): void
     {
-        $this->logged[] = ['ctx' => $ctx, 'channel' => $channel, 'recipient' => $recipient, 'status' => $status, 'error' => $error];
+        $this->logged[] = ['ctx' => $ctx, 'channel' => $channel, 'recipient' => $recipient, 'status' => $status, 'error' => $error, 'bodyExcerpt' => $bodyExcerpt];
     }
 }
 

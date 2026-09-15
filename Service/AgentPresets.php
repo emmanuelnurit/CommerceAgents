@@ -39,7 +39,7 @@ final class AgentPresets
                 'tier' => 'fast',
                 'triggers' => [['type' => TriggerCatalog::CART_ABANDONED, 'hours' => 24]],
                 'channel' => 'mail',
-                'capabilities' => ['catalog.read', 'customer.read'],
+                'capabilities' => ['catalog.read', 'customer.read', 'customer.profile.read'],
                 'requiresModule' => null,
             ],
             self::WELCOME_NEW_CUSTOMER => [
@@ -52,7 +52,7 @@ final class AgentPresets
                 'tier' => 'fast',
                 'triggers' => [['type' => TriggerCatalog::NEW_CUSTOMER]],
                 'channel' => 'mail',
-                'capabilities' => ['customer.read', 'catalog.read'],
+                'capabilities' => ['customer.read', 'catalog.read', 'customer.profile.read'],
                 'requiresModule' => null,
             ],
             self::DAILY_SALES_SUMMARY => [

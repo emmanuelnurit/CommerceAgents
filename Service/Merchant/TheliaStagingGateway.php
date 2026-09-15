@@ -161,6 +161,21 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
         return $this->createChange('review_reply', $commentId, $before, $after, $ctx);
     }
 
+    public function stageCustomerEmail(int $customerId, string $recipient, ?string $subject, string $body, ToolContext $ctx): array
+    {
+        if ($ctx->conversationId === null) {
+            return ['error' => 'No conversation context'];
+        }
+
+        $after = [
+            'recipient' => $recipient,
+            'subject' => $subject,
+            'body' => $body,
+        ];
+
+        return $this->createChange('customer_email', $customerId, [], $after, $ctx);
+    }
+
     private function createChange(string $targetType, int $targetId, array $before, array $after, ToolContext $ctx): array
     {
         $change = (new AgentStagedChange())

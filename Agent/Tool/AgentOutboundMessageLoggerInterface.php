@@ -28,5 +28,6 @@ interface AgentOutboundMessageLoggerInterface
         ?string $recipient,
         string $status,
         ?string $error = null,
+        ?string $bodyExcerpt = null,
     ): void;
 }

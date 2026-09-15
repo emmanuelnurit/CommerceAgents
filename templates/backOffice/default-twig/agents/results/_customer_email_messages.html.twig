@@ -1,0 +1,34 @@
+{% if messages|length > 0 %}
+    <div class="list-group" data-testid="agent-results-customer-email">
+        {% for message in messages %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <span class="small text-muted">{{ message.sentAt ? message.sentAt|relative_time : '—' }}</span>
+                    {% if message.status == 'sent' %}
+                        <span class="badge text-bg-success">{{ 'Sent'|trans({}, 'commerceagents') }}</span>
+                    {% elseif message.status == 'staged' %}
+                        <span class="badge text-bg-warning">{{ 'Pending validation'|trans({}, 'commerceagents') }}</span>
+                    {% elseif message.status == 'failed' %}
+                        <span class="badge text-bg-danger">{{ 'Send failed'|trans({}, 'commerceagents') }}</span>
+                    {% else %}
+                        <span class="badge text-bg-secondary">{{ message.status }}</span>
+                    {% endif %}
+                </div>
+                <div class="mb-1">
+                    <strong>{{ 'To: %recipient%'|trans({'%recipient%': message.recipient ?? '—'}, 'commerceagents') }}</strong>
+                </div>
+                {% if message.bodyExcerpt %}
+                    <p class="text-muted mb-0">{{ message.bodyExcerpt }}</p>
+                {% endif %}
+                {% if message.status == 'failed' and message.error %}
+                    <p class="text-danger small mb-0 mt-1">{{ message.error }}</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-light border mb-0" data-testid="agent-results-customer-email-empty">
+        <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
+        {{ 'No outbound message recorded yet for this agent.'|trans({}, 'commerceagents') }}
+    </div>
+{% endif %}

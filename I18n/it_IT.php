@@ -414,4 +414,10 @@ return [
     'Showing the %shown% most recent proposals out of %total%.' => 'Vengono mostrate le %shown% proposte più recenti su %total%.',
     'No proposal for this agent yet.' => 'Ancora nessuna proposta per questo agente.',
     'This agent has already run but found nothing to propose.' => 'Questo agente ha già eseguito ma non ha trovato nulla da proporre.',
+
+    // MYO-340 — pannelli "Messaggi inviati" (cart_abandoned_relaunch, welcome_new_customer)
+    'Sent' => 'Inviato',
+    'Pending validation' => 'In attesa di convalida',
+    'Send failed' => "Invio non riuscito",
+    'To: %recipient%' => 'A: %recipient%',
 ];

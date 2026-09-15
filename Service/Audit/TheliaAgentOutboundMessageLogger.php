@@ -17,6 +17,7 @@ final readonly class TheliaAgentOutboundMessageLogger implements AgentOutboundMe
         ?string $recipient,
         string $status,
         ?string $error = null,
+        ?string $bodyExcerpt = null,
     ): void {
         if ($ctx->agentRunId === null || $ctx->agentDefinitionId === null) {
             // No real agent_run to attach to (e.g. an interactive chat call
@@ -33,6 +34,7 @@ final readonly class TheliaAgentOutboundMessageLogger implements AgentOutboundMe
                 ->setRecipient($recipient)
                 ->setStatus($status)
                 ->setError($error)
+                ->setBodyExcerpt($bodyExcerpt)
                 ->setSentAt(new \DateTime())
                 ->save();
         } catch (\Exception $exception) {

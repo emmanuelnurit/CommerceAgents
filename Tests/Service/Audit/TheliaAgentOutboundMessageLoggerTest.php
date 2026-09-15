@@ -75,6 +75,28 @@ final class TheliaAgentOutboundMessageLoggerTest extends IntegrationTestCase
         $this->assertSame('Timeout', $row->getError());
     }
 
+    public function testLogWritesTheBodyExcerptWhenGiven(): void
+    {
+        // MYO-340: the "Messages envoyés" panes need a content excerpt per
+        // message; existing callers (SendToChannelTool) keep compiling
+        // unchanged since the parameter is optional and defaults to null.
+        $logger = new TheliaAgentOutboundMessageLogger();
+        $run = $this->agentRun();
+        $ctx = new ToolContext(
+            isAdmin: true,
+            agentDefinitionId: $run->getAgentDefinitionId(),
+            channel: ToolContext::CHANNEL_RUN,
+            agentRunId: $run->getId(),
+        );
+
+        $logger->log($ctx, 'mail', 'client@example.com', AgentOutboundMessageLoggerInterface::STATUS_STAGED, null, 'Bonjour, votre panier vous attend…');
+
+        $row = AgentOutboundMessageQuery::create()->orderById(Criteria::DESC)->findOne();
+
+        $this->assertSame('staged', $row->getStatus());
+        $this->assertSame('Bonjour, votre panier vous attend…', $row->getBodyExcerpt());
+    }
+
     public function testLogSkipsSilentlyWhenTheContextHasNoRealRun(): void
     {
         $logger = new TheliaAgentOutboundMessageLogger();

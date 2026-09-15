@@ -414,4 +414,10 @@ return [
     'Showing the %shown% most recent proposals out of %total%.' => 'Showing the %shown% most recent proposals out of %total%.',
     'No proposal for this agent yet.' => 'No proposal for this agent yet.',
     'This agent has already run but found nothing to propose.' => 'This agent has already run but found nothing to propose.',
+
+    // MYO-340 — "Sent messages" panes (cart_abandoned_relaunch, welcome_new_customer)
+    'Sent' => 'Sent',
+    'Pending validation' => 'Pending validation',
+    'Send failed' => 'Send failed',
+    'To: %recipient%' => 'To: %recipient%',
 ];
