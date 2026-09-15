@@ -153,7 +153,7 @@ class StagedChangeManagerTest extends TestCase
         $this->assertArrayHasKey('error', $manager->reject(999, adminId: 3));
     }
 
-    public function testSelfApprovalIsRefused(): void
+    public function testSoleAdminCanApproveTheirOwnTriggeredRunProposal(): void
     {
         $change = new StagedChangeData(
             id: 5,
@@ -170,9 +170,9 @@ class StagedChangeManagerTest extends TestCase
 
         $result = $manager->approve(5, adminId: 3);
 
-        $this->assertArrayHasKey('error', $result);
-        $this->assertSame([], $applier->applied);
-        $this->assertSame([], $repository->calls);
+        $this->assertSame('applied', $result['status']);
+        $this->assertSame([5], $applier->applied);
+        $this->assertSame([['markApplied', 5, 3]], $repository->calls);
     }
 
     public function testApprovalByDifferentAdminThanProposerSucceeds(): void

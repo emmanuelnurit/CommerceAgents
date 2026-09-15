@@ -43,9 +43,6 @@ final readonly class StagedChangeManager
         if ($change->status !== StagedChangeData::STATUS_PENDING) {
             return ['error' => \sprintf('Staged change %d is not pending (status: %s)', $changeId, $change->status)];
         }
-        if ($change->proposedBy !== null && $change->proposedBy === $adminId) {
-            return ['error' => \sprintf('Staged change %d was proposed by this admin and cannot be self-approved', $changeId)];
-        }
         if ($this->isExpired($change)) {
             $error = \sprintf(
                 'Staged change %d has been pending for more than %d hours and can no longer be approved; the underlying catalog data may have changed since it was proposed',
