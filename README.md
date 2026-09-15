@@ -45,6 +45,8 @@ The module's own guardrails (daily message limit per conversation, monthly budge
 
 ### M1 — Rate-limit `/agent/chat*` by IP
 
+**✅ En place ici, prouvé le 2026-09-15 (MYO-406).** Appliqué dans la config nginx versionnée de ce dépôt : `.ddev/nginx_full/nginx-site.conf` (zone `limit_req_zone` + `location ~ ^/agent/chat`). Preuve par exécution réelle : boucle `curl` de 30 requêtes consécutives sur `/agent/chat` → les 21 premières passent (403 applicatif, en-tête `X-Requested-With` manquant), la 22ᵉ et les suivantes reçoivent **429** de nginx ; navigation FO normale (accueil, sitemap, `/admin/login`) restée en 200 pendant et après le test. Transcript complet en commentaire sur le ticket.
+
 **Risk.** The module limits messages per *conversation* per day, but a client can open a fresh conversation on every request (no login required for the shopping assistant). Without an upstream limit, a simple loop drives unbounded LLM spend and can exhaust the LLM provider's own rate limit for the whole store.
 
 **Recommended value.** Something in the region of 10 requests/minute per IP with a small burst allowance — adjust to real traffic once you have some.
@@ -67,6 +69,8 @@ location ~ ^/agent/chat {
 Equally valid: a Symfony `RateLimiter` wired at the kernel/firewall level, or a rule on whatever reverse proxy, CDN or WAF already sits in front of the store.
 
 ### B1 — Cap the request body size
+
+**✅ En place ici, prouvé le 2026-09-15 (MYO-406).** Même fichier, même `location` : `client_max_body_size 64k;`. Preuve par exécution réelle : POST de 200 015 octets sur `/agent/chat` rejeté avec **413** par nginx (page d'erreur nginx brute, pas le JSON applicatif) ; un POST de taille normale continue d'atteindre PHP (403 applicatif attendu, en-tête manquant, pas 413/429). Transcript complet en commentaire sur le ticket.
 
 **Risk.** `/agent/chat*` validates message length in PHP, after the body has already been read into memory. An oversized POST forces the server to buffer and parse it before that check ever runs.
 
