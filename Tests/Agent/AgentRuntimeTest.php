@@ -16,6 +16,18 @@ use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Agent\Tool\ToolInterface;
 use CommerceAgents\Agent\Tool\ToolRegistry;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+
+final class RecordingLogger extends AbstractLogger
+{
+    /** @var array<int, array{level: mixed, message: string, context: array}> */
+    public array $records = [];
+
+    public function log($level, string|\Stringable $message, array $context = []): void
+    {
+        $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+    }
+}
 
 class ScriptedLlmClient implements LlmClientInterface
 {
@@ -48,7 +60,7 @@ class RecordingEchoTool implements ToolInterface
 
     public int $executions = 0;
 
-    public function __construct(private readonly bool $failing = false)
+    public function __construct(private readonly bool $failing = false, private readonly ?\Throwable $failingWith = null)
     {
     }
 
@@ -75,6 +87,9 @@ class RecordingEchoTool implements ToolInterface
     public function execute(array $args, ToolContext $ctx): array
     {
         ++$this->executions;
+        if ($this->failingWith !== null) {
+            throw $this->failingWith;
+        }
         if ($this->failing) {
             throw new ToolException('boom');
         }
@@ -154,6 +169,40 @@ class AgentRuntimeTest extends TestCase
         $lastMessage = end($secondCallMessages);
         $this->assertSame('tool', $lastMessage->role);
         $this->assertArrayHasKey('error', $lastMessage->toolResult);
+    }
+
+    public function testGenericExceptionFromToolIsRecoveredNotPropagated(): void
+    {
+        // MYO-382: a tool can throw a generic exception (not just ToolException)
+        // when it hits a Thelia core service that implicitly needs a current
+        // HTTP request, which is absent in a pure-CLI cron run. The whole run
+        // must not crash for that -- the failure is recovered exactly like a
+        // ToolException, and the original exception is logged since it is not
+        // an expected/typed failure.
+        $client = new ScriptedLlmClient([
+            [LlmEvent::toolCall(new LlmToolCall(id: 'tc_1', name: 'echo', arguments: [])), LlmEvent::turnEnd('tool_use')],
+            [LlmEvent::textDelta('désolé'), LlmEvent::turnEnd('end_turn')],
+        ]);
+        $registry = new ToolRegistry();
+        $registry->register(new RecordingEchoTool(failingWith: new \RuntimeException('No current request found')));
+        $logger = new RecordingLogger();
+
+        $runtime = new AgentRuntime($client, $registry, AgentRuntime::DEFAULT_MAX_ITERATIONS, $logger);
+        $events = iterator_to_array(
+            $runtime->runTurn([LlmMessage::user('Salut')], 'system prompt', new ToolContext(), $this->config()),
+            false,
+        );
+
+        $this->assertSame('done', end($events)->type);
+
+        $secondCallMessages = $client->receivedMessages[1];
+        $lastMessage = end($secondCallMessages);
+        $this->assertSame('tool', $lastMessage->role);
+        $this->assertSame(['error' => 'No current request found'], $lastMessage->toolResult);
+
+        $this->assertCount(1, $logger->records);
+        $this->assertSame('error', $logger->records[0]['level']);
+        $this->assertSame(\RuntimeException::class, $logger->records[0]['context']['exception']);
     }
 
     public function testUsageIsYieldedPerLlmCallBeforeToolCalls(): void

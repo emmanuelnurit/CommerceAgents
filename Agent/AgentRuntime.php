@@ -11,6 +11,7 @@ use CommerceAgents\Agent\Llm\LlmMessage;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Agent\Tool\ToolRegistry;
+use Psr\Log\LoggerInterface;
 
 final readonly class AgentRuntime
 {
@@ -20,6 +21,7 @@ final readonly class AgentRuntime
         private LlmClientInterface $llmClient,
         private ToolRegistry $toolRegistry,
         private int $maxIterations = self::DEFAULT_MAX_ITERATIONS,
+        private ?LoggerInterface $logger = null,
     ) {
     }
 
@@ -84,6 +86,20 @@ final readonly class AgentRuntime
                 try {
                     $result = $this->toolRegistry->execute($toolCall->name, $toolCall->arguments, $ctx);
                 } catch (ToolException $exception) {
+                    $result = ['error' => $exception->getMessage()];
+                } catch (\Throwable $exception) {
+                    // MYO-382: a generic exception (e.g. a Thelia core service
+                    // implicitly depending on a current HTTP request, absent
+                    // in a pure-CLI cron run) used to propagate all the way up
+                    // and fail the whole run instead of just this tool call.
+                    // Recovered the same way as a ToolException so the LLM can
+                    // react to it, with the original stacktrace logged since
+                    // this is not an expected/typed failure.
+                    $this->logger?->error(\sprintf('[commerce-agents] tool "%s" crashed with an unexpected exception', $toolCall->name), [
+                        'tool' => $toolCall->name,
+                        'exception' => $exception::class,
+                        'trace' => $exception->getTraceAsString(),
+                    ]);
                     $result = ['error' => $exception->getMessage()];
                 }
 

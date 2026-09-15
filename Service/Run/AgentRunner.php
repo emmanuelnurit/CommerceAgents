@@ -119,6 +119,7 @@ final readonly class AgentRunner
             $this->llmClientFactory->create($llmConfig->provider),
             $this->toolRegistry,
             max(1, $definition->getMaxIterations()),
+            $this->logger,
         );
 
         $prices = $this->modelCatalog->pricesFor($llmConfig->provider, $llmConfig->model);
@@ -202,6 +203,7 @@ final readonly class AgentRunner
                 'run_id' => $run->getId(),
                 'agent' => $definition->getCode(),
                 'exception' => $exception::class,
+                'trace' => $exception->getTraceAsString(),
             ]);
         }
 
