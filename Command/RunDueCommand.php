@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace CommerceAgents\Command;
 
 use CommerceAgents\Model\AgentDefinitionQuery;
-use CommerceAgents\Service\Run\AgentRunner;
 use CommerceAgents\Service\Run\AgentRunQueue;
+use CommerceAgents\Service\Run\PseudoCronGuard;
+use CommerceAgents\Service\Run\RunDueService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -16,13 +17,14 @@ use Thelia\Model\AdminQuery;
 
 #[AsCommand(
     name: 'commerce-agents:run-due',
-    description: 'Queues the due cron triggers of the configurable agents, then drains the queued runs',
+    description: 'Queues the due cron and business triggers of the configurable agents, then drains the queued runs',
 )]
 final class RunDueCommand extends Command
 {
     public function __construct(
         private readonly AgentRunQueue $queue,
-        private readonly AgentRunner $runner,
+        private readonly RunDueService $runDueService,
+        private readonly PseudoCronGuard $pseudoCronGuard,
     ) {
         parent::__construct();
     }
@@ -73,16 +75,10 @@ final class RunDueCommand extends Command
             $output->writeln(\sprintf('Queued manual run #%d for agent "%s"', $run->getId(), $code));
         }
 
-        $cronRuns = $this->queue->enqueueDueCronRuns($now);
-        if ($cronRuns !== []) {
-            $output->writeln(\sprintf('Queued %d run(s) from due cron triggers', \count($cronRuns)));
-        }
+        $this->pseudoCronGuard->markSystemTick($now);
 
-        $drained = 0;
-        foreach ($this->queue->queuedRuns(max(1, (int) $input->getOption('limit'))) as $run) {
-            $run = $this->runner->executeRun($run, $now);
-            ++$drained;
-
+        $drainedRuns = $this->runDueService->run($now, max(1, (int) $input->getOption('limit')));
+        foreach ($drainedRuns as $run) {
             $output->writeln(\sprintf(
                 '#%d %s → %s%s',
                 $run->getId(),
@@ -92,7 +88,7 @@ final class RunDueCommand extends Command
             ));
         }
 
-        $output->writeln(\sprintf('%d run(s) processed.', $drained));
+        $output->writeln(\sprintf('%d run(s) processed.', \count($drainedRuns)));
 
         return Command::SUCCESS;
     }

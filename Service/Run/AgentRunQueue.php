@@ -27,6 +27,8 @@ final readonly class AgentRunQueue
 
     public function __construct(
         private LoggerInterface $logger,
+        private AbandonedCartFinder $abandonedCartFinder,
+        private LowStockFinder $lowStockFinder,
     ) {
     }
 
@@ -79,17 +81,22 @@ final readonly class AgentRunQueue
     }
 
     /**
-     * Turns every due, enabled cron trigger of an enabled agent into a queued
-     * run, then advances the trigger schedule.
+     * Turns a whitelisted Thelia event into queued runs for every enabled
+     * agent with a matching, enabled `event` trigger whose conditions the
+     * event context satisfies (plan MYO-226 §3.3 point 3). Never touches the
+     * LLM: this is the only path an event subscriber is allowed to call.
+     *
+     * @param array<string, mixed> $conditionContext keys {@see TriggerConditions} understands, e.g. 'amount', 'status_id'
+     * @param array<string, mixed> $runContext        extra data stored on the queued run's context
      *
      * @return AgentRun[] the newly queued runs
      */
-    public function enqueueDueCronRuns(\DateTimeImmutable $now = new \DateTimeImmutable()): array
+    public function enqueueForEvent(string $eventName, string $dedupKey, array $conditionContext = [], array $runContext = []): array
     {
         $triggers = AgentTriggerQuery::create()
-            ->filterByType('cron')
+            ->filterByType(AgentTriggerType::EVENT)
+            ->filterByEventName($eventName)
             ->filterByEnabled(1)
-            ->filterByNextRunAt(['max' => $now])
             ->useAgentDefinitionQuery()
                 ->filterByEnabled(1)
             ->endUse()
@@ -97,9 +104,37 @@ final readonly class AgentRunQueue
 
         $runs = [];
         foreach ($triggers as $trigger) {
+            if (!TriggerConditions::matches($trigger->getConditions(), $conditionContext)) {
+                continue;
+            }
+
             $run = $this->enqueue(
                 $trigger->getAgentDefinition(),
-                ['trigger' => 'cron', 'cron_expression' => $trigger->getCronExpression()],
+                ['trigger' => AgentTriggerType::EVENT, 'event_name' => $eventName] + $runContext,
+                $trigger,
+                $dedupKey,
+            );
+            if ($run !== null) {
+                $runs[] = $run;
+            }
+        }
+
+        return $runs;
+    }
+
+    /**
+     * Turns every due, enabled cron trigger of an enabled agent into a queued
+     * run, then advances the trigger schedule.
+     *
+     * @return AgentRun[] the newly queued runs
+     */
+    public function enqueueDueCronRuns(\DateTimeImmutable $now = new \DateTimeImmutable()): array
+    {
+        $runs = [];
+        foreach ($this->dueTriggers(AgentTriggerType::CRON, $now) as $trigger) {
+            $run = $this->enqueue(
+                $trigger->getAgentDefinition(),
+                ['trigger' => AgentTriggerType::CRON, 'cron_expression' => $trigger->getCronExpression()],
                 $trigger,
                 \sprintf('cron:%d:%s', $trigger->getId(), $trigger->getNextRunAt()->format('YmdHis')),
             );
@@ -107,20 +142,71 @@ final readonly class AgentRunQueue
                 $runs[] = $run;
             }
 
-            $trigger->setLastRunAt($now);
-            try {
-                $next = $trigger->getCronExpression() !== null
-                    ? CronSchedule::nextRunDate($trigger->getCronExpression(), $now)
-                    : null;
-            } catch (\InvalidArgumentException $exception) {
-                // A malformed expression must not be retried on every drain.
-                $next = null;
-                $this->logger->error('[commerce-agents] cron trigger unscheduled: '.$exception->getMessage(), [
-                    'trigger_id' => $trigger->getId(),
-                ]);
+            $this->advanceSchedule($trigger, $now);
+        }
+
+        return $runs;
+    }
+
+    /**
+     * Business-cron trigger (plan MYO-226 §3.3 point 4): no native Thelia
+     * event fires for an abandoned cart, so the schedule itself runs the
+     * detection query — one queued run per cart still found abandoned,
+     * deduplicated per day so a cart that stays abandoned is not spammed at
+     * every drain.
+     *
+     * @return AgentRun[] the newly queued runs
+     */
+    public function enqueueDueAbandonedCartRuns(\DateTimeImmutable $now = new \DateTimeImmutable()): array
+    {
+        $runs = [];
+        foreach ($this->dueTriggers(AgentTriggerType::ABANDONED_CART, $now) as $trigger) {
+            $delayHours = TriggerConditions::intOption($trigger->getConditions(), 'delay_hours', AbandonedCartFinder::DEFAULT_DELAY_HOURS);
+
+            foreach ($this->abandonedCartFinder->find($delayHours, $now) as $cart) {
+                $run = $this->enqueue(
+                    $trigger->getAgentDefinition(),
+                    ['trigger' => AgentTriggerType::ABANDONED_CART, 'cart_id' => $cart->getId()],
+                    $trigger,
+                    \sprintf('abandoned_cart:%d:%d:%s', $trigger->getId(), $cart->getId(), $now->format('Ymd')),
+                );
+                if ($run !== null) {
+                    $runs[] = $run;
+                }
             }
-            $trigger->setNextRunAt($next !== null ? \DateTime::createFromImmutable($next) : null);
-            $trigger->save();
+
+            $this->advanceSchedule($trigger, $now);
+        }
+
+        return $runs;
+    }
+
+    /**
+     * Business-cron trigger (plan MYO-226 §3.3 point 4): same shape as
+     * abandoned carts, one queued run per sale element still under its
+     * trigger's threshold, deduplicated per day.
+     *
+     * @return AgentRun[] the newly queued runs
+     */
+    public function enqueueDueLowStockRuns(\DateTimeImmutable $now = new \DateTimeImmutable()): array
+    {
+        $runs = [];
+        foreach ($this->dueTriggers(AgentTriggerType::LOW_STOCK, $now) as $trigger) {
+            $threshold = TriggerConditions::intOption($trigger->getConditions(), 'threshold', LowStockFinder::DEFAULT_THRESHOLD);
+
+            foreach ($this->lowStockFinder->find($threshold) as $pse) {
+                $run = $this->enqueue(
+                    $trigger->getAgentDefinition(),
+                    ['trigger' => AgentTriggerType::LOW_STOCK, 'product_sale_elements_id' => $pse->getId(), 'threshold' => $threshold],
+                    $trigger,
+                    \sprintf('low_stock:%d:%d:%s', $trigger->getId(), $pse->getId(), $now->format('Ymd')),
+                );
+                if ($run !== null) {
+                    $runs[] = $run;
+                }
+            }
+
+            $this->advanceSchedule($trigger, $now);
         }
 
         return $runs;
@@ -137,5 +223,39 @@ final readonly class AgentRunQueue
             ->limit($limit)
             ->find()
             ->getData();
+    }
+
+    /**
+     * @return AgentTrigger[]
+     */
+    private function dueTriggers(string $type, \DateTimeImmutable $now): array
+    {
+        return AgentTriggerQuery::create()
+            ->filterByType($type)
+            ->filterByEnabled(1)
+            ->filterByNextRunAt(['max' => $now])
+            ->useAgentDefinitionQuery()
+                ->filterByEnabled(1)
+            ->endUse()
+            ->find()
+            ->getData();
+    }
+
+    private function advanceSchedule(AgentTrigger $trigger, \DateTimeImmutable $now): void
+    {
+        $trigger->setLastRunAt($now);
+        try {
+            $next = $trigger->getCronExpression() !== null
+                ? CronSchedule::nextRunDate($trigger->getCronExpression(), $now)
+                : null;
+        } catch (\InvalidArgumentException $exception) {
+            // A malformed expression must not be retried on every drain.
+            $next = null;
+            $this->logger->error('[commerce-agents] cron trigger unscheduled: '.$exception->getMessage(), [
+                'trigger_id' => $trigger->getId(),
+            ]);
+        }
+        $trigger->setNextRunAt($next !== null ? \DateTime::createFromImmutable($next) : null);
+        $trigger->save();
     }
 }

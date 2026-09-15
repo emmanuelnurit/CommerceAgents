@@ -83,6 +83,25 @@ Every write lands in `agent_staged_change` with the before/after payload and the
 
 Adding a new kind of write: one tool that stages a change, plus one `ChangeApplierInterface` implementation for its `target_type`. Both are auto-registered.
 
+## Configurable agents — triggers
+
+Configurable agents (`agent_definition`) run outside a chat, on a trigger (`agent_trigger`). No trigger ever executes an agent inline in an HTTP request: it only inserts a queued `agent_run`, deduplicated by `dedup_key`. A separate drain step, `commerce-agents:run-due`, turns queued runs into LLM calls.
+
+| Trigger `type` | Fires on | `conditions` JSON |
+|---|---|---|
+| `event` | One of the whitelisted Thelia events (`event_name`): order paid, order status changed, new customer account | `target_statuses` (status ids, order status change only), `min_amount` |
+| `cron` | Its own `cron_expression` (« Planification ») | — |
+| `abandoned_cart` | `cron_expression`, then a query for carts with items and no order, older than `delay_hours` | `delay_hours` (default 24) |
+| `low_stock` | `cron_expression`, then a query for visible sale elements at or under `threshold` | `threshold` (default 5) |
+
+**Install a real cron** (recommended):
+
+```cron
+* * * * * php /path/to/thelia Thelia commerce-agents:run-due >> var/log/commerce-agents-run-due.log 2>&1
+```
+
+Without one, a **pseudo-cron fallback** drains the queue from back-office traffic once the real cron has not ticked for 10 minutes, at most once every 5 minutes — enough to keep triggers moving on a store with no crontab access, never a substitute for one at any real volume.
+
 ## Channels
 
 A configurable agent can push a message out through `send_to_channel`, the single channel tool exposed to the model (capability `channels.send`). The channel — mail, a Mattermost/Slack webhook, or a third-party one — is picked by the agent's `agent_channel` configuration, never by the model.
@@ -175,7 +194,7 @@ vendor/bin/phpunit                                   # module test suite
 php Thelia cache:clear                               # after adding a hook, tool or command
 ```
 
-Tests run without a database: tools are tested against fake gateways, the runtime against a fake LLM client, the MCP server against an in-memory registry.
+Most tests run without a database: tools are tested against fake gateways, the runtime against a fake LLM client, the MCP server against an in-memory registry. The trigger detection queries (`Tests/EventListener`, `Tests/Service/Run`) are the exception — they exercise real Thelia events and Propel fixtures through `Thelia\Test\IntegrationTestCase`, so they need the Thelia test database (`php bin/test-prepare` from the project root) and run from there, e.g. `vendor/bin/phpunit -c phpunit.xml.dist local/modules/CommerceAgents/Tests/Service/Run/AgentRunQueueTest.php`.
 
 Adding a tool:
 
