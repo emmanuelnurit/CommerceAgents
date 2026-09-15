@@ -9,7 +9,7 @@ use CommerceAgents\Agent\Tool\ToolContext;
 interface OrderGatewayInterface
 {
     /**
-     * @return array[] each order: {ref, date, status, totalAmount, currency, url}
+     * @return array[] each order: {ref, date, status, statusCode, totalAmount, currency, url}
      */
     public function getOrders(int $customerId, int $limit, ToolContext $ctx): array;
 }

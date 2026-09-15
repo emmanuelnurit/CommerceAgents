@@ -5,7 +5,7 @@
 
 <div id="commerce-agents-widget"
      x-data="commerceAgentsChat()"
-     data-config="{{ { cart: cart, locale: locale, i18n: i18n }|json_encode|e('html_attr') }}"
+     data-config="{{ { cart: cart, account: account, locale: locale, i18n: i18n }|json_encode|e('html_attr') }}"
      x-cloak>
 
     {# ---------- Dock: slim bar anchored at the bottom, grows into the overlay ---------- #}
@@ -296,6 +296,43 @@
                 </div>
 
                 <aside class="caw-aside">
+                    <section class="caw-card caw-card-account" aria-label="{{ i18n.accountTitle }}">
+                        <h3 class="caw-card-title">{{ i18n.accountTitle }}</h3>
+
+                        <template x-if="account.loggedIn">
+                            <div class="caw-account-connected">
+                                <a class="caw-btn caw-btn-primary caw-btn-block" x-bind:href="account.accountUrl" x-text="i18n.myAccount"></a>
+
+                                <p class="caw-card-empty" x-show="account.orders.length === 0" x-text="i18n.noOrdersYet"></p>
+
+                                <ul class="caw-order-list" x-show="account.orders.length > 0">
+                                    <template x-for="order in account.orders" x-bind:key="order.ref">
+                                        <li class="caw-order-line">
+                                            <a class="caw-order-link" x-bind:href="order.url">
+                                                <span class="caw-order-ref" x-text="order.ref"></span>
+                                                <span class="caw-order-status" x-bind:class="'caw-order-status--' + order.statusCode" x-text="order.status"></span>
+                                            </a>
+                                            <span class="caw-order-meta">
+                                                <span x-text="order.date"></span>
+                                                <span x-text="money(order.totalAmount, order.currency)"></span>
+                                            </span>
+                                        </li>
+                                    </template>
+                                </ul>
+
+                                <a class="caw-link" x-show="account.orders.length > 0" x-bind:href="account.ordersUrl" x-text="i18n.viewAllOrders"></a>
+                            </div>
+                        </template>
+
+                        <template x-if="!account.loggedIn">
+                            <div class="caw-account-anonymous">
+                                <p class="caw-card-hint">{{ i18n.accountHint }}</p>
+                                <a class="caw-btn caw-btn-primary caw-btn-block" x-bind:href="account.registerUrl" x-text="i18n.createAccount"></a>
+                                <a class="caw-btn caw-btn-ghost caw-btn-block" x-bind:href="account.loginUrl" x-text="i18n.login"></a>
+                            </div>
+                        </template>
+                    </section>
+
                     <section class="caw-card">
                         <h3 class="caw-card-title">
                             {{ i18n.yourCart }}

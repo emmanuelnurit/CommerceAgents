@@ -104,6 +104,7 @@ function commerceAgentsChat() {
         messages: [],
         highlights: [],
         cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 },
+        account: { loggedIn: false, loginUrl: '#', registerUrl: '#' },
         locale: 'en-US',
         pendingNavigationUrl: null,
         i18n: {
@@ -178,6 +179,9 @@ function commerceAgentsChat() {
             }
             if (config.cart) {
                 this.cart = config.cart;
+            }
+            if (config.account) {
+                this.account = config.account;
             }
             if (config.i18n) {
                 this.i18n = Object.assign({}, this.i18n, config.i18n);

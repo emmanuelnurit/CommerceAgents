@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Hook\Theme;
 
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\Shopping\AccountSummaryProvider;
 use CommerceAgents\Service\Shopping\TheliaCartGateway;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -29,6 +30,7 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
     public function __construct(
         private AgentConfigService $configService,
         private TheliaCartGateway $cartGateway,
+        private AccountSummaryProvider $accountSummaryProvider,
         private RequestStack $requestStack,
         private UrlGeneratorInterface $urlGenerator,
         private Translator $translator,
@@ -58,6 +60,11 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
         $translate = fn (string $id): string => $this->translator->trans($id, [], 'commerceagents', $locale);
 
         $assistantName = $this->configService->getAssistantName();
+
+        $customerId = $theliaSession?->getCustomerUser()?->getId();
+        $account = $customerId !== null
+            ? $this->accountSummaryProvider->forCustomer($customerId, $locale)
+            : $this->accountSummaryProvider->forAnonymous();
 
         return $this->twig->render('@CommerceAgentsModule/theme-hook/chat_widget.html.twig', [
             'assistantName' => $assistantName,
@@ -95,12 +102,20 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'minimiseAssistant' => $translate('Minimise the conversation'),
                 'addToCartPrompt' => $translate('Add this product to my cart:'),
                 'subtitle' => $translate('Shopping assistant powered by AI'),
+                'accountTitle' => $translate('My account'),
+                'accountHint' => $translate('Create an account to track your orders and speed up checkout.'),
+                'createAccount' => $translate('Create my account'),
+                'login' => $translate('Log in'),
+                'myAccount' => $translate('Go to my account'),
+                'noOrdersYet' => $translate('No orders yet.'),
+                'viewAllOrders' => $translate('View all my orders'),
             ],
             'assetVersion' => self::assetVersion(),
             'cart' => $this->cartGateway->snapshot(),
+            'account' => $account,
             'locale' => $locale,
             'checkoutUrl' => $this->urlGenerator->generate('checkout_cart'),
-            'isCustomerLoggedIn' => $theliaSession?->getCustomerUser() !== null,
+            'isCustomerLoggedIn' => $account['loggedIn'],
         ]);
     }
 

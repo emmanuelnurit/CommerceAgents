@@ -32,6 +32,7 @@ final readonly class TheliaOrderGateway implements OrderGatewayInterface
                 'ref' => $order->getRef(),
                 'date' => $order->getCreatedAt()?->format('Y-m-d'),
                 'status' => $order->getOrderStatus()->setLocale($ctx->locale)->getTitle(),
+                'statusCode' => $order->getOrderStatus()->getCode(),
                 'totalAmount' => round($order->getTotalAmount($tax), 2),
                 'currency' => $order->getCurrency()->getCode(),
                 'url' => $this->urlGenerator->generate(

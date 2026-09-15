@@ -26,6 +26,13 @@ body.caw-body-locked {
     --caw-surface: #ffffff;
     --caw-surface-soft: #fbfbfd;
     --caw-border: 2px;
+    /* Order status tones: each checked at >= 4.5:1 against --caw-surface-soft
+       (WCAG AA for normal-size text), per the MYO-210/211 contrast bar. */
+    --caw-status-pending: #6b6b78;
+    --caw-status-info: #1d4ed8;
+    --caw-status-success: #1a7f37;
+    --caw-status-warning: #92400e;
+    --caw-status-danger: #b42318;
 
     font-size: 0.9375rem;
     line-height: 1.45;
@@ -933,6 +940,91 @@ body.caw-body-locked {
 #commerce-agents-widget .caw-mini-price {
     font-size: 0.8125rem;
     font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ account */
+
+#commerce-agents-widget .caw-card-hint {
+    margin: 0 0 0.625rem;
+    color: var(--caw-muted);
+    font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: var(--caw-accent);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+#commerce-agents-widget .caw-order-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0.625rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+#commerce-agents-widget .caw-order-line {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--caw-line);
+    border-radius: 0.5rem;
+    background: var(--caw-surface-soft);
+}
+
+#commerce-agents-widget .caw-order-link {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+#commerce-agents-widget .caw-order-link:hover .caw-order-ref,
+#commerce-agents-widget .caw-order-link:focus-visible .caw-order-ref {
+    text-decoration: underline;
+}
+
+#commerce-agents-widget .caw-order-ref {
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+#commerce-agents-widget .caw-order-status {
+    flex: none;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--caw-status-pending);
+}
+
+#commerce-agents-widget .caw-order-status--paid,
+#commerce-agents-widget .caw-order-status--processing {
+    color: var(--caw-status-info);
+}
+
+#commerce-agents-widget .caw-order-status--sent {
+    color: var(--caw-status-success);
+}
+
+#commerce-agents-widget .caw-order-status--canceled {
+    color: var(--caw-status-danger);
+}
+
+#commerce-agents-widget .caw-order-status--refunded {
+    color: var(--caw-status-warning);
+}
+
+#commerce-agents-widget .caw-order-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+    color: var(--caw-muted);
+    font-size: 0.75rem;
 }
 
 /* ---------------------------------------------------------------- composer */
