@@ -55,4 +55,8 @@ return [
     'Dismiss suggestion' => 'Descartar la sugerencia',
     'Tell me more' => 'Cuénteme más',
     'No thanks' => 'No, gracias',
+    'Automatic triggering on these events is coming soon — in the meantime, every agent can be run manually via "Run now" on its card.' => 'La activación automática de estos eventos llegará pronto — mientras tanto, cada agente puede ejecutarse manualmente mediante «Ejecutar ahora» en su tarjeta.',
+    'Apply' => 'Aplicar',
+    'Applying…' => 'Aplicando…',
+    'Code applied:' => 'Código aplicado:',
 ];

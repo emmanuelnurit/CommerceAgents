@@ -29,6 +29,39 @@
 
             <p class="caw-proactive-text" x-show="proactive" x-text="proactive?.text"></p>
 
+            {# Carte coupon (scénarios 6/7, spec MYO-245 composant 3) : un code
+               à copier directement et/ou une progression vers un palier de
+               remise, selon ce que ProactiveMessage a rempli côté serveur. #}
+            <template x-if="proactive?.card?.type === 'coupon'">
+                <div class="caw-coupon">
+                    <p class="caw-coupon-code" x-show="proactive.card.data.code">
+                        <span class="caw-coupon-chip"><code x-text="proactive.card.data.code"></code></span>
+                    </p>
+                    <p class="caw-coupon-condition" x-show="proactive.card.data.conditionLabel" x-text="proactive.card.data.conditionLabel"></p>
+
+                    <div class="caw-coupon-progress" x-show="proactive.card.data.tiers">
+                        <p class="caw-coupon-progress-label" x-show="proactive.card.data.progressLabel" x-text="proactive.card.data.progressLabel"></p>
+                        <div class="caw-coupon-bar" role="progressbar"
+                             x-bind:aria-valuenow="proactive.card.data.progressPercent"
+                             aria-valuemin="0" aria-valuemax="100"
+                             x-bind:aria-label="proactive.card.data.progressAria">
+                            <div class="caw-coupon-bar-fill" x-bind:style="'width:' + (proactive.card.data.progressPercent || 0) + '%'"></div>
+                            <template x-for="tier in (proactive.card.data.tiers || [])" x-bind:key="tier.label">
+                                <span class="caw-coupon-tier" aria-hidden="true" x-bind:title="tier.label"
+                                      x-bind:class="tier.reached && 'is-reached'" x-bind:style="'left:' + tier.position + '%'"></span>
+                            </template>
+                        </div>
+                    </div>
+
+                    <button type="button" class="caw-btn caw-btn-primary caw-btn-block" x-show="proactive.card.data.code"
+                            x-bind:disabled="proactive.card.data.applying || proactive.card.data.applied"
+                            x-on:click="applyCoupon(proactive.card.data)"
+                            x-text="proactive.card.data.applied ? (i18n.couponAppliedPrefix + ' ' + money(proactive.card.data.appliedDiscount)) : (proactive.card.data.applying ? i18n.couponApplying : i18n.applyCoupon)"></button>
+
+                    <p class="caw-coupon-error" x-show="proactive.card.data.error" x-text="proactive.card.data.error" role="alert"></p>
+                </div>
+            </template>
+
             <div class="caw-proactive-actions">
                 <button type="button" class="caw-btn caw-btn-primary" x-on:click="acceptProactive()" x-text="i18n.proactiveSeeMore"></button>
                 <button type="button" class="caw-btn caw-btn-ghost" x-on:click="dismissProactive()" x-text="i18n.noThanks"></button>
@@ -308,6 +341,36 @@
                                             </span>
                                         </header>
                                         <p class="caw-proactive-text" x-text="message.text"></p>
+
+                                        <template x-if="message.card?.type === 'coupon'">
+                                            <div class="caw-coupon">
+                                                <p class="caw-coupon-code" x-show="message.card.data.code">
+                                                    <span class="caw-coupon-chip"><code x-text="message.card.data.code"></code></span>
+                                                </p>
+                                                <p class="caw-coupon-condition" x-show="message.card.data.conditionLabel" x-text="message.card.data.conditionLabel"></p>
+
+                                                <div class="caw-coupon-progress" x-show="message.card.data.tiers">
+                                                    <p class="caw-coupon-progress-label" x-show="message.card.data.progressLabel" x-text="message.card.data.progressLabel"></p>
+                                                    <div class="caw-coupon-bar" role="progressbar"
+                                                         x-bind:aria-valuenow="message.card.data.progressPercent"
+                                                         aria-valuemin="0" aria-valuemax="100"
+                                                         x-bind:aria-label="message.card.data.progressAria">
+                                                        <div class="caw-coupon-bar-fill" x-bind:style="'width:' + (message.card.data.progressPercent || 0) + '%'"></div>
+                                                        <template x-for="tier in (message.card.data.tiers || [])" x-bind:key="tier.label">
+                                                            <span class="caw-coupon-tier" aria-hidden="true" x-bind:title="tier.label"
+                                                                  x-bind:class="tier.reached && 'is-reached'" x-bind:style="'left:' + tier.position + '%'"></span>
+                                                        </template>
+                                                    </div>
+                                                </div>
+
+                                                <button type="button" class="caw-btn caw-btn-primary caw-btn-block" x-show="message.card.data.code"
+                                                        x-bind:disabled="message.card.data.applying || message.card.data.applied"
+                                                        x-on:click="applyCoupon(message.card.data)"
+                                                        x-text="message.card.data.applied ? (i18n.couponAppliedPrefix + ' ' + money(message.card.data.appliedDiscount)) : (message.card.data.applying ? i18n.couponApplying : i18n.applyCoupon)"></button>
+
+                                                <p class="caw-coupon-error" x-show="message.card.data.error" x-text="message.card.data.error" role="alert"></p>
+                                            </div>
+                                        </template>
                                     </div>
                                 </template>
                             </div>

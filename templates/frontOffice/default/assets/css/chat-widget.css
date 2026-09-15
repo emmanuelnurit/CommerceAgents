@@ -641,7 +641,7 @@ body.caw-body-locked {
     font-weight: 600;
 }
 
-#commerce-agents-widget .caw-stock.is-in { color: #08a65a; }
+#commerce-agents-widget .caw-stock.is-in { color: #067a43; } /* 5.25:1 sur --caw-surface-soft (#fbfbfd), spec MYO-245 */
 #commerce-agents-widget .caw-stock.is-out { color: #b70101; }
 
 #commerce-agents-widget .caw-product-actions {
@@ -788,6 +788,11 @@ body.caw-body-locked {
 #commerce-agents-widget .caw-btn-block {
     width: 100%;
     margin-top: 0.5rem;
+}
+
+#commerce-agents-widget .caw-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 /* -------------------------------------------------------------------- cart */
@@ -1390,6 +1395,90 @@ body.caw-body-locked {
     border-radius: 0.875rem;
     border-bottom-left-radius: 0.25rem; /* aligné sur .caw-assistant */
     background: #f4f4f8;
+}
+
+/* ---------- Proactive bubble: coupon card (MYO-263, spec MYO-245 composant 3) ---------- */
+
+#commerce-agents-widget .caw-coupon {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#commerce-agents-widget .caw-coupon-code {
+    margin: 0;
+}
+
+#commerce-agents-widget .caw-coupon-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    border: 1px dashed var(--caw-proactive-accent);
+    border-radius: 0.5rem;
+    background: #f5f0ff;
+}
+
+#commerce-agents-widget .caw-coupon-chip code {
+    font: inherit;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--caw-ink);
+}
+
+#commerce-agents-widget .caw-coupon-condition {
+    margin: 0;
+    color: var(--caw-muted);
+    font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-coupon-progress-label {
+    margin: 0 0 0.3125rem;
+    color: var(--caw-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+#commerce-agents-widget .caw-coupon-bar {
+    position: relative;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--caw-line);
+}
+
+#commerce-agents-widget .caw-coupon-bar-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--caw-proactive-accent);
+    transition: width 0.3s ease;
+}
+
+#commerce-agents-widget .caw-coupon-tier {
+    position: absolute;
+    top: 50%;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    background: var(--caw-surface);
+    border: 2px solid var(--caw-muted);
+    transform: translate(-50%, -50%);
+}
+
+#commerce-agents-widget .caw-coupon-tier.is-reached {
+    border-color: var(--caw-proactive-accent);
+    background: var(--caw-proactive-accent);
+}
+
+#commerce-agents-widget .caw-coupon-error {
+    margin: 0;
+    color: #b70101;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #commerce-agents-widget .caw-coupon-bar-fill {
+        transition: none;
+    }
 }
 
 /* ---------- Proactive bubble: entrance/exit animation ---------- */

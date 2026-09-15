@@ -138,6 +138,9 @@ function commerceAgentsChat() {
             dismissSuggestion: 'Dismiss suggestion',
             proactiveSeeMore: 'Tell me more',
             noThanks: 'No thanks',
+            applyCoupon: 'Apply',
+            couponApplying: 'Applying…',
+            couponAppliedPrefix: 'Code applied:',
         },
 
         init() {
@@ -751,15 +754,68 @@ function commerceAgentsChat() {
             if (this.proactiveRefused()) {
                 return;
             }
+            const preparedCard = this.prepareCard(card);
             if (this.isOpen) {
-                this.messages.push({ kind: 'proactive', role: 'assistant', scenario: scenario, text: text, card: card || null });
+                this.messages.push({ kind: 'proactive', role: 'assistant', scenario: scenario, text: text, card: preparedCard });
                 this.persist();
                 this.scrollDown();
             } else {
                 // Only one suggestion is ever visible at a time (plan MYO-236
                 // frequency guard): a later one simply replaces an unread one.
-                this.proactive = { scenario: scenario, text: text, card: card || null };
+                this.proactive = { scenario: scenario, text: text, card: preparedCard };
             }
+        },
+
+        /**
+         * A coupon card (MYO-245 composant 3) carries its own local widget
+         * state — applying/applied/error, driven by applyCoupon() — that the
+         * server payload never sends. Seeded once here so the Alpine template
+         * can read/write those keys straight away instead of on first use,
+         * which is what actually triggers reactivity on a plain object.
+         */
+        prepareCard(card) {
+            if (!card || card.type !== 'coupon') {
+                return card || null;
+            }
+            return {
+                type: card.type,
+                data: Object.assign({ applying: false, applied: false, appliedDiscount: null, error: null }, card.data),
+            };
+        },
+
+        /**
+         * The LLM only ever suggests a real, already-matching coupon code
+         * (SuggestApplicableCouponsTool); this just relays it to the server
+         * endpoint that re-validates and applies it via TheliaEvents::COUPON_CONSUME.
+         * `cardData` is mutated in place so both the floating bubble and the
+         * inline thread variant reflect the outcome without extra plumbing.
+         */
+        applyCoupon(cardData) {
+            if (!cardData || !cardData.code || cardData.applying || cardData.applied) {
+                return;
+            }
+            cardData.applying = true;
+            cardData.error = null;
+            return fetch('/agent/chat/proactive-apply-coupon', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: cardData.code }),
+            })
+                .then((response) => response.json().catch(() => ({})).then((payload) => ({ ok: response.ok, payload: payload })))
+                .then(({ ok, payload }) => {
+                    cardData.applying = false;
+                    if (ok && payload && payload.applied) {
+                        cardData.applied = true;
+                        cardData.appliedDiscount = payload.discount;
+                    } else {
+                        cardData.error = (payload && payload.error) || this.i18n.serviceUnavailable;
+                    }
+                    this.persist();
+                })
+                .catch(() => {
+                    cardData.applying = false;
+                    cardData.error = this.i18n.connectionLost;
+                });
         },
 
         acceptProactive() {

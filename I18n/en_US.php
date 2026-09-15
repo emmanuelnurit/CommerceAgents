@@ -326,4 +326,8 @@ return [
     'Dismiss suggestion' => 'Dismiss suggestion',
     'Tell me more' => 'Tell me more',
     'No thanks' => 'No thanks',
+    'Automatic triggering on these events is coming soon — in the meantime, every agent can be run manually via "Run now" on its card.' => 'Automatic triggering on these events is coming soon — in the meantime, every agent can be run manually via "Run now" on its card.',
+    'Apply' => 'Apply',
+    'Applying…' => 'Applying…',
+    'Code applied:' => 'Code applied:',
 ];

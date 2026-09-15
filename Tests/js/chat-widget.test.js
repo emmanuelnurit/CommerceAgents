@@ -671,12 +671,12 @@ test('a section heading that names no product keeps its numbering', () => {
 
 // ---------- MYO-236 Lot 3: proactive signal instrumentation ----------
 
-function stubFetch(responsePayload) {
+function stubFetch(responsePayload, responseOptions) {
     const calls = [];
     global.fetch = (url, options) => {
         calls.push({ url, options });
         return Promise.resolve({
-            ok: true,
+            ok: (responseOptions && responseOptions.ok) !== undefined ? responseOptions.ok : true,
             json: () => Promise.resolve(responsePayload === undefined ? {} : responsePayload),
         });
     };
@@ -860,7 +860,68 @@ test('a proactive message with a card (scenario 4 relaunch, once a coupon exists
 
     widget.receiveProactiveMessage('cart_abandoned_session', 'Votre panier vous attend.', card);
 
-    assert.deepEqual(widget.proactive.card, card);
+    // The coupon card gets its local widget state (applying/applied/error)
+    // seeded on arrival (MYO-263), on top of whatever the server sent.
+    assert.deepEqual(widget.proactive.card, {
+        type: 'coupon',
+        data: { code: 'PANIER10', applying: false, applied: false, appliedDiscount: null, error: null },
+    });
+});
+
+test('prepareCard leaves a non-coupon card untouched', () => {
+    const widget = component({ locale: 'fr_FR' });
+    const card = { type: 'product', data: { id: 42 } };
+
+    assert.deepEqual(widget.prepareCard(card), card);
+    assert.equal(widget.prepareCard(null), null);
+});
+
+test('applyCoupon posts the code and marks the card applied on success', async () => {
+    const calls = stubFetch({ applied: true, discount: 5 });
+    const widget = component({ locale: 'fr_FR' });
+    const cardData = { code: 'PANIER10', applying: false, applied: false, appliedDiscount: null, error: null };
+
+    const pending = widget.applyCoupon(cardData);
+    assert.equal(cardData.applying, true, 'the button must disable itself immediately');
+
+    await pending;
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/agent/chat/proactive-apply-coupon');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { code: 'PANIER10' });
+    assert.equal(cardData.applying, false);
+    assert.equal(cardData.applied, true);
+    assert.equal(cardData.appliedDiscount, 5);
+    assert.equal(cardData.error, null);
+});
+
+test('applyCoupon surfaces the server error message and stays reusable', async () => {
+    stubFetch({ applied: false, error: "Ce code n'est plus valide" }, { ok: false });
+    const widget = component({ locale: 'fr_FR' });
+    const cardData = { code: 'EXPIRED', applying: false, applied: false, appliedDiscount: null, error: null };
+
+    await widget.applyCoupon(cardData);
+
+    assert.equal(cardData.applying, false);
+    assert.equal(cardData.applied, false);
+    assert.equal(cardData.error, "Ce code n'est plus valide");
+});
+
+test('applyCoupon does nothing without a code, and never fires twice while pending or applied', async () => {
+    const calls = stubFetch({ applied: true, discount: 1 });
+    const widget = component({ locale: 'fr_FR' });
+
+    await widget.applyCoupon({ code: null });
+    assert.equal(calls.length, 0);
+
+    const cardData = { code: 'PANIER10', applying: true, applied: false, appliedDiscount: null, error: null };
+    await widget.applyCoupon(cardData);
+    assert.equal(calls.length, 0, 'already applying: no duplicate call');
+
+    cardData.applying = false;
+    cardData.applied = true;
+    await widget.applyCoupon(cardData);
+    assert.equal(calls.length, 0, 'already applied: no duplicate call');
 });
 
 test('a proactive message joins the thread directly when the overlay is already open', () => {
