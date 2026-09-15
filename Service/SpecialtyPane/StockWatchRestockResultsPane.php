@@ -6,6 +6,7 @@ namespace CommerceAgents\Service\SpecialtyPane;
 
 use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Model\AgentDefinition;
+use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Model\AgentStagedChange;
 use CommerceAgents\Model\AgentStagedChangeQuery;
 use CommerceAgents\Service\AgentPresets;
@@ -17,6 +18,12 @@ use Propel\Runtime\ActiveQuery\Criteria;
  * agent_staged_change rows (target_type = pse_stock) for the current agent,
  * newest first. This pane never approves/rejects a change itself -- it links
  * to the existing commerceagents_changes console for that (StagedChangesController).
+ *
+ * `hasEverRun` (MYO-338 scope amendment, CTO arbitration on MYO-336 triage):
+ * an agent that ran and found nothing to propose must not look identical to
+ * one that never ran -- same `hasEverRun` pattern as DailySalesSummaryResultsPane.
+ * The template links the "ran but nothing to propose" case to the run history
+ * (commerceagents_agents_runs) instead of re-rendering the run analysis here.
  */
 final readonly class StockWatchRestockResultsPane implements SpecificSpecialtyResultsPaneInterface
 {
@@ -53,6 +60,7 @@ final readonly class StockWatchRestockResultsPane implements SpecificSpecialtyRe
             'proposals' => array_map($this->toProposal(...), $changes->getData()),
             'totalCount' => $totalCount,
             'maxProposals' => self::MAX_PROPOSALS,
+            'hasEverRun' => AgentRunQuery::create()->filterByAgentDefinitionId($definition->getId())->exists(),
         ];
     }
 

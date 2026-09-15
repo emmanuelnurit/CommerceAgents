@@ -413,4 +413,5 @@ return [
     'Open the proposals console' => 'Ouvrir la console des propositions',
     'Showing the %shown% most recent proposals out of %total%.' => 'Affichage des %shown% propositions les plus récentes sur %total%.',
     'No proposal for this agent yet.' => 'Aucune proposition pour cet agent pour le moment.',
+    'This agent has already run but found nothing to propose.' => "Cet agent a déjà tourné mais n'a produit aucune proposition.",
 ];

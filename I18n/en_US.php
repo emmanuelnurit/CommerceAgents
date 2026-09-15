@@ -413,4 +413,5 @@ return [
     'Open the proposals console' => 'Open the proposals console',
     'Showing the %shown% most recent proposals out of %total%.' => 'Showing the %shown% most recent proposals out of %total%.',
     'No proposal for this agent yet.' => 'No proposal for this agent yet.',
+    'This agent has already run but found nothing to propose.' => 'This agent has already run but found nothing to propose.',
 ];

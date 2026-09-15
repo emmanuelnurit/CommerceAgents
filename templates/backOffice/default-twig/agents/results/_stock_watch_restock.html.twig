@@ -39,6 +39,16 @@
             </div>
         {% endfor %}
     </div>
+{% elseif hasEverRun %}
+    <div class="alert alert-light border mb-0" data-testid="agent-results-stock-watch-restock-empty-ran">
+        <i class="bi bi-check-circle me-1" aria-hidden="true"></i>
+        {{ 'This agent has already run but found nothing to propose.'|trans({}, 'commerceagents') }}
+        <div class="mt-2">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ path('commerceagents_agents_runs', {agentId: agentId}) }}">
+                <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>{{ 'Open run history'|trans({}, 'commerceagents') }}
+            </a>
+        </div>
+    </div>
 {% else %}
     <div class="alert alert-light border mb-0" data-testid="agent-results-stock-watch-restock-empty">
         <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>

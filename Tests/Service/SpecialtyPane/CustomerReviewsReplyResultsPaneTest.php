@@ -7,8 +7,10 @@ namespace CommerceAgents\Tests\Service\SpecialtyPane;
 use Comment\Model\Comment;
 use CommerceAgents\Model\AgentConversation;
 use CommerceAgents\Model\AgentDefinition;
+use CommerceAgents\Model\AgentRun;
 use CommerceAgents\Model\AgentStagedChange;
 use CommerceAgents\Service\Merchant\TheliaReviewsGateway;
+use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\SpecialtyPane\CustomerReviewsReplyResultsPane;
 use CommerceAgents\StagedChange\StagedChangeData;
 use Thelia\Test\IntegrationTestCase;
@@ -132,6 +134,30 @@ final class CustomerReviewsReplyResultsPaneTest extends IntegrationTestCase
 
         $this->assertSame([], $data['proposals']);
         $this->assertSame(0, $data['totalCount']);
+        $this->assertFalse($data['hasEverRun']);
+    }
+
+    /**
+     * MYO-338 scope amendment (CTO arbitration on MYO-336 triage): an agent
+     * that ran and read reviews but found nothing to draft must not look
+     * identical to one that never ran -- hasEverRun distinguishes the two so
+     * the template can point to the run history instead of a plain "nothing
+     * yet" message.
+     */
+    public function testHasEverRunButNoProposalsWhenTheAgentRanWithNothingToPropose(): void
+    {
+        $definition = $this->definition();
+        (new AgentRun())
+            ->setAgentDefinitionId($definition->getId())
+            ->setStatus(AgentRunQueue::STATUS_DONE)
+            ->setStartedAt(new \DateTime())
+            ->setFinishedAt(new \DateTime())
+            ->save();
+
+        $data = $this->pane()->getViewData($definition);
+
+        $this->assertSame([], $data['proposals']);
+        $this->assertTrue($data['hasEverRun']);
     }
 
     public function testMissingReplyKeyFallsBackToNullRatherThanCrashing(): void

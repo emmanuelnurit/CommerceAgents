@@ -6,6 +6,7 @@ namespace CommerceAgents\Service\SpecialtyPane;
 
 use CommerceAgents\Agent\Tool\Capability;
 use CommerceAgents\Model\AgentDefinition;
+use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Model\AgentStagedChange;
 use CommerceAgents\Model\AgentStagedChangeQuery;
 use CommerceAgents\Service\AgentPresets;
@@ -30,6 +31,12 @@ use Propel\Runtime\ActiveQuery\Criteria;
  * with `new` and no arguments. Autowiring (CommerceAgents.php's
  * SpecificSpecialtyResultsPaneInterface instanceof() block) still injects
  * the aliased service in production regardless of this default.
+ *
+ * `hasEverRun` (MYO-338 scope amendment, CTO arbitration on MYO-336 triage):
+ * an agent that ran and found nothing to propose must not look identical to
+ * one that never ran -- same `hasEverRun` pattern as DailySalesSummaryResultsPane.
+ * The template links the "ran but nothing to propose" case to the run history
+ * (commerceagents_agents_runs) instead of re-rendering the run analysis here.
  */
 final readonly class CustomerReviewsReplyResultsPane implements SpecificSpecialtyResultsPaneInterface
 {
@@ -71,6 +78,7 @@ final readonly class CustomerReviewsReplyResultsPane implements SpecificSpecialt
             'proposals' => array_map($this->toProposal(...), $changes->getData()),
             'totalCount' => $totalCount,
             'maxProposals' => self::MAX_PROPOSALS,
+            'hasEverRun' => AgentRunQuery::create()->filterByAgentDefinitionId($definition->getId())->exists(),
         ];
     }
 
