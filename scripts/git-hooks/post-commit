@@ -17,12 +17,26 @@
 #
 # Logs : $BACKUP_DIR/trigger.log (défaut /home/enurit/backups/thelia3-bundles/trigger.log)
 #
+# MYO-372 — étend ce même hook (et non un second fichier de hook — un dépôt
+# n'en exécute qu'un seul par événement via core.hooksPath) avec un second
+# appel en tâche de fond : scripts/auto-push-myorg.sh tente un
+# `git push origin myorg` après ce commit, sans jamais bloquer `git commit`
+# ni forcer le push. Voir l'en-tête de ce script pour le détail (credentials,
+# filet de détection complémentaire).
+#
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRIGGER_SCRIPT="${TRIGGER_SCRIPT:-/home/enurit/workspace/thelia3/scripts/trigger-backup-bundles.sh}"
+AUTO_PUSH_SCRIPT="${AUTO_PUSH_SCRIPT:-${SCRIPT_DIR}/../auto-push-myorg.sh}"
 
 if [[ -x "$TRIGGER_SCRIPT" ]]; then
   nohup "$TRIGGER_SCRIPT" hook >/dev/null 2>&1 &
+  disown
+fi
+
+if [[ -x "$AUTO_PUSH_SCRIPT" ]]; then
+  nohup "$AUTO_PUSH_SCRIPT" hook >/dev/null 2>&1 &
   disown
 fi
 
