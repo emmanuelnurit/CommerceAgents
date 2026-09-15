@@ -37,6 +37,9 @@ final readonly class StagedChangeManager
         if ($change->status !== StagedChangeData::STATUS_PENDING) {
             return ['error' => \sprintf('Staged change %d is not pending (status: %s)', $changeId, $change->status)];
         }
+        if ($change->proposedBy !== null && $change->proposedBy === $adminId) {
+            return ['error' => \sprintf('Staged change %d was proposed by this admin and cannot be self-approved', $changeId)];
+        }
 
         $applier = $this->appliers[$change->targetType] ?? null;
         if ($applier === null) {

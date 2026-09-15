@@ -147,4 +147,47 @@ class StagedChangeManagerTest extends TestCase
         $this->assertArrayHasKey('error', $manager->approve(999, adminId: 3));
         $this->assertArrayHasKey('error', $manager->reject(999, adminId: 3));
     }
+
+    public function testSelfApprovalIsRefused(): void
+    {
+        $change = new StagedChangeData(
+            id: 5,
+            targetType: 'pse_price',
+            targetId: 12,
+            payloadBefore: ['price' => 30.0],
+            payloadAfter: ['price' => 25.0],
+            status: StagedChangeData::STATUS_PENDING,
+            proposedBy: 3,
+        );
+        $repository = new FakeStagedChangeRepository([5 => $change]);
+        $applier = new FakePriceApplier();
+        $manager = new StagedChangeManager($repository, [$applier]);
+
+        $result = $manager->approve(5, adminId: 3);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertSame([], $applier->applied);
+        $this->assertSame([], $repository->calls);
+    }
+
+    public function testApprovalByDifferentAdminThanProposerSucceeds(): void
+    {
+        $change = new StagedChangeData(
+            id: 5,
+            targetType: 'pse_price',
+            targetId: 12,
+            payloadBefore: ['price' => 30.0],
+            payloadAfter: ['price' => 25.0],
+            status: StagedChangeData::STATUS_PENDING,
+            proposedBy: 3,
+        );
+        $repository = new FakeStagedChangeRepository([5 => $change]);
+        $applier = new FakePriceApplier();
+        $manager = new StagedChangeManager($repository, [$applier]);
+
+        $result = $manager->approve(5, adminId: 4);
+
+        $this->assertSame('applied', $result['status']);
+        $this->assertSame([5], $applier->applied);
+    }
 }

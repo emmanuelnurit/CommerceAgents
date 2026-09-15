@@ -18,6 +18,7 @@ final readonly class StagedChangeData
         public array $payloadBefore,
         public array $payloadAfter,
         public string $status,
+        public ?int $proposedBy = null,
     ) {
     }
 }

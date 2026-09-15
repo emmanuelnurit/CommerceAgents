@@ -126,6 +126,7 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
             payloadBefore: json_decode((string) $model->getPayloadBefore(), true) ?? [],
             payloadAfter: json_decode((string) $model->getPayloadAfter(), true) ?? [],
             status: $model->getStatus(),
+            proposedBy: $model->getAdminId(),
         );
     }
 }

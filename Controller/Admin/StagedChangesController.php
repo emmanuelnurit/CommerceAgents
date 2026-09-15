@@ -16,6 +16,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Thelia\Core\Security\AccessManager;
+use Thelia\Core\Security\Resource\AdminResources;
 use Thelia\Core\Security\SecurityContext;
 use Thelia\Core\Translation\Translator;
 use Twig\Environment;
@@ -23,6 +24,19 @@ use Twig\Environment;
 final readonly class StagedChangesController
 {
     public const CSRF_TOKEN_ID = 'commerceagents_changes';
+
+    /**
+     * Approving a staged change must also be gated by the native ACL resource
+     * it actually mutates, not just the 'commerceagents' module right --
+     * otherwise a BO user with module access but no catalog rights could
+     * write prices/stock by proposing then approving their own change.
+     *
+     * @var array<string, string>
+     */
+    private const NATIVE_RESOURCE_BY_TARGET_TYPE = [
+        'pse_price' => AdminResources::PRODUCT,
+        'pse_stock' => AdminResources::PRODUCT,
+    ];
 
     public function __construct(
         private AdminAccessChecker $access,
@@ -95,6 +109,12 @@ final readonly class StagedChangesController
             }
 
             return new Response('Invalid CSRF token', Response::HTTP_FORBIDDEN);
+        }
+
+        $change = $this->repository->find($id);
+        $nativeResource = $change !== null ? (self::NATIVE_RESOURCE_BY_TARGET_TYPE[$change->targetType] ?? null) : null;
+        if ($nativeResource !== null && ($denied = $this->access->check([$nativeResource], [], AccessManager::UPDATE))) {
+            return $denied;
         }
 
         $adminId = (int) $this->securityContext->getAdminUser()->getId();
