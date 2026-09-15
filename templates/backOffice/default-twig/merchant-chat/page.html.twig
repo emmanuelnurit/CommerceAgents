@@ -35,6 +35,7 @@
         {% endif %}
 
         <div id="merchant-chat" class="card" data-endpoint="{{ path('commerceagents_merchant_chat') }}"
+             data-csrf-token="{{ csrfToken }}"
              data-i18n-connection-lost="{{ 'Connection lost'|trans({}, 'commerceagents') }}"
              data-i18n-service-unavailable="{{ 'Service unavailable'|trans({}, 'commerceagents') }}"
              data-i18n-error="{{ 'Something went wrong'|trans({}, 'commerceagents') }}"

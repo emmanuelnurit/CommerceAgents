@@ -12,6 +12,7 @@
     }
 
     const endpoint = root.dataset.endpoint;
+    const csrfToken = root.dataset.csrfToken;
     const i18n = {
         connectionLost: root.dataset.i18nConnectionLost || 'Connection lost',
         serviceUnavailable: root.dataset.i18nServiceUnavailable || 'Service unavailable',
@@ -164,7 +165,7 @@
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
                 body: JSON.stringify({ message: text }),
             });
 

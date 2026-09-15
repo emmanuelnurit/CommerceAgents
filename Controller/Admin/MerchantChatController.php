@@ -22,6 +22,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Thelia\Core\Security\AccessManager;
 use Thelia\Core\Security\SecurityContext;
 use Twig\Environment;
@@ -29,6 +31,15 @@ use Twig\Environment;
 final readonly class MerchantChatController
 {
     private const MAX_MESSAGE_LENGTH = 2000;
+
+    /**
+     * Dedicated token (MYO-284 M4): chat() posts a JSON body from fetch(),
+     * not a classic form submit, so the token travels as a header instead of
+     * a hidden `_token` field -- the same mechanism the other admin
+     * controllers of this module use, adapted to this transport.
+     */
+    public const CSRF_TOKEN_ID = 'commerceagents_merchant_chat';
+    public const CSRF_HEADER = 'X-CSRF-Token';
 
     public function __construct(
         private AdminAccessChecker $access,
@@ -42,6 +53,7 @@ final readonly class MerchantChatController
         private SystemPromptFactory $systemPromptFactory,
         private AgentDefinitionManager $agentDefinitionManager,
         private AgentMemoryManager $agentMemoryManager,
+        private CsrfTokenManagerInterface $csrfTokenManager,
         private Environment $twig,
         private AssistantLocaleResolver $localeResolver,
     ) {
@@ -57,6 +69,7 @@ final readonly class MerchantChatController
         return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/merchant-chat/page.html.twig', [
             'assistantName' => $this->configService->getAssistantName(),
             'apiKeyConfigured' => $this->configService->getLlmConfig()->apiKey !== '',
+            'csrfToken' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
         ]));
     }
 
@@ -65,6 +78,11 @@ final readonly class MerchantChatController
     {
         if ($denied = $this->access->check([], 'commerceagents', AccessManager::VIEW)) {
             return $denied;
+        }
+
+        $token = new CsrfToken(self::CSRF_TOKEN_ID, (string) $request->headers->get(self::CSRF_HEADER));
+        if (!$this->csrfTokenManager->isTokenValid($token)) {
+            return new JsonResponse(['error' => 'Invalid CSRF token'], Response::HTTP_FORBIDDEN);
         }
 
         $payload = json_decode((string) $request->getContent(), true);
