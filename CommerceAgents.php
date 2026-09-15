@@ -103,6 +103,8 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Tool\Shopping\Gateway\CheckoutUrlProviderInterface::class, Service\Shopping\CheckoutUrlProvider::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\SitePagesGatewayInterface::class, Service\Shopping\TheliaSitePagesGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\CustomerGatewayInterface::class, Service\Shopping\TheliaCustomerGateway::class);
+        $servicesConfigurator->alias(Tool\Admin\Gateway\CustomerAdminGatewayInterface::class, Service\Merchant\TheliaCustomerAdminGateway::class);
+        $servicesConfigurator->alias(Tool\Admin\Gateway\CustomerOrdersGatewayInterface::class, Service\Merchant\TheliaCustomerOrdersGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\CouponGatewayInterface::class, Service\Shopping\TheliaCouponGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\SiteUrlValidatorInterface::class, Service\Shopping\TheliaSiteUrlValidator::class);
         $servicesConfigurator->alias(Tool\Admin\Gateway\AdminPagesGatewayInterface::class, Service\Merchant\TheliaAdminPagesGateway::class);
@@ -115,6 +117,7 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Tool\Channel\Gateway\ChannelGatewayInterface::class, Service\Channel\TheliaChannelGateway::class);
         $servicesConfigurator->alias(Service\Locale\SiteDefaultLocaleProviderInterface::class, Service\Locale\TheliaSiteDefaultLocaleProvider::class);
         $servicesConfigurator->alias(Service\Security\OutboundUrlValidatorInterface::class, Service\Security\OutboundUrlValidator::class);
+        $servicesConfigurator->alias(Agent\Tool\AgentActionLoggerInterface::class, Service\Audit\TheliaAgentActionLogger::class);
 
         $servicesConfigurator->set(Service\Channel\ChannelSettingsEncryptor::class)
             ->autowire(true)->autoconfigure(true)
