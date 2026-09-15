@@ -79,7 +79,7 @@ class MistralClientTest extends TestCase
     public function testCustomBaseUrl(): void
     {
         $capturedUrl = null;
-        $http = new MockHttpClient(function (string $method, string $url) use (&$capturedUrl) {
+        $http = new MockHttpClient(static function (string $method, string $url) use (&$capturedUrl) {
             $capturedUrl = $url;
 
             return new MockResponse('', ['response_headers' => ['content-type' => 'text/event-stream']]);

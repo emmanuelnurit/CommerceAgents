@@ -37,7 +37,7 @@ class WebhookChannelConnectorTest extends TestCase
 
     public function testSendWithoutSubjectSendsBodyOnly(): void
     {
-        $http = new MockHttpClient(fn () => new MockResponse('ok', ['http_code' => 200]));
+        $http = new MockHttpClient(static fn () => new MockResponse('ok', ['http_code' => 200]));
         $connector = new WebhookChannelConnector($http);
 
         $connector->send(new ChannelMessage(null, 'Ping'), ['url' => 'https://hooks.slack.example/local-fake']);
@@ -55,7 +55,7 @@ class WebhookChannelConnectorTest extends TestCase
 
     public function testSendThrowsOnNonSuccessStatus(): void
     {
-        $http = new MockHttpClient(fn () => new MockResponse('nope', ['http_code' => 500]));
+        $http = new MockHttpClient(static fn () => new MockResponse('nope', ['http_code' => 500]));
         $connector = new WebhookChannelConnector($http);
 
         $this->expectException(ChannelException::class);
@@ -64,7 +64,7 @@ class WebhookChannelConnectorTest extends TestCase
 
     public function testTestAgainstLocalFakeEndpointReportsSuccess(): void
     {
-        $http = new MockHttpClient(fn () => new MockResponse('ok', ['http_code' => 200]));
+        $http = new MockHttpClient(static fn () => new MockResponse('ok', ['http_code' => 200]));
         $connector = new WebhookChannelConnector($http);
 
         $result = $connector->test(['url' => 'https://hooks.mattermost.example/local-fake']);
@@ -74,7 +74,7 @@ class WebhookChannelConnectorTest extends TestCase
 
     public function testTestAgainstLocalFakeEndpointReportsFailure(): void
     {
-        $http = new MockHttpClient(fn () => new MockResponse('', ['http_code' => 404]));
+        $http = new MockHttpClient(static fn () => new MockResponse('', ['http_code' => 404]));
         $connector = new WebhookChannelConnector($http);
 
         $result = $connector->test(['url' => 'https://hooks.mattermost.example/local-fake']);

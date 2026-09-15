@@ -57,7 +57,7 @@ final readonly class ConnectionTester
                 if ($event->type === LlmEvent::TEXT_DELTA || $event->type === LlmEvent::TURN_END) {
                     return [
                         'success' => true,
-                        'message' => sprintf('Connection OK (%s / %s)', $config->provider, $config->model),
+                        'message' => \sprintf('Connection OK (%s / %s)', $config->provider, $config->model),
                     ];
                 }
             }

@@ -10,8 +10,8 @@ interface AnalyticsGatewayInterface
 {
     /**
      * @return array {periodDays, revenue, orderCount, currency,
-     *                topProducts: [{ref, title, unitsSold, revenue}],
-     *                statusBreakdown: [{status, count}]}
+     *               topProducts: [{ref, title, unitsSold, revenue}],
+     *               statusBreakdown: [{status, count}]}
      */
     public function getSalesAnalytics(int $periodDays, ToolContext $ctx): array;
 }

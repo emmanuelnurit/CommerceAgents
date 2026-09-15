@@ -67,7 +67,7 @@ final class McpServer
             'tools/call' => $this->callTool($params),
             default => $isNotification
                 ? []
-                : throw new JsonRpcException(JsonRpc::METHOD_NOT_FOUND, sprintf('Unknown method "%s"', $method)),
+                : throw new JsonRpcException(JsonRpc::METHOD_NOT_FOUND, \sprintf('Unknown method "%s"', $method)),
         };
     }
 
@@ -111,7 +111,7 @@ final class McpServer
         $arguments = \is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
 
         if (\in_array($name, $this->hiddenTools, true)) {
-            return $this->toolError(sprintf('Tool "%s" is not available over MCP', $name));
+            return $this->toolError(\sprintf('Tool "%s" is not available over MCP', $name));
         }
 
         try {

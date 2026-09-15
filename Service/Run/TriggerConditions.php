@@ -19,7 +19,7 @@ final class TriggerConditions
     {
         $conditions = self::decode($json);
 
-        if (isset($conditions['min_amount'], $context['amount']) && \is_numeric($conditions['min_amount'])) {
+        if (isset($conditions['min_amount'], $context['amount']) && is_numeric($conditions['min_amount'])) {
             if ((float) $context['amount'] < (float) $conditions['min_amount']) {
                 return false;
             }
@@ -39,7 +39,7 @@ final class TriggerConditions
     {
         $value = self::decode($json)[$key] ?? null;
 
-        return \is_numeric($value) ? (int) $value : $default;
+        return is_numeric($value) ? (int) $value : $default;
     }
 
     /**

@@ -16,7 +16,8 @@ class FakeCategoryGateway implements CategoryGatewayInterface
     public function __construct(private readonly array $categories = [
         ['id' => 3, 'title' => 'Chairs', 'url' => 'https://shop.example/chairs.html', 'productCount' => 14],
         ['id' => 5, 'title' => 'Armchairs', 'url' => 'https://shop.example/armchairs.html', 'productCount' => 10],
-    ]) {
+    ])
+    {
     }
 
     public function getCategories(string $locale, int $limit): array

@@ -10,9 +10,9 @@ interface CatalogGatewayInterface
 {
     /**
      * @return array{products: list<array>, matchedCategory: array|null} each product:
-     *         {id, ref, title, description, categories, price, promoPrice, currency,
-     *          url, imageUrl, inStock} — taxed prices in session currency, promoPrice
-     *         null unless the product is actually discounted
+     *                                                                   {id, ref, title, description, categories, price, promoPrice, currency,
+     *                                                                   url, imageUrl, inStock} — taxed prices in session currency, promoPrice
+     *                                                                   null unless the product is actually discounted
      */
     public function searchProducts(
         ?string $query,
@@ -47,7 +47,7 @@ interface CatalogGatewayInterface
     /**
      * @return array|null {id, ref, title, description, categories, url, imageUrl,
      *                    pses: [{id, ref, isDefault, attributes, label, price,
-     *                            promoPrice, stock, inStock, imageUrl}]}
+     *                    promoPrice, stock, inStock, imageUrl}]}
      */
     public function getProductDetails(int $productId, ToolContext $ctx): ?array;
 

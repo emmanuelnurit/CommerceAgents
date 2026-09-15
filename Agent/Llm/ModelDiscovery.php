@@ -34,7 +34,7 @@ final readonly class ModelDiscovery
             throw new \InvalidArgumentException('No API key configured for this provider');
         }
         if (!isset(self::DEFAULT_BASE_URLS[$config->provider])) {
-            throw new \InvalidArgumentException(sprintf('Unknown LLM provider "%s"', $config->provider));
+            throw new \InvalidArgumentException(\sprintf('Unknown LLM provider "%s"', $config->provider));
         }
 
         $baseUrl = rtrim($config->baseUrl ?: self::DEFAULT_BASE_URLS[$config->provider], '/');
@@ -114,7 +114,7 @@ final readonly class ModelDiscovery
 
         if ($response->getStatusCode() >= 400) {
             $body = json_decode($response->getContent(false), true);
-            $message = $body['error']['message'] ?? $body['message'] ?? sprintf('Provider returned HTTP %d', $response->getStatusCode());
+            $message = $body['error']['message'] ?? $body['message'] ?? \sprintf('Provider returned HTTP %d', $response->getStatusCode());
             throw new \RuntimeException(\is_string($message) ? $message : json_encode($message, \JSON_THROW_ON_ERROR));
         }
 

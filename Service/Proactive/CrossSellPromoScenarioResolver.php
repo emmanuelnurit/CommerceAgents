@@ -97,7 +97,7 @@ final readonly class CrossSellPromoScenarioResolver implements ProactiveScenario
         $currency = $product['currency'] ?? 'EUR';
 
         return new ProactiveMessage(
-            message: sprintf(
+            message: \sprintf(
                 '%s est à -%d%% en ce moment, dans la même gamme que ce que vous consultez.',
                 $product['title'],
                 $discountPercent,

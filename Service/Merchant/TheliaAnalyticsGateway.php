@@ -25,7 +25,7 @@ final readonly class TheliaAnalyticsGateway implements AnalyticsGatewayInterface
     {
         $now = new \DateTimeImmutable('now');
         $range = new DateRange(
-            from: $now->modify(sprintf('-%d days', $periodDays - 1))->setTime(0, 0),
+            from: $now->modify(\sprintf('-%d days', $periodDays - 1))->setTime(0, 0),
             to: $now->setTime(23, 59, 59),
             preset: DateRange::PRESET_THIRTY_DAYS,
         );

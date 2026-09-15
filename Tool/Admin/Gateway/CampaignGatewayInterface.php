@@ -10,7 +10,7 @@ interface CampaignGatewayInterface
 {
     /**
      * @return array {coupons: [{code, title, enabled, expirationDate, usageLeft}],
-     *                sales: [{title, active, startDate, endDate}]}
+     *               sales: [{title, active, startDate, endDate}]}
      */
     public function getCampaigns(bool $activeOnly, ToolContext $ctx): array;
 }

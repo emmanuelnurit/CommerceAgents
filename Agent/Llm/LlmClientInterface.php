@@ -8,7 +8,7 @@ interface LlmClientInterface
 {
     /**
      * @param LlmMessage[] $messages
-     * @param array[] $toolSpecs normalized specs {name, description, input_schema}
+     * @param array[]      $toolSpecs normalized specs {name, description, input_schema}
      *
      * @return \Generator<LlmEvent>
      */

@@ -96,7 +96,7 @@ final readonly class AnthropicClient implements LlmClientInterface
     {
         if ($response->getStatusCode() >= 400) {
             $body = json_decode($response->getContent(false), true);
-            $message = $body['error']['message'] ?? sprintf('Provider returned HTTP %d', $response->getStatusCode());
+            $message = $body['error']['message'] ?? \sprintf('Provider returned HTTP %d', $response->getStatusCode());
             yield LlmEvent::error($message);
 
             return;

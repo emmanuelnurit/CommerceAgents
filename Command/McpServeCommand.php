@@ -57,7 +57,7 @@ final class McpServeCommand extends Command
 
         $admin = AdminQuery::create()->findOneByLogin($login);
         if ($admin === null) {
-            $errorOutput->writeln(sprintf('<error>Administrator "%s" not found</error>', $login));
+            $errorOutput->writeln(\sprintf('<error>Administrator "%s" not found</error>', $login));
 
             return Command::FAILURE;
         }

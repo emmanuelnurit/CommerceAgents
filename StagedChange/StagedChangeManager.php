@@ -32,15 +32,15 @@ final readonly class StagedChangeManager
     {
         $change = $this->repository->find($changeId);
         if ($change === null) {
-            return ['error' => sprintf('Staged change %d not found', $changeId)];
+            return ['error' => \sprintf('Staged change %d not found', $changeId)];
         }
         if ($change->status !== StagedChangeData::STATUS_PENDING) {
-            return ['error' => sprintf('Staged change %d is not pending (status: %s)', $changeId, $change->status)];
+            return ['error' => \sprintf('Staged change %d is not pending (status: %s)', $changeId, $change->status)];
         }
 
         $applier = $this->appliers[$change->targetType] ?? null;
         if ($applier === null) {
-            return ['error' => sprintf('No applier registered for target type "%s"', $change->targetType)];
+            return ['error' => \sprintf('No applier registered for target type "%s"', $change->targetType)];
         }
 
         try {
@@ -63,10 +63,10 @@ final readonly class StagedChangeManager
     {
         $change = $this->repository->find($changeId);
         if ($change === null) {
-            return ['error' => sprintf('Staged change %d not found', $changeId)];
+            return ['error' => \sprintf('Staged change %d not found', $changeId)];
         }
         if ($change->status !== StagedChangeData::STATUS_PENDING) {
-            return ['error' => sprintf('Staged change %d is not pending (status: %s)', $changeId, $change->status)];
+            return ['error' => \sprintf('Staged change %d is not pending (status: %s)', $changeId, $change->status)];
         }
 
         $this->repository->markRejected($changeId, $adminId);

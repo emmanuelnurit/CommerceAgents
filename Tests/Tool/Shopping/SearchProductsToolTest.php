@@ -216,7 +216,7 @@ class SearchProductsToolTest extends TestCase
         $this->assertSame(3, $gateway->lastVariantSearch['attributeAvId']);
     }
 
-    public function testAnOptionSearchKeeps_theOtherFilters(): void
+    public function testAnOptionSearchKeepsTheOtherFilters(): void
     {
         $gateway = new FakeCatalogGateway();
 

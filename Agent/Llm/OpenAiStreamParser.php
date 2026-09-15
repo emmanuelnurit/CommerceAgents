@@ -25,7 +25,7 @@ final readonly class OpenAiStreamParser
     {
         if ($response->getStatusCode() >= 400) {
             $body = json_decode($response->getContent(false), true);
-            $message = $body['error']['message'] ?? $body['message'] ?? sprintf('Provider returned HTTP %d', $response->getStatusCode());
+            $message = $body['error']['message'] ?? $body['message'] ?? \sprintf('Provider returned HTTP %d', $response->getStatusCode());
             yield LlmEvent::error(\is_string($message) ? $message : json_encode($message, \JSON_THROW_ON_ERROR));
 
             return;

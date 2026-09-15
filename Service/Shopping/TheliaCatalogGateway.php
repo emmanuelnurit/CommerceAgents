@@ -8,12 +8,12 @@ use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Service\Catalog\ProductThumbnailProvider;
 use CommerceAgents\Tool\Shopping\Gateway\CatalogGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CategoryGatewayInterface;
+use Propel\Runtime\ActiveQuery\Criteria;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Api\Service\DataAccess\DataAccessService;
 use Thelia\Core\Security\SecurityContext;
 use Thelia\Domain\Catalog\Product\PSEFacade;
 use Thelia\Domain\Taxation\TaxEngine\TaxEngine;
-use Propel\Runtime\ActiveQuery\Criteria;
 use Thelia\Model\ProductQuery;
 use Thelia\Model\ProductSaleElements;
 use Thelia\Model\ProductSaleElementsQuery;
@@ -332,7 +332,7 @@ final readonly class TheliaCatalogGateway implements CatalogGatewayInterface
     {
         $parts = [];
         foreach ($attributes as $name => $value) {
-            $parts[] = sprintf('%s: %s', $name, $value);
+            $parts[] = \sprintf('%s: %s', $name, $value);
         }
 
         return implode(' · ', $parts);

@@ -15,7 +15,7 @@ class ModelDiscoveryTest extends TestCase
     public function testAnthropicListsAllPages(): void
     {
         $requests = [];
-        $http = new MockHttpClient(function (string $method, string $url, array $options) use (&$requests) {
+        $http = new MockHttpClient(static function (string $method, string $url, array $options) use (&$requests) {
             $requests[] = ['url' => $url, 'headers' => implode("\n", $options['headers'] ?? [])];
             if (str_contains($url, 'after_id=claude-sonnet-5')) {
                 return new MockResponse('{"data":[{"id":"claude-haiku-4-5","display_name":"Claude Haiku 4.5","type":"model"}],"has_more":false}', ['response_headers' => ['content-type' => 'application/json']]);
@@ -55,7 +55,7 @@ class ModelDiscoveryTest extends TestCase
     public function testOpenAiCompatibleUsesConfiguredBaseUrl(): void
     {
         $capturedUrl = null;
-        $http = new MockHttpClient(function (string $method, string $url) use (&$capturedUrl) {
+        $http = new MockHttpClient(static function (string $method, string $url) use (&$capturedUrl) {
             $capturedUrl = $url;
 
             return new MockResponse('{"object":"list","data":[{"id":"gpt-5-mini","object":"model"},{"id":"gpt-4.1","object":"model"}]}', ['response_headers' => ['content-type' => 'application/json']]);

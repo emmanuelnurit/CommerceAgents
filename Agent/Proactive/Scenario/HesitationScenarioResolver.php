@@ -110,7 +110,7 @@ final readonly class HesitationScenarioResolver implements ProactiveScenarioReso
         $parts = [$stock !== null ? self::INTRO_WITH_STOCK[$group] : self::INTRO_GENERIC[$group]];
 
         if ($stock !== null) {
-            $parts[] = sprintf(self::STOCK_FRAGMENT[$group], $stock);
+            $parts[] = \sprintf(self::STOCK_FRAGMENT[$group], $stock);
         }
 
         if ($hasPolicies) {

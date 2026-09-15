@@ -17,8 +17,8 @@ interface ProactiveScenarioResolverInterface
 {
     /**
      * @return ProactiveMessage|null null when this resolver does not handle
-     *                                the signal, or the data does not
-     *                                warrant a solicitation
+     *                               the signal, or the data does not
+     *                               warrant a solicitation
      */
     public function resolve(ProactiveSignal $signal, ToolContext $context): ?ProactiveMessage;
 }

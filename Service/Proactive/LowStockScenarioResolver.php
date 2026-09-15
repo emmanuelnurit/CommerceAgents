@@ -53,13 +53,13 @@ final readonly class LowStockScenarioResolver implements ProactiveScenarioResolv
         }
 
         return new ProactiveMessage(
-            message: sprintf('Il ne reste que %d en stock pour %s.', $stock, $product['title']),
+            message: \sprintf('Il ne reste que %d en stock pour %s.', $stock, $product['title']),
             productId: $productId,
             productTitle: $product['title'],
             productUrl: $product['url'] ?? null,
             productImageUrl: $product['imageUrl'] ?? null,
             productInStock: true,
-            productStockLabel: sprintf('Plus que %d en stock', $stock),
+            productStockLabel: \sprintf('Plus que %d en stock', $stock),
         );
     }
 

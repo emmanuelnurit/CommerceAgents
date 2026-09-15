@@ -11,7 +11,7 @@ namespace CommerceAgents\Agent\Llm;
 final readonly class OpenAiMessageConverter
 {
     /**
-     * @param LlmMessage[] $messages
+     * @param LlmMessage[]                  $messages
      * @param \Closure(string): string|null $toolCallIdMapper provider-specific id normalization
      */
     public static function convert(array $messages, string $system, ?\Closure $toolCallIdMapper = null): array

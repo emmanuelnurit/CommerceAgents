@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace CommerceAgents\Service;
 
 use CommerceAgents\Model\AgentMessageQuery;
-use CommerceAgents\Model\Map\AgentConversationTableMap;
 use CommerceAgents\Model\Map\AgentMessageTableMap;
 
 /**
@@ -18,7 +17,7 @@ final readonly class TokenUsageRepository
 
     /**
      * @return array<string, array<string, array{calls: int, input: int, output: int, total: int, cost: float}>>
-     *                                                                                                 period => agent type ('all' for the sum) => counters
+     *                                                                                                           period => agent type ('all' for the sum) => counters
      */
     public function summarize(\DateTimeImmutable $now = new \DateTimeImmutable()): array
     {
@@ -73,7 +72,7 @@ final readonly class TokenUsageRepository
     {
         $rows = AgentMessageQuery::create()
             ->filterByRole('assistant')
-            ->where(sprintf('(%s > 0 OR %s > 0)', AgentMessageTableMap::COL_TOKENS_IN, AgentMessageTableMap::COL_TOKENS_OUT))
+            ->where(\sprintf('(%s > 0 OR %s > 0)', AgentMessageTableMap::COL_TOKENS_IN, AgentMessageTableMap::COL_TOKENS_OUT))
             ->filterByCreatedAt(['min' => $since])
             ->withColumn('COALESCE('.AgentMessageTableMap::COL_MODEL.", '')", 'model')
             ->withColumn('COUNT('.AgentMessageTableMap::COL_ID.')', 'calls')
@@ -114,7 +113,7 @@ final readonly class TokenUsageRepository
             ->useAgentConversationQuery()
                 ->filterByType($agentType)
             ->endUse()
-            ->where(sprintf('(%s > 0 OR %s > 0)', AgentMessageTableMap::COL_TOKENS_IN, AgentMessageTableMap::COL_TOKENS_OUT))
+            ->where(\sprintf('(%s > 0 OR %s > 0)', AgentMessageTableMap::COL_TOKENS_IN, AgentMessageTableMap::COL_TOKENS_OUT))
             ->withColumn('COUNT('.AgentMessageTableMap::COL_ID.')', 'calls')
             ->withColumn('COALESCE(SUM('.AgentMessageTableMap::COL_TOKENS_IN.'), 0)', 'input')
             ->withColumn('COALESCE(SUM('.AgentMessageTableMap::COL_TOKENS_OUT.'), 0)', 'output')

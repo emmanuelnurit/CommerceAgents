@@ -32,7 +32,7 @@ final readonly class TheliaCartGateway implements CartGatewayInterface
         if ($productSaleElementsId === null) {
             $productSaleElementsId = $this->pseFacade->getDefaultPSE($productId)?->getId();
             if ($productSaleElementsId === null) {
-                throw new ToolException(sprintf('Product %d not found or not purchasable', $productId));
+                throw new ToolException(\sprintf('Product %d not found or not purchasable', $productId));
             }
         }
 

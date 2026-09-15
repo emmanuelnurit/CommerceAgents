@@ -303,9 +303,9 @@ final readonly class AgentsController
     }
 
     /**
-     * @param list<string>                  $capabilities
-     * @param list<array<string, mixed>>    $triggers
-     * @param list<string>                  $channels
+     * @param list<string>               $capabilities
+     * @param list<array<string, mixed>> $triggers
+     * @param list<string>               $channels
      *
      * @return array<string, mixed>
      */

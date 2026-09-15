@@ -20,6 +20,6 @@ final readonly class LanguageName
 
         $native = \Locale::getDisplayLanguage($locale, $locale);
 
-        return $native === '' || $native === $name ? $name : sprintf('%s (%s)', $name, $native);
+        return $native === '' || $native === $name ? $name : \sprintf('%s (%s)', $name, $native);
     }
 }

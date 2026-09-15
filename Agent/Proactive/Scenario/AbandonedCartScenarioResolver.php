@@ -75,7 +75,7 @@ final readonly class AbandonedCartScenarioResolver implements ProactiveScenarioR
 
     private function compose(int $itemCount, bool $hasPolicies, string $group): string
     {
-        $parts = [sprintf(self::CART_WAITING[$group], $itemCount)];
+        $parts = [\sprintf(self::CART_WAITING[$group], $itemCount)];
 
         if ($hasPolicies) {
             $parts[] = self::SHIPPING_RETURNS_FRAGMENT[$group];

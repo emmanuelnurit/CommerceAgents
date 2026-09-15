@@ -64,7 +64,7 @@ final readonly class ConfigSaveController
 
         return new JsonResponse([
             'success' => true,
-            'message' => sprintf('%d model(s) available, %d new', $result['seen'], $result['added']),
+            'message' => \sprintf('%d model(s) available, %d new', $result['seen'], $result['added']),
             'added' => $result['added'],
             'seen' => $result['seen'],
         ]);

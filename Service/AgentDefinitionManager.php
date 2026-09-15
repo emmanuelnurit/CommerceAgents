@@ -99,7 +99,7 @@ final readonly class AgentDefinitionManager
     {
         $definition = AgentDefinitionQuery::create()->findPk($id);
         if ($definition === null) {
-            throw new \RuntimeException(sprintf('Agent %d not found', $id));
+            throw new \RuntimeException(\sprintf('Agent %d not found', $id));
         }
 
         $capabilities = array_map(
@@ -134,7 +134,7 @@ final readonly class AgentDefinitionManager
     {
         $definition = $id !== null ? AgentDefinitionQuery::create()->findPk($id) : null;
         if ($id !== null && $definition === null) {
-            throw new \RuntimeException(sprintf('Agent %d not found', $id));
+            throw new \RuntimeException(\sprintf('Agent %d not found', $id));
         }
 
         $isNew = $definition === null;
@@ -187,7 +187,7 @@ final readonly class AgentDefinitionManager
     {
         $definition = AgentDefinitionQuery::create()->findPk($id);
         if ($definition === null) {
-            throw new \RuntimeException(sprintf('Agent %d not found', $id));
+            throw new \RuntimeException(\sprintf('Agent %d not found', $id));
         }
 
         return $definition;

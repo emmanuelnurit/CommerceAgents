@@ -26,7 +26,7 @@ final readonly class PseUpdateEventBuilder
     {
         $pse = ProductSaleElementsQuery::create()->findPk($pseId);
         if ($pse === null) {
-            throw new \RuntimeException(sprintf('Variant %d not found', $pseId));
+            throw new \RuntimeException(\sprintf('Variant %d not found', $pseId));
         }
 
         $defaultCurrency = CurrencyQuery::create()->filterByByDefault(true)->findOne();
@@ -39,7 +39,7 @@ final readonly class PseUpdateEventBuilder
             ->filterByCurrencyId($defaultCurrency->getId())
             ->findOne();
         if ($price === null) {
-            throw new \RuntimeException(sprintf('No default-currency price row for variant %d', $pseId));
+            throw new \RuntimeException(\sprintf('No default-currency price row for variant %d', $pseId));
         }
 
         $product = $pse->getProduct();

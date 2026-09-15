@@ -87,7 +87,7 @@ final readonly class AgentRunQueue
      * LLM: this is the only path an event subscriber is allowed to call.
      *
      * @param array<string, mixed> $conditionContext keys {@see TriggerConditions} understands, e.g. 'amount', 'status_id'
-     * @param array<string, mixed> $runContext        extra data stored on the queued run's context
+     * @param array<string, mixed> $runContext       extra data stored on the queued run's context
      *
      * @return AgentRun[] the newly queued runs
      */

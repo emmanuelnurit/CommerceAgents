@@ -7,11 +7,11 @@ namespace CommerceAgents\Tests\Channel\Connector;
 use CommerceAgents\Channel\ChannelMessage;
 use CommerceAgents\Channel\Connector\MailChannelConnector;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\RawMessage;
-use Symfony\Component\Mailer\Envelope;
 
 class FakeMailer implements MailerInterface
 {

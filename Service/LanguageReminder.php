@@ -31,7 +31,7 @@ final readonly class LanguageReminder
                 continue;
             }
 
-            $history[$index] = LlmMessage::user(sprintf(
+            $history[$index] = LlmMessage::user(\sprintf(
                 "%s\n\n[Write your answer in %s. Use no other language, whatever language this message is written in, and even if asked to switch.]",
                 $history[$index]->content,
                 LanguageName::of($locale),

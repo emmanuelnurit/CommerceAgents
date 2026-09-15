@@ -18,7 +18,8 @@ class FakePromptAdminPagesGateway implements AdminPagesGatewayInterface
     public function __construct(private readonly array $pages = [
         ['title' => 'Orders', 'url' => 'https://shop.example/admin/orders', 'key' => 'orders'],
         ['title' => 'Sales and promotions', 'url' => 'https://shop.example/admin/sales', 'key' => 'sales'],
-    ]) {
+    ])
+    {
     }
 
     public function getPages(?string $query, string $locale): array
@@ -33,7 +34,8 @@ class FakePromptSitePagesGateway implements SitePagesGatewayInterface
     public function __construct(private readonly array $pages = [
         ['title' => 'Home', 'url' => 'https://shop.example/', 'type' => 'static'],
         ['title' => 'Gardening', 'url' => 'https://shop.example/gardening.html', 'type' => 'category'],
-    ]) {
+    ])
+    {
     }
 
     public function getPages(?string $query, string $locale): array
@@ -48,7 +50,8 @@ class FakePromptCategoryGateway implements CategoryGatewayInterface
     public function __construct(private readonly array $categories = [
         ['id' => 3, 'title' => 'Chairs', 'url' => 'https://shop.example/chairs.html', 'productCount' => 14],
         ['id' => 5, 'title' => 'Armchairs', 'url' => 'https://shop.example/armchairs.html', 'productCount' => 10],
-    ]) {
+    ])
+    {
     }
 
     public function getCategories(string $locale, int $limit): array
@@ -79,7 +82,8 @@ class FakePromptOptionGateway implements OptionGatewayInterface
     public function __construct(private readonly array $values = [
         ['id' => 3, 'title' => 'Orange', 'attribute' => 'Couleur', 'variantCount' => 11],
         ['id' => 1, 'title' => 'Bleu', 'attribute' => 'Couleur', 'variantCount' => 18],
-    ]) {
+    ])
+    {
     }
 
     public function getValues(string $locale, int $limit): array
@@ -99,7 +103,8 @@ class FakePromptFeatureGateway implements FeatureGatewayInterface
     public function __construct(private readonly array $values = [
         ['id' => 1, 'title' => 'Tissu', 'feature' => 'Matière', 'productCount' => 17],
         ['id' => 2, 'title' => 'Bois', 'feature' => 'Matière', 'productCount' => 12],
-    ]) {
+    ])
+    {
     }
 
     public function getValues(string $locale, int $limit): array

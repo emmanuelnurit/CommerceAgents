@@ -16,7 +16,7 @@ final class FakeCrossSellCatalogGateway implements CatalogGatewayInterface
     public ?int $lastPromoOnly = null;
 
     /**
-     * @param list<array> $searchResults
+     * @param list<array>     $searchResults
      * @param array<int, int> $defaultCategoryIds product id => category id
      */
     public function __construct(

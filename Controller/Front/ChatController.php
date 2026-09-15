@@ -72,7 +72,7 @@ final class ChatController extends BaseFrontController
             return new JsonResponse(['error' => 'Message is required'], Response::HTTP_BAD_REQUEST);
         }
         if (mb_strlen($userMessage) > self::MAX_MESSAGE_LENGTH) {
-            return new JsonResponse(['error' => sprintf('Message exceeds %d characters', self::MAX_MESSAGE_LENGTH)], Response::HTTP_BAD_REQUEST);
+            return new JsonResponse(['error' => \sprintf('Message exceeds %d characters', self::MAX_MESSAGE_LENGTH)], Response::HTTP_BAD_REQUEST);
         }
 
         $llmConfig = $this->configService->getLlmConfig();
