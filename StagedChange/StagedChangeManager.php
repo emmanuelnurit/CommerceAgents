@@ -8,6 +8,12 @@ use Symfony\Component\DependencyInjection\Attribute\TaggedIterator;
 
 final readonly class StagedChangeManager
 {
+    /**
+     * A pending proposal older than this can no longer be approved: the
+     * catalog state it was computed from is presumed stale (MYO-284 M5).
+     */
+    private const PENDING_MAX_AGE_HOURS = 24;
+
     /** @var array<string, ChangeApplierInterface> */
     private array $appliers;
 
@@ -39,6 +45,16 @@ final readonly class StagedChangeManager
         }
         if ($change->proposedBy !== null && $change->proposedBy === $adminId) {
             return ['error' => \sprintf('Staged change %d was proposed by this admin and cannot be self-approved', $changeId)];
+        }
+        if ($this->isExpired($change)) {
+            $error = \sprintf(
+                'Staged change %d has been pending for more than %d hours and can no longer be approved; the underlying catalog data may have changed since it was proposed',
+                $changeId,
+                self::PENDING_MAX_AGE_HOURS,
+            );
+            $this->repository->markFailed($changeId, $adminId, $error);
+
+            return ['status' => StagedChangeData::STATUS_FAILED, 'error' => $error];
         }
 
         $applier = $this->appliers[$change->targetType] ?? null;
@@ -75,5 +91,14 @@ final readonly class StagedChangeManager
         $this->repository->markRejected($changeId, $adminId);
 
         return ['status' => StagedChangeData::STATUS_REJECTED];
+    }
+
+    private function isExpired(StagedChangeData $change): bool
+    {
+        if ($change->createdAt === null) {
+            return false;
+        }
+
+        return $change->createdAt < new \DateTimeImmutable(\sprintf('-%d hours', self::PENDING_MAX_AGE_HOURS));
     }
 }

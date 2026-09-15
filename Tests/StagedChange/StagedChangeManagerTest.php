@@ -190,4 +190,47 @@ class StagedChangeManagerTest extends TestCase
         $this->assertSame('applied', $result['status']);
         $this->assertSame([5], $applier->applied);
     }
+
+    public function testApproveOldPendingProposalIsRefusedAsExpired(): void
+    {
+        $change = new StagedChangeData(
+            id: 5,
+            targetType: 'pse_price',
+            targetId: 12,
+            payloadBefore: ['price' => 30.0],
+            payloadAfter: ['price' => 25.0],
+            status: StagedChangeData::STATUS_PENDING,
+            createdAt: new \DateTimeImmutable('-25 hours'),
+        );
+        $repository = new FakeStagedChangeRepository([5 => $change]);
+        $applier = new FakePriceApplier();
+        $manager = new StagedChangeManager($repository, [$applier]);
+
+        $result = $manager->approve(5, adminId: 3);
+
+        $this->assertSame('failed', $result['status']);
+        $this->assertArrayHasKey('error', $result);
+        $this->assertSame([], $applier->applied);
+        $this->assertSame([['markFailed', 5, 3, $result['error']]], $repository->calls);
+    }
+
+    public function testApproveRecentPendingProposalIsNotTreatedAsExpired(): void
+    {
+        $change = new StagedChangeData(
+            id: 5,
+            targetType: 'pse_price',
+            targetId: 12,
+            payloadBefore: ['price' => 30.0],
+            payloadAfter: ['price' => 25.0],
+            status: StagedChangeData::STATUS_PENDING,
+            createdAt: new \DateTimeImmutable('-1 hour'),
+        );
+        $repository = new FakeStagedChangeRepository([5 => $change]);
+        $applier = new FakePriceApplier();
+        $manager = new StagedChangeManager($repository, [$applier]);
+
+        $result = $manager->approve(5, adminId: 3);
+
+        $this->assertSame('applied', $result['status']);
+    }
 }

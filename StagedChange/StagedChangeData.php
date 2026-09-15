@@ -19,6 +19,7 @@ final readonly class StagedChangeData
         public array $payloadAfter,
         public string $status,
         public ?int $proposedBy = null,
+        public ?\DateTimeImmutable $createdAt = null,
     ) {
     }
 }

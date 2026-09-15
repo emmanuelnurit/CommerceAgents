@@ -119,6 +119,8 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
 
     private function toData(AgentStagedChange $model): StagedChangeData
     {
+        $createdAt = $model->getCreatedAt();
+
         return new StagedChangeData(
             id: $model->getId(),
             targetType: $model->getTargetType(),
@@ -127,6 +129,7 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
             payloadAfter: json_decode((string) $model->getPayloadAfter(), true) ?? [],
             status: $model->getStatus(),
             proposedBy: $model->getAdminId(),
+            createdAt: $createdAt instanceof \DateTimeInterface ? \DateTimeImmutable::createFromInterface($createdAt) : null,
         );
     }
 }
