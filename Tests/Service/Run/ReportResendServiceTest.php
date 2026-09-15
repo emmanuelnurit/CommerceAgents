@@ -5,10 +5,17 @@ declare(strict_types=1);
 namespace CommerceAgents\Tests\Service\Run;
 
 use CommerceAgents\Channel\ChannelConnectorRegistry;
+use CommerceAgents\Model\AgentChannel;
+use CommerceAgents\Model\AgentConversation;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentRun;
+use CommerceAgents\Model\AgentStagedChangeQuery;
+use CommerceAgents\Service\Channel\ChannelConnectorConfigService;
+use CommerceAgents\Service\Channel\ChannelSettingsEncryptor;
+use CommerceAgents\Service\Channel\TheliaChannelGateway;
 use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\Run\ReportResendService;
+use CommerceAgents\StagedChange\StagedChangeData;
 use CommerceAgents\Tests\Tool\Channel\FakeChannelGateway;
 use CommerceAgents\Tests\Tool\Channel\FakeDirectConnector;
 use CommerceAgents\Tests\Tool\Channel\FakeOutboundMessageLogger;
@@ -66,5 +73,56 @@ final class ReportResendServiceTest extends IntegrationTestCase
         $outcome = $service->resend($run);
 
         $this->assertSame('This run has no report to resend', $outcome['error']);
+    }
+
+    /**
+     * MYO-345: a "draft" (staged/approval) channel -- e.g. mail -- goes
+     * through TheliaChannelGateway::stageMessage() instead of a direct
+     * connector. Before the fix, ReportResendService's ToolContext carried
+     * neither conversationId nor adminId, so the gateway refused every
+     * resend with "No conversation context" and the report was logged
+     * 'failed' even though the run itself succeeded.
+     */
+    public function testResendThroughAStagedChannelSucceedsForARunWithNoAdmin(): void
+    {
+        $conversation = (new AgentConversation())
+            ->setType('automatic')
+            ->setSessionRef('test:'.uniqid('', true));
+        $conversation->save();
+
+        $definition = (new AgentDefinition())
+            ->setCode('resend-staged-test-'.uniqid('', true))
+            ->setTitle('Resend staged test agent');
+        $definition->save();
+
+        $run = (new AgentRun())
+            ->setAgentDefinitionId($definition->getId())
+            ->setConversationId($conversation->getId())
+            ->setStatus(AgentRunQueue::STATUS_DONE)
+            ->setSummary('CA du jour : 999€')
+            ->setFinishedAt(new \DateTime());
+        $run->save();
+
+        $channel = (new AgentChannel())
+            ->setAgentDefinitionId($definition->getId())
+            ->setConnectorCode('webhook')
+            ->setMode('draft')
+            ->setEnabled(1);
+        $channel->save();
+
+        $registry = new ChannelConnectorRegistry();
+        $registry->register(new FakeDirectConnector());
+        $gateway = new TheliaChannelGateway(new ChannelConnectorConfigService(new ChannelSettingsEncryptor('test-secret')));
+        $service = new ReportResendService(new ChannelBroadcaster($gateway, $registry));
+
+        $outcome = $service->resend($run);
+
+        $this->assertArrayNotHasKey('error', $outcome['results'][0] ?? [], 'Resend must not fail with "No conversation context" once conversationId flows from the run');
+        $this->assertSame(StagedChangeData::STATUS_PENDING, $outcome['results'][0]['status']);
+
+        $change = AgentStagedChangeQuery::create()->findPk($outcome['results'][0]['changeId']);
+        $this->assertNotNull($change);
+        $this->assertSame($conversation->getId(), $change->getConversationId());
+        $this->assertNull($change->getAdminId());
     }
 }

@@ -436,7 +436,8 @@ final readonly class AgentsController
 
         $run = AgentRunQuery::create()->filterByAgentDefinitionId($id)->filterById($runId)->findOne();
         if ($run !== null) {
-            $this->reportResendService->resend($run);
+            $admin = $this->securityContext->getAdminUser();
+            $this->reportResendService->resend($run, $admin?->getId());
         }
 
         if ($request->isXmlHttpRequest()) {

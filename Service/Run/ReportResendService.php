@@ -30,15 +30,22 @@ final readonly class ReportResendService
     /**
      * @return array{results: list<array{channelId: int, status?: string, error?: string, changeId?: int}>, error?: string}
      */
-    public function resend(AgentRun $run): array
+    public function resend(AgentRun $run, ?int $adminId = null): array
     {
         $summary = trim((string) $run->getSummary());
         if ($summary === '') {
             return ['results' => [], 'error' => 'This run has no report to resend'];
         }
 
+        // MYO-345: without conversationId, TheliaChannelGateway::stageMessage()
+        // rejected every resend with "No conversation context" -- same bug
+        // family as MYO-343, one gateway over. AgentRunner always creates a
+        // conversation for a run (even admin-less automatic ones), so it's
+        // reused here rather than opened fresh.
         $ctx = new ToolContext(
             isAdmin: true,
+            adminId: $adminId,
+            conversationId: $run->getConversationId(),
             agentDefinitionId: $run->getAgentDefinitionId(),
             channel: ToolContext::CHANNEL_RUN,
             agentRunId: $run->getId(),

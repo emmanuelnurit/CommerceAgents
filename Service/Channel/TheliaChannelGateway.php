@@ -38,9 +38,14 @@ final readonly class TheliaChannelGateway implements ChannelGatewayInterface
         return $channels;
     }
 
+    /**
+     * MYO-345: adminId is never populated for a run-triggered context (same
+     * gap as MYO-343's TheliaStagingGateway) -- conversationId alone is the
+     * real requirement, adminId stays nullable on agent_staged_change.
+     */
     public function stageMessage(int $channelId, string $connectorCode, ChannelMessage $message, ToolContext $ctx): array
     {
-        if ($ctx->conversationId === null || $ctx->adminId === null) {
+        if ($ctx->conversationId === null) {
             return ['error' => 'No conversation context'];
         }
 
