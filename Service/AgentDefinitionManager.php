@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Service;
 
+use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Model\AgentCapability;
 use CommerceAgents\Model\AgentCapabilityQuery;
 use CommerceAgents\Model\AgentChannel;
@@ -155,6 +156,7 @@ final readonly class AgentDefinitionManager
      *     triggers: list<array{type: string, cronExpression?: ?string, eventName?: ?string, conditions?: ?array<string, mixed>}>,
      *     channels: list<array{connectorCode: string, enabled: bool}>,
      *     presetCode?: ?string,
+     *     provider?: ?string,
      * } $data
      */
     public function save(?int $id, array $data): AgentDefinition
@@ -179,7 +181,7 @@ final readonly class AgentDefinitionManager
             ->setDescription($data['description'])
             ->setRolePrompt(mb_substr($data['rolePrompt'], 0, self::MAX_ROLE_PROMPT_CHARS))
             ->setModel($data['model'] !== '' ? $data['model'] : null)
-            ->setProvider($data['model'] !== '' ? 'mistral' : null)
+            ->setProvider($data['model'] !== '' ? $this->resolveProvider($data['provider'] ?? null) : null)
             ->setMonthlyBudgetUsd($data['monthlyBudgetUsd'] !== null ? (string) $data['monthlyBudgetUsd'] : null)
             ->setEnabled($data['enabled'] ? 1 : 0);
         $definition->save();
@@ -211,6 +213,18 @@ final readonly class AgentDefinitionManager
     public function runNow(int $id, ?int $adminId): AgentRun
     {
         return $this->runQueue->enqueueManual($this->requireDefinition($id), [], $adminId);
+    }
+
+    /**
+     * The wizard/edit form always submits the provider alongside its model
+     * (MYO-421): an absent or forged value falls back to the module default
+     * rather than silently persisting garbage.
+     */
+    private function resolveProvider(?string $provider): string
+    {
+        return $provider !== null && \in_array($provider, LlmClientFactory::PROVIDERS, true)
+            ? $provider
+            : LlmClientFactory::DEFAULT_PROVIDER;
     }
 
     private function requireDefinition(int $id): AgentDefinition
@@ -347,7 +361,7 @@ final readonly class AgentDefinitionManager
             return null;
         }
 
-        $model = $this->modelCatalog->find('mistral', $modelId);
+        $model = $this->modelCatalog->find($definition->getProvider() ?? LlmClientFactory::DEFAULT_PROVIDER, $modelId);
 
         return ['icon' => 'bi-cpu', 'label' => $model !== null ? ($model->getName() ?: $modelId) : $modelId];
     }

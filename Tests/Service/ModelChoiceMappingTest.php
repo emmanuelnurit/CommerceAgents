@@ -50,6 +50,19 @@ class ModelChoiceMappingTest extends TestCase
         $this->assertSame('EUR', $choice->currency);
         $this->assertSame(128000, $choice->contextWindow);
         $this->assertTrue($choice->isDefault, 'ministral-3b-latest is the module default');
+        $this->assertSame('mistral', $choice->provider);
+    }
+
+    /**
+     * MYO-421: the picker must be able to tell which provider a choice comes
+     * from once several providers are listed side by side -- two providers
+     * can each publish a different model under the very same id.
+     */
+    public function testMapsThePublishingProviderOfARow(): void
+    {
+        $choice = $this->catalog()->choiceFromRow(self::row()->setProvider('anthropic')->setModelId('claude-sonnet-5'));
+
+        $this->assertSame('anthropic', $choice->provider);
     }
 
     public function testOnlyTheDefaultModelOfEachProviderIsFlagged(): void

@@ -8,6 +8,7 @@ use CommerceAgents\CommerceAgents;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentDefinitionQuery;
 use CommerceAgents\Model\AgentRun;
+use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\AgentDefinitionSeeder;
 use CommerceAgents\Service\AgentMemoryManager;
 use CommerceAgents\Service\AgentPresets;
@@ -111,6 +112,57 @@ final class AgentsControllerTest extends WebIntegrationTestCase
         }
     }
 
+    /**
+     * MYO-421 AC1: with at least two providers configured (API key filled
+     * in), the wizard's model picker lists the models of both -- not just
+     * the shop's single configured provider as before this fix.
+     */
+    public function testModelPickerListsModelsOfEveryProviderWithAConfiguredApiKey(): void
+    {
+        $originalProvider = CommerceAgents::getConfigValue('provider', 'mistral');
+        CommerceAgents::setConfigValue('provider', 'mistral');
+        $this->getService(AgentConfigService::class)->setProviderSettings('anthropic', 'test-anthropic-key', '', 'claude-sonnet-5');
+
+        try {
+            $mistralModelId = $this->getService(ModelCatalog::class)->getSelectableModels('mistral')[0]->modelId ?? null;
+            $anthropicModelId = $this->getService(ModelCatalog::class)->getSelectableModels('anthropic')[0]->modelId ?? null;
+            self::assertNotNull($mistralModelId, 'test fixtures must seed at least one selectable mistral model');
+            self::assertNotNull($anthropicModelId, 'test fixtures must seed at least one selectable anthropic model');
+
+            $this->assertPageRenders('/admin/module/CommerceAgents/agents/new');
+            $html = (string) $this->client->getResponse()->getContent();
+
+            self::assertStringContainsString($mistralModelId, $html);
+            self::assertStringContainsString($anthropicModelId, $html);
+        } finally {
+            CommerceAgents::setConfigValue('provider', $originalProvider);
+            CommerceAgents::setConfigValue('api_key_anthropic', '');
+        }
+    }
+
+    /**
+     * MYO-421 AC3: a provider without a configured API key must not be
+     * offered in the picker -- picking it would just fail at execution time.
+     */
+    public function testModelPickerHidesAProviderWithNoApiKeyConfigured(): void
+    {
+        $originalProvider = CommerceAgents::getConfigValue('provider', 'mistral');
+        CommerceAgents::setConfigValue('provider', 'mistral');
+        CommerceAgents::setConfigValue('api_key_anthropic', '');
+
+        try {
+            $anthropicModelId = $this->getService(ModelCatalog::class)->getSelectableModels('anthropic')[0]->modelId ?? null;
+            self::assertNotNull($anthropicModelId, 'test fixtures must seed at least one selectable anthropic model');
+
+            $this->assertPageRenders('/admin/module/CommerceAgents/agents/new');
+            $html = (string) $this->client->getResponse()->getContent();
+
+            self::assertStringNotContainsString($anthropicModelId, $html);
+        } finally {
+            CommerceAgents::setConfigValue('provider', $originalProvider);
+        }
+    }
+
     public function testAddingAMemoryEntryThroughTheFormMakesItAppearInTheList(): void
     {
         $agent = $this->createAgentDefinition();
@@ -168,6 +220,33 @@ final class AgentsControllerTest extends WebIntegrationTestCase
 
         $reloaded = AgentDefinitionQuery::create()->findPk($agent->getId());
         self::assertFalse((bool) $reloaded->getAutoApply(), 'auto_apply must never be settable from the form any more');
+    }
+
+    /**
+     * MYO-421: the picker posts a composite "provider:modelId" value
+     * (components/model-picker.html.twig + assets/js/model-picker.js) --
+     * save() must split it back into the two AgentDefinitionManager::save()
+     * expects instead of losing the provider like the pre-fix hard-coded
+     * 'mistral' did.
+     */
+    public function testSavingAnAgentWithANonMistralModelPersistsItsProvider(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $token = $this->csrfToken($agent->getId());
+
+        $this->client->request('POST', '/admin/module/CommerceAgents/agents/save', [
+            '_token' => $token,
+            'agent_id' => (string) $agent->getId(),
+            'title' => 'Test agent',
+            'role_prompt' => 'Watch stock levels.',
+            'model' => 'anthropic:claude-sonnet-5',
+        ]);
+
+        self::assertSame(302, $this->client->getResponse()->getStatusCode());
+
+        $reloaded = AgentDefinitionQuery::create()->findPk($agent->getId());
+        self::assertSame('anthropic', $reloaded->getProvider());
+        self::assertSame('claude-sonnet-5', $reloaded->getModel());
     }
 
     public function testEditFormNoLongerRendersTheAutoApplyCheckbox(): void

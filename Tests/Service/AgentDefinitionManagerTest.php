@@ -89,17 +89,43 @@ class AgentDefinitionManagerTest extends IntegrationTestCase
     }
 
     /**
+     * MYO-421: save() used to hard-code the provider to 'mistral' as soon as
+     * a model was chosen, whatever provider that model actually belonged to
+     * -- an agent set to run on Claude would silently execute on the shop's
+     * Mistral credentials instead (or fail outright without a Mistral key).
+     */
+    public function testSavePersistsTheProviderOfANonMistralModel(): void
+    {
+        $definition = $this->manager->save(null, $this->data([], model: 'claude-sonnet-5', provider: 'anthropic'));
+
+        self::assertSame('anthropic', $definition->getProvider());
+        self::assertSame('claude-sonnet-5', $definition->getModel());
+    }
+
+    /**
+     * A forged/unknown provider value must never be persisted verbatim: it
+     * falls back to the module default, same as before this fix.
+     */
+    public function testSaveFallsBackToTheDefaultProviderWhenTheSubmittedOneIsUnknown(): void
+    {
+        $definition = $this->manager->save(null, $this->data([], model: 'ministral-3b-latest', provider: 'not-a-real-provider'));
+
+        self::assertSame('mistral', $definition->getProvider());
+    }
+
+    /**
      * @param list<array{type: string, cronExpression?: ?string, eventName?: ?string, conditions?: ?array<string, mixed>}> $triggers
      *
      * @return array<string, mixed>
      */
-    private function data(array $triggers): array
+    private function data(array $triggers, string $model = '', ?string $provider = null): array
     {
         return [
             'title' => 'Test agent '.uniqid(),
             'description' => '',
             'rolePrompt' => '',
-            'model' => '',
+            'model' => $model,
+            'provider' => $provider,
             'monthlyBudgetUsd' => null,
             'enabled' => true,
             'capabilities' => [],

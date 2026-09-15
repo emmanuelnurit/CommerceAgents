@@ -6,7 +6,7 @@ AI assistants for a Thelia 3 store, powered by LLM agents with tool calling:
 - **Merchant assistant** (back office): a chat for administrators that reads sales analytics, listings, stock, prices and campaigns, and proposes price or stock changes that a human approves before anything is written.
 - **MCP server**: the merchant tools exposed to Claude Desktop, Claude Code or any Model Context Protocol client, with the same gates and approval flow.
 
-Providers for the chat assistants: **Mistral (`ministral-3b-latest`, default)**, Anthropic, and any OpenAI-compatible API (OpenAI, OpenRouter…) — one active provider at a time, picked in the **Providers** configuration tab. Configurable agents (below) are Mistral-only in V1. Prompts and UI in English, French, Spanish and Italian; the assistants answer in the session language.
+Providers: **Mistral (`ministral-3b-latest`, default)**, Anthropic, and any OpenAI-compatible API (OpenAI, OpenRouter…). The chat assistants use one active provider at a time, picked in the **Providers** configuration tab; configurable agents (below) can each be set to any provider that has a configured API key, independently of the shop's active one. Prompts and UI in English, French, Spanish and Italian; the assistants answer in the session language.
 
 Inspired by the [anthropics/commerce-agents](https://github.com/anthropics/commerce-agents) blueprint, ported natively to PHP so it runs wherever Thelia runs.
 
@@ -188,7 +188,7 @@ Adding a new kind of write: one tool that stages a change, plus one `ChangeAppli
 
 ## Configurable agents
 
-Menu entry **AI agents** (`/admin/module/CommerceAgents/agents`) lets a merchant create standing agents that run outside any chat. Each agent (`agent_definition`) has a name, a free-text role prompt, a model (picked from the Mistral catalog only in V1 — configurable agents do not yet support Anthropic or OpenAI-compatible models), a monthly budget in EUR, one or more capabilities, one or more triggers, and one or more channels (mail, Mattermost, Slack).
+Menu entry **AI agents** (`/admin/module/CommerceAgents/agents`) lets a merchant create standing agents that run outside any chat. Each agent (`agent_definition`) has a name, a free-text role prompt, a model (picked from any provider with a configured API key — defaults to the shop's active provider), a monthly budget in EUR, one or more capabilities, one or more triggers, and one or more channels (mail, Mattermost, Slack).
 
 Creating one starts from either a blank form or one of six presets (`Service/AgentPresets`) that pre-fill the role prompt, model tier, trigger and channel — nothing is persisted until the merchant saves:
 
@@ -364,7 +364,6 @@ Adding a tool:
 
 ## Known limitations
 
-- Configurable agents only offer Mistral models in the wizard; the shopping and merchant chat assistants can use any configured provider.
 - UI and prompts ship in English, French, Spanish and Italian (`I18n/`) — narrower than the back-office theme's 21-locale set (`templates/backOffice/default-twig/translations/`). **Fallback verified 2026-09-16 (MYO-419):** real HTTP checks (admin session locale forced via `/admin/...?lang=<locale>`, not code reading) on 3 uncovered locales (`de_DE`, `cs_CZ`, `nl_NL`) against the **Agents IA** list screen and the module configuration screen show clean, readable English — no raw translation keys, no blank strings, no errors — while the surrounding back-office chrome stays correctly localized in the target language. One related bug was found and fixed in the same pass: the Slack/Mattermost webhook URL and the e-mail channel's recipient field descriptions were hardcoded French strings that bypassed the translation domain entirely (they showed French even under `en_US`); they now go through `trans(..., CommerceAgents::DOMAIN_NAME)` like the rest of the module.
 
 See `CHANGELOG.md` for the full feature list (V1 and post-V1) and `docs/guide-exploitation.md` (French) for a short day-to-day operator guide.

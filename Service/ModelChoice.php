@@ -35,6 +35,7 @@ final readonly class ModelChoice
         public string $currency,
         public ?int $contextWindow,
         public bool $isDefault,
+        public string $provider,
     ) {
     }
 }

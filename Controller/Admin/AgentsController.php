@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Controller\Admin;
 
 use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
+use CommerceAgents\Agent\Llm\LlmClientFactory;
 use CommerceAgents\Hook\Admin\AdminHookManager;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentMemory;
@@ -18,6 +19,7 @@ use CommerceAgents\Service\AgentPresets;
 use CommerceAgents\Service\CapabilityCatalog;
 use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\ModelChoice;
 use CommerceAgents\Service\ModuleAvailabilityInterface;
 use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\Run\AgentTriggerType;
@@ -281,7 +283,9 @@ final readonly class AgentsController
             title: $definition->getTitle(),
             description: (string) $definition->getDescription(),
             rolePrompt: (string) $definition->getRolePrompt(),
-            model: (string) $definition->getModel(),
+            model: $definition->getModel() !== null && $definition->getModel() !== ''
+                ? self::composeModelValue($definition->getProvider() ?? $this->configService->getProvider(), $definition->getModel())
+                : '',
             monthlyBudgetUsd: $definition->getMonthlyBudgetUsd() !== null ? (float) $definition->getMonthlyBudgetUsd() : null,
             enabled: (bool) $definition->getEnabled(),
             capabilities: $data['capabilities'],
@@ -377,13 +381,15 @@ final readonly class AgentsController
         $id = (int) $request->request->get('agent_id', 0);
         $eurBudget = trim((string) $request->request->get('monthly_budget_eur', ''));
         $submitAction = (string) $request->request->get('submit_action', 'keep');
+        [$modelProvider, $modelId] = self::splitModelValue((string) $request->request->get('model', ''));
 
         $definition = $this->agentManager->save($id > 0 ? $id : null, [
             'title' => trim((string) $request->request->get('title')) ?: 'Nouvel agent',
             'description' => trim((string) $request->request->get('description', '')),
             'rolePrompt' => (string) $request->request->get('role_prompt', ''),
             'presetCode' => (string) $request->request->get('preset_code', '') ?: null,
-            'model' => (string) $request->request->get('model', ''),
+            'model' => $modelId,
+            'provider' => $modelProvider,
             'monthlyBudgetUsd' => $eurBudget !== '' ? ModelCatalog::toUsd((float) str_replace(',', '.', $eurBudget), 'EUR') : null,
             'enabled' => $submitAction === 'pause' ? false : ($submitAction === 'activate' || $request->request->get('enabled') === '1'),
             'capabilities' => array_values(array_intersect((array) $request->request->all('capabilities'), array_column($this->capabilityCatalog->all(), 'code'))),
@@ -533,6 +539,50 @@ final readonly class AgentsController
         return $channels;
     }
 
+    /**
+     * The model picker posts one value for two pieces of data: which model,
+     * from which provider (MYO-421 — several providers can publish models
+     * with unrelated ids, so the provider can never be inferred back from
+     * the model id alone).
+     */
+    private static function composeModelValue(string $provider, string $modelId): string
+    {
+        return $provider.':'.$modelId;
+    }
+
+    /**
+     * @return array{0: string, 1: string} [provider, modelId] — provider is '' when the field is empty (inherit) or predates this format
+     */
+    private static function splitModelValue(string $raw): array
+    {
+        if (!str_contains($raw, ':')) {
+            return ['', $raw];
+        }
+
+        [$provider, $modelId] = explode(':', $raw, 2);
+
+        return [$provider, $modelId];
+    }
+
+    /**
+     * Every model the agent form may offer (MYO-421 AC1): the shop's own
+     * active provider (kept whether or not its key is filled in yet, so the
+     * form is never empty before the merchant visits the Providers tab) plus
+     * every other provider with a configured API key (AC3 — an unusable
+     * provider is never offered).
+     *
+     * @return ModelChoice[]
+     */
+    private function activeModelChoices(): array
+    {
+        $shopProvider = $this->configService->getProvider();
+
+        return array_values(array_filter(
+            $this->modelCatalog->getSelectableModels(),
+            fn (ModelChoice $choice): bool => $choice->provider === $shopProvider || $this->configService->hasApiKey($choice->provider),
+        ));
+    }
+
     private static function timeToCron(string $time): string
     {
         [$hour, $minute] = array_pad(explode(':', $time), 2, '0');
@@ -555,9 +605,13 @@ final readonly class AgentsController
         if ($tier === null) {
             return '';
         }
-        foreach ($this->modelCatalog->getSelectableModels($this->configService->getProvider()) as $choice) {
+        $provider = $this->configService->getProvider();
+        // A preset always suggests a model of the shop's own provider (MYO-228
+        // decision, kept as-is by MYO-421): other providers only ever get
+        // *added* to the picker, they never replace this default.
+        foreach ($this->modelCatalog->getSelectableModels($provider) as $choice) {
             if ($choice->tier === $tier) {
-                return $choice->modelId;
+                return self::composeModelValue($provider, $choice->modelId);
             }
         }
 
@@ -588,14 +642,19 @@ final readonly class AgentsController
         ?string $presetCode = null,
         ?AgentDefinition $definition = null,
     ): array {
-        $modelChoices = array_map(static fn ($c): array => (array) $c, $this->modelCatalog->getSelectableModels($this->configService->getProvider()));
+        $shopProvider = $this->configService->getProvider();
         $shopDefault = null;
-        foreach ($modelChoices as $choice) {
-            if ($choice['isDefault']) {
-                $shopDefault = $choice;
+        // Computed from the unfiltered catalog: the "shop default" inherit
+        // option must resolve to the actual configured default even when
+        // that provider's key isn't filled in yet (activeModelChoices() may
+        // legitimately exclude other, key-less providers below).
+        foreach ($this->modelCatalog->getSelectableModels() as $choice) {
+            if ($choice->provider === $shopProvider && $choice->isDefault) {
+                $shopDefault = (array) $choice;
                 break;
             }
         }
+        $modelChoices = array_map(static fn (ModelChoice $c): array => (array) $c, $this->activeModelChoices());
 
         $orderStatuses = array_map(
             static fn ($status): array => ['id' => $status->getId(), 'title' => $status->getTitle()],

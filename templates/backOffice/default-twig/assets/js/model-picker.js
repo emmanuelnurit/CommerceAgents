@@ -10,8 +10,18 @@
     var TIER_ORDER = ['fast', 'balanced', 'deep'];
     var TIER_BADGE = { fast: 'text-bg-success', balanced: 'text-bg-info', deep: 'text-bg-warning' };
 
-    function priceLine(choice, currency) {
-        return choice.priceInput + ' ' + currency + ' / ' + choice.priceOutput + ' ' + currency;
+    function priceLine(choice) {
+        return choice.priceInput + ' ' + choice.currency + ' / ' + choice.priceOutput + ' ' + choice.currency;
+    }
+
+    /**
+     * The posted value: modelId alone when every choice comes from the same
+     * provider (module config hero, single-provider), "provider:modelId"
+     * once a choice carries a `provider` (agent form, several providers can
+     * publish unrelated model ids — MYO-421).
+     */
+    function choiceKey(choice) {
+        return choice.provider ? (choice.provider + ':' + choice.modelId) : choice.modelId;
     }
 
     function build(panel) {
@@ -25,13 +35,12 @@
         var allowInherit = panel.dataset.allowInherit === '1';
         var inheritChoice = allowInherit ? JSON.parse(panel.dataset.inheritChoice || 'null') : null;
         var tierHints = JSON.parse(panel.dataset.tierHints || '{}');
-        var currency = choices.length > 0 ? choices[0].currency : 'EUR';
         var selectedId = panel.dataset.selected || '';
         var inheriting = allowInherit && selectedId === '';
 
-        function findChoice(modelId) {
+        function findChoice(key) {
             for (var i = 0; i < choices.length; i++) {
-                if (choices[i].modelId === modelId) {
+                if (choiceKey(choices[i]) === key) {
                     return choices[i];
                 }
             }
@@ -72,7 +81,7 @@
 
             var right = document.createElement('span');
             right.className = 'model-price';
-            right.textContent = priceLine(current, currency);
+            right.textContent = priceLine(current);
             var chevron = document.createElement('i');
             chevron.className = 'bi bi-chevron-down ms-2';
             chevron.setAttribute('aria-hidden', 'true');
@@ -89,7 +98,7 @@
             opt.type = 'button';
             opt.className = 'model-option';
             opt.setAttribute('role', 'option');
-            var isSelected = isInheritOption ? inheriting : (!inheriting && selectedId === choice.modelId);
+            var isSelected = isInheritOption ? inheriting : (!inheriting && selectedId === choiceKey(choice));
             opt.setAttribute('aria-selected', String(isSelected));
 
             var row = document.createElement('span');
@@ -112,7 +121,7 @@
             }
             var price = document.createElement('span');
             price.className = 'model-price';
-            price.textContent = priceLine(choice, currency);
+            price.textContent = priceLine(choice);
             row.appendChild(left);
             row.appendChild(price);
 
@@ -127,7 +136,7 @@
                 opt.appendChild(contextRow);
             }
             opt.addEventListener('click', function () {
-                select(isInheritOption, choice.modelId);
+                select(isInheritOption, choice);
             });
             return opt;
         }
@@ -156,9 +165,9 @@
             });
         }
 
-        function select(isInherit, modelId) {
+        function select(isInherit, choice) {
             inheriting = isInherit;
-            selectedId = isInherit ? '' : modelId;
+            selectedId = isInherit ? '' : choiceKey(choice);
             valueInput.value = selectedId;
             valueInput.dispatchEvent(new Event('change', { bubbles: true }));
             renderToggle();
@@ -199,10 +208,19 @@
         renderOptions();
 
         panel.commerceAgentsPicker = {
+            // A preset always suggests a model of the shop's own provider
+            // (MYO-228 decision, kept by MYO-421): other providers only ever
+            // get added to the list below, never picked as this default.
             selectByTier: function (tier) {
-                var match = choices.filter(function (c) { return c.tier === tier; })[0];
-                if (match) {
-                    select(false, match.modelId);
+                var pool = choices.filter(function (c) { return c.tier === tier; });
+                if (inheritChoice) {
+                    var ownProvider = pool.filter(function (c) { return c.provider === inheritChoice.provider; });
+                    if (ownProvider.length > 0) {
+                        pool = ownProvider;
+                    }
+                }
+                if (pool[0]) {
+                    select(false, pool[0]);
                 }
             },
         };

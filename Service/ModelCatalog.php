@@ -295,6 +295,7 @@ final readonly class ModelCatalog
             currency: $row->getCurrency() ?? 'USD',
             contextWindow: $row->getContextWindow(),
             isDefault: $row->getModelId() === (LlmClientFactory::DEFAULT_MODELS[$row->getProvider()] ?? null),
+            provider: $row->getProvider(),
         );
     }
 
