@@ -33,8 +33,6 @@ php Thelia module:activate CommerceAgents
 php Thelia cache:clear
 ```
 
-> **Branch note.** The `main` branch on GitHub currently lags the `myorg` development branch: most of what this README describes (default Mistral provider, configurable agents, triggers, channels, proactive shopping assistant) has not been merged into `main` yet. Check out `myorg` explicitly after cloning (`git checkout myorg`) to get the version documented here.
-
 Activation creates the module's tables (see **Database** below) and seeds the model catalog. Upgrades run the SQL files in `Config/update/` and re-seed the catalog without touching rows edited by hand.
 
 Then open **Modules › CommerceAgents › Configure** in the back office and set a provider key. The front widget and both assistants stay silent until a key is configured.
@@ -366,7 +364,6 @@ Adding a tool:
 
 ## Known limitations
 
-- The `main` branch on GitHub lags the `myorg` development branch — see the branch note under **Installation**.
 - Configurable agents only offer Mistral models in the wizard; the shopping and merchant chat assistants can use any configured provider.
 - UI and prompts ship in English, French, Spanish and Italian (`I18n/`) — narrower than the back-office theme's locale set.
 
