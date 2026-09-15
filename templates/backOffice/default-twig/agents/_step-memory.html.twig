@@ -7,11 +7,14 @@
     </div>
 {% endif %}
 
-<form method="post" action="{{ memoryAddUrl }}" class="row g-2 align-items-end mb-3" data-testid="agent-memory-add-form">
-    <input type="hidden" name="_token" value="{{ csrfToken }}">
+{# Bound to the standalone #agent-memory-add-form (see agents/form.html.twig), not a real <form> here:
+   a <form> nested inside the page's #agent-form would be dropped by the HTML5 parser and would
+   close #agent-form early, stranding the Save button outside it (MYO-361). #}
+<div class="row g-2 align-items-end mb-3" data-testid="agent-memory-add-form">
+    <input type="hidden" name="_token" value="{{ csrfToken }}" form="agent-memory-add-form">
     <div class="col-12">
         <label class="form-label" for="agent-memory-new-content">{{ 'New memory entry'|trans({}, 'commerceagents') }}</label>
-        <textarea id="agent-memory-new-content" name="content" class="form-control" rows="2" maxlength="{{ maxMemoryChars }}"
+        <textarea id="agent-memory-new-content" name="content" form="agent-memory-add-form" class="form-control" rows="2" maxlength="{{ maxMemoryChars }}"
                   placeholder="{{ 'Write a fact or instruction for this agent to remember…'|trans({}, 'commerceagents') }}"
                   aria-describedby="agent-memory-new-count" data-testid="agent-memory-new-content"></textarea>
         <div class="form-text text-end char-counter" id="agent-memory-new-count" data-char-counter-for="agent-memory-new-content" data-max="{{ maxMemoryChars }}" aria-live="polite">
@@ -19,11 +22,11 @@
         </div>
     </div>
     <div class="col-12">
-        <button type="submit" class="btn btn-outline-primary btn-sm" data-testid="agent-memory-add-submit">
+        <button type="submit" form="agent-memory-add-form" class="btn btn-outline-primary btn-sm" data-testid="agent-memory-add-submit">
             <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>{{ 'Add entry'|trans({}, 'commerceagents') }}
         </button>
     </div>
-</form>
+</div>
 
 {% if memoryEntries is empty %}
     <p class="text-muted small mb-0" data-testid="agent-memory-empty">{{ 'No memory entries yet.'|trans({}, 'commerceagents') }}</p>

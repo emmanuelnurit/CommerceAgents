@@ -143,6 +143,11 @@
             </div>
         {% endif %}
     </form>
+    {% if mode != 'wizard' %}
+        {# Real target of the Memory tab's "Add entry" controls (see agents/_step-memory.html.twig),
+           kept outside #agent-form so its submission cannot swallow the page's own </form> tag. #}
+        <form id="agent-memory-add-form" method="post" action="{{ memoryAddUrl }}" hidden aria-hidden="true"></form>
+    {% endif %}
 </div>
 {% endblock %}
 
