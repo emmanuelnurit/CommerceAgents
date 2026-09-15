@@ -401,4 +401,12 @@ return [
     'Sent at' => 'Envoyé le',
     'Recipient' => 'Destinataire',
     'No outbound message recorded yet for this agent.' => 'Aucun message sortant enregistré pour le moment pour cet agent.',
+    'Revenue' => "Chiffre d'affaires",
+    'Revenue (last 30 days)' => "Chiffre d'affaires (30 derniers jours)",
+    'Orders (last 30 days)' => 'Commandes (30 derniers jours)',
+    'Change schedule or channel' => "Modifier l'horaire ou le canal",
+    'Resend this report' => 'Renvoyer ce rapport',
+    'Not tracked' => 'Non tracé',
+    'No report in the last 30 days.' => 'Aucun rapport au cours des 30 derniers jours.',
+    'This agent has never run yet.' => "Cet agent n'a encore jamais été exécuté.",
 ];

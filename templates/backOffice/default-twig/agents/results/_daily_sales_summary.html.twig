@@ -1,0 +1,87 @@
+{% set resultsCsrfToken = csrf_token('commerceagents_config') %}
+
+{% if reports|length > 0 %}
+    <div class="row g-3 mb-3" data-testid="agent-results-daily-sales-chart">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-body-tertiary d-flex align-items-center justify-content-between">
+                    <span class="small fw-semibold">{{ 'Revenue (last 30 days)'|trans({}, 'commerceagents') }}</span>
+                </div>
+                <div class="card-body">
+                    <div style="height: 160px;">
+                        <canvas data-controller="bo-chart"
+                                role="img" aria-label="{{ 'Revenue (last 30 days)'|trans({}, 'commerceagents') }}"
+                                data-bo-chart-type-value="line"
+                                data-bo-chart-format-value="currency"
+                                data-bo-chart-label-value="{{ 'Revenue'|trans({}, 'commerceagents') }}"
+                                data-bo-chart-labels-value="{{ chart.labels|json_encode|e('html_attr') }}"
+                                data-bo-chart-data-value="{{ chart.revenue|json_encode|e('html_attr') }}"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-body-tertiary d-flex align-items-center justify-content-between">
+                    <span class="small fw-semibold">{{ 'Orders (last 30 days)'|trans({}, 'commerceagents') }}</span>
+                </div>
+                <div class="card-body">
+                    <div style="height: 160px;">
+                        <canvas data-controller="bo-chart"
+                                role="img" aria-label="{{ 'Orders (last 30 days)'|trans({}, 'commerceagents') }}"
+                                data-bo-chart-type-value="line"
+                                data-bo-chart-format-value="number"
+                                data-bo-chart-label-value="{{ 'Orders'|trans({}, 'commerceagents') }}"
+                                data-bo-chart-labels-value="{{ chart.labels|json_encode|e('html_attr') }}"
+                                data-bo-chart-data-value="{{ chart.orders|json_encode|e('html_attr') }}"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end mb-2">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ path('commerceagents_agents_edit', {id: agentId}) }}"><i class="bi bi-gear me-1" aria-hidden="true"></i>{{ 'Change schedule or channel'|trans({}, 'commerceagents') }}</a>
+    </div>
+
+    <div class="list-group" data-testid="agent-results-daily-sales-feed">
+        {% for report in reports %}
+            <div class="list-group-item" data-testid="agent-results-report-{{ report.runId }}">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <span class="small text-muted">{{ report.finishedAt ? report.finishedAt|relative_time : '—' }}</span>
+                    <form action="{{ path('commerceagents_agents_results_resend', {id: agentId, runId: report.runId}) }}" method="post">
+                        <input type="hidden" name="_token" value="{{ resultsCsrfToken }}">
+                        <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-send me-1" aria-hidden="true"></i>{{ 'Resend this report'|trans({}, 'commerceagents') }}</button>
+                    </form>
+                </div>
+                <p class="mb-2">
+                    {% for line in report.summaryLines %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+                </p>
+                <div class="d-flex flex-wrap gap-1">
+                    {% if report.messages|length > 0 %}
+                        {% for message in report.messages %}
+                            <span class="badge {{ message.status == 'sent' ? 'text-bg-success' : (message.status == 'failed' ? 'text-bg-danger' : 'text-bg-secondary') }}">
+                                {{ message.channel }} — {{ message.status }}
+                            </span>
+                        {% endfor %}
+                    {% else %}
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis" data-testid="agent-results-report-untracked">
+                            {{ 'Not tracked'|trans({}, 'commerceagents') }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-light border mb-0" data-testid="agent-results-daily-sales-empty">
+        <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
+        {{ hasEverRun ? 'No report in the last 30 days.'|trans({}, 'commerceagents') : 'This agent has never run yet.'|trans({}, 'commerceagents') }}
+        <div class="mt-2">
+            <form action="{{ path('commerceagents_agents_run_now', {id: agentId}) }}" method="post" class="agent-run-now-form d-inline">
+                <input type="hidden" name="_token" value="{{ resultsCsrfToken }}">
+                <button type="submit" class="btn btn-sm btn-primary">{{ 'Run now'|trans({}, 'commerceagents') }}</button>
+            </form>
+        </div>
+    </div>
+{% endif %}

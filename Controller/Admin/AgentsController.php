@@ -20,6 +20,7 @@ use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\ModuleAvailabilityInterface;
 use CommerceAgents\Service\Run\AgentRunQueue;
+use CommerceAgents\Service\Run\ReportResendService;
 use CommerceAgents\Service\SpecialtyPane\SpecialtyResultsPaneRegistry;
 use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Service\TriggerCatalog;
@@ -64,6 +65,7 @@ final readonly class AgentsController
         private Environment $twig,
         private ModuleAvailabilityInterface $moduleAvailability,
         private SpecialtyResultsPaneRegistry $specialtyPaneRegistry,
+        private ReportResendService $reportResendService,
     ) {
     }
 
@@ -354,6 +356,11 @@ final readonly class AgentsController
         return new RedirectResponse($this->urlGenerator->generate('commerceagents_agents_edit', ['id' => $id]).'#agent-memory');
     }
 
+    private function redirectToResultsTab(int $id): RedirectResponse
+    {
+        return new RedirectResponse($this->urlGenerator->generate('commerceagents_agents_show', ['id' => $id]).'#agent-pane-results');
+    }
+
     #[Route('/admin/module/CommerceAgents/agents/save', name: 'commerceagents_agents_save', methods: ['POST'])]
     public function save(Request $request): Response
     {
@@ -412,6 +419,31 @@ final readonly class AgentsController
         }
 
         return new RedirectResponse($this->urlGenerator->generate('commerceagents_agents_page'));
+    }
+
+    /**
+     * "Resend this report" (MYO-335, Results tab): re-delivers an existing
+     * agent_run's summary through the agent's configured channels. A stale
+     * or forged run id (wrong agent, or none at all) is ignored, same as the
+     * memory actions above.
+     */
+    #[Route('/admin/module/CommerceAgents/agents/{id}/results/{runId}/resend', name: 'commerceagents_agents_results_resend', requirements: ['id' => '\d+', 'runId' => '\d+'], methods: ['POST'])]
+    public function resendResult(int $id, int $runId, Request $request): Response
+    {
+        if ($denied = $this->guard($request, AccessManager::UPDATE)) {
+            return $denied;
+        }
+
+        $run = AgentRunQuery::create()->filterByAgentDefinitionId($id)->filterById($runId)->findOne();
+        if ($run !== null) {
+            $this->reportResendService->resend($run);
+        }
+
+        if ($request->isXmlHttpRequest()) {
+            return new JsonResponse(['success' => true]);
+        }
+
+        return $this->redirectToResultsTab($id);
     }
 
     #[Route('/admin/module/CommerceAgents/agents/{id}/delete', name: 'commerceagents_agents_delete', requirements: ['id' => '\d+'], methods: ['POST'])]

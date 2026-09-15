@@ -401,4 +401,12 @@ return [
     'Sent at' => 'Sent at',
     'Recipient' => 'Recipient',
     'No outbound message recorded yet for this agent.' => 'No outbound message recorded yet for this agent.',
+    'Revenue' => 'Revenue',
+    'Revenue (last 30 days)' => 'Revenue (last 30 days)',
+    'Orders (last 30 days)' => 'Orders (last 30 days)',
+    'Change schedule or channel' => 'Change schedule or channel',
+    'Resend this report' => 'Resend this report',
+    'Not tracked' => 'Not tracked',
+    'No report in the last 30 days.' => 'No report in the last 30 days.',
+    'This agent has never run yet.' => 'This agent has never run yet.',
 ];

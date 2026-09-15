@@ -401,4 +401,12 @@ return [
     'Sent at' => 'Inviato il',
     'Recipient' => 'Destinatario',
     'No outbound message recorded yet for this agent.' => 'Nessun messaggio in uscita registrato per questo agente.',
+    'Revenue' => 'Fatturato',
+    'Revenue (last 30 days)' => 'Fatturato (ultimi 30 giorni)',
+    'Orders (last 30 days)' => 'Ordini (ultimi 30 giorni)',
+    'Change schedule or channel' => 'Modifica orario o canale',
+    'Resend this report' => 'Rinvia questo rapporto',
+    'Not tracked' => 'Non tracciato',
+    'No report in the last 30 days.' => 'Nessun rapporto negli ultimi 30 giorni.',
+    'This agent has never run yet.' => 'Questo agente non è ancora mai stato eseguito.',
 ];

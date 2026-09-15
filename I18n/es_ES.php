@@ -399,4 +399,12 @@ return [
     'Sent at' => 'Enviado el',
     'Recipient' => 'Destinatario',
     'No outbound message recorded yet for this agent.' => 'Aún no se ha registrado ningún mensaje saliente para este agente.',
+    'Revenue' => 'Ingresos',
+    'Revenue (last 30 days)' => 'Ingresos (últimos 30 días)',
+    'Orders (last 30 days)' => 'Pedidos (últimos 30 días)',
+    'Change schedule or channel' => 'Cambiar horario o canal',
+    'Resend this report' => 'Reenviar este informe',
+    'Not tracked' => 'Sin seguimiento',
+    'No report in the last 30 days.' => 'No hay informes en los últimos 30 días.',
+    'This agent has never run yet.' => 'Este agente todavía no se ha ejecutado.',
 ];
