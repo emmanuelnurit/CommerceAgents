@@ -54,6 +54,7 @@ class AnthropicClientTest extends TestCase
         }
 
         $this->assertSame('https://api.anthropic.com/v1/messages', $capturedUrl);
+        $this->assertSame(10.0, $capturedOptions['timeout'] ?? null, 'MYO-284 B2: an unresponsive base_url must not hang the worker forever');
 
         $headers = implode("\n", $capturedOptions['headers'] ?? []);
         $this->assertStringContainsString('x-api-key: sk-test-key', $headers);

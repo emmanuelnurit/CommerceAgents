@@ -14,6 +14,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final readonly class ModelDiscovery
 {
     private const ANTHROPIC_VERSION = '2023-06-01';
+
+    /** Aligned on WebhookChannelConnector::TIMEOUT_SECONDS (MYO-284 B2). */
+    private const TIMEOUT_SECONDS = 10;
     private const DEFAULT_BASE_URLS = [
         'anthropic' => 'https://api.anthropic.com',
         'mistral' => 'https://api.mistral.ai',
@@ -110,7 +113,7 @@ final readonly class ModelDiscovery
      */
     private function fetch(string $url, array $query, array $headers): array
     {
-        $response = $this->httpClient->request('GET', $url, ['query' => $query, 'headers' => $headers]);
+        $response = $this->httpClient->request('GET', $url, ['query' => $query, 'headers' => $headers, 'timeout' => self::TIMEOUT_SECONDS]);
 
         if ($response->getStatusCode() >= 400) {
             $body = json_decode($response->getContent(false), true);

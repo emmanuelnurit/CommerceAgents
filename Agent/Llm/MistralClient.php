@@ -16,6 +16,9 @@ final readonly class MistralClient implements LlmClientInterface
 {
     private const DEFAULT_BASE_URL = 'https://api.mistral.ai';
 
+    /** Aligned on WebhookChannelConnector::TIMEOUT_SECONDS (MYO-284 B2). */
+    private const TIMEOUT_SECONDS = 10;
+
     public function __construct(
         private HttpClientInterface $httpClient,
     ) {
@@ -44,6 +47,7 @@ final readonly class MistralClient implements LlmClientInterface
                 'Content-Type' => 'application/json',
             ],
             'body' => json_encode($body, \JSON_THROW_ON_ERROR),
+            'timeout' => self::TIMEOUT_SECONDS,
         ]);
 
         yield from (new OpenAiStreamParser($this->httpClient))->parse($response);

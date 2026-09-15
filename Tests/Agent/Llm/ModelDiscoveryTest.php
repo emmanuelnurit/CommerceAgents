@@ -80,6 +80,20 @@ class ModelDiscoveryTest extends TestCase
         (new ModelDiscovery($http))->list(new LlmConfig(provider: 'anthropic', model: '', apiKey: 'bad'));
     }
 
+    public function testFetchHasAnExplicitTimeout(): void
+    {
+        $capturedOptions = null;
+        $http = new MockHttpClient(function (string $method, string $url, array $options) use (&$capturedOptions) {
+            $capturedOptions = $options;
+
+            return new MockResponse('{"data":[]}', ['response_headers' => ['content-type' => 'application/json']]);
+        });
+
+        (new ModelDiscovery($http))->list(new LlmConfig(provider: 'mistral', model: '', apiKey: 'm-key'));
+
+        $this->assertSame(10.0, $capturedOptions['timeout'] ?? null, 'MYO-284 B2: an unresponsive base_url must not hang the worker forever');
+    }
+
     public function testMissingKeyDoesNotCallProvider(): void
     {
         $http = new MockHttpClient(function (): never {

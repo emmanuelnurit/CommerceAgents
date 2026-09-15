@@ -56,6 +56,7 @@ class MistralClientTest extends TestCase
         }
 
         $this->assertSame('https://api.mistral.ai/v1/chat/completions', $capturedUrl);
+        $this->assertSame(10.0, $capturedOptions['timeout'] ?? null, 'MYO-284 B2: an unresponsive base_url must not hang the worker forever');
 
         $headers = implode("\n", $capturedOptions['headers'] ?? []);
         $this->assertStringContainsString('Authorization: Bearer mistral-test-key', $headers);
