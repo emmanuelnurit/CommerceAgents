@@ -51,6 +51,13 @@ La V1 couvre trois surfaces : l'assistant shopping (front), l'assistant marchand
 - Variante AJAX/JSON des routes d'approbation/rejet, avec distinction HTTP 409 (`already_handled`, déjà traité) vs 422 (erreur réelle), pour une popup non bloquante.
 - Maquette HTML de référence commitée sous `docs/design/myo-237-agent-suggestions-popup.html`.
 
+### Prérequis de déploiement en production documentés — MYO-296
+
+- Nouvelle section « Production deployment prerequisites » dans le `README.md`, atteignable depuis l'installation : les trois constats d'infra écartés du code par l'audit sécurité (MYO-275/276) — **M1** rate-limit par IP sur `/agent/chat*`, **B1** taille max du corps de requête, **B6** entropie et rotation de `kernel.secret` — avec pour chacun le risque, une valeur recommandée et un exemple de configuration copiable (nginx pour M1/B1, commande + procédure pour B6).
+- Avertissement visible en tête de la section installation : ne pas exposer `/agent/chat*` sans rate-limit en amont.
+- Le lien B6 → chiffrement (`ChannelSettingsEncryptor`, clés API LLM du correctif H4 comprises) est écrit explicitement, avec la conséquence concrète d'une rotation (les secrets déjà chiffrés deviennent illisibles, re-saisie manuelle requise, pas de re-chiffrement automatique en V1).
+- Correctif au passage : la note de branche `myorg`/`main` et l'entrée « connu / non livré » ci-dessous ne mentionnent plus MYO-241 comme bloqué — la branche est publiée sur GitHub depuis le 2026-09-15.
+
 ### Hors périmètre de ce module (pour mémoire)
 
 Les tickets suivants livrent la carte et la popup elles-mêmes côté **thème back-office `default-twig`** (pas ce module) : MYO-250 (provider `AgentDashboardCard`), MYO-251 (bloc Twig/SCSS), MYO-252 (popup de suggestions sur la carte), MYO-256/257 (corrections visuelles et i18n de ce bloc). Voir la documentation du thème pour ce périmètre.
@@ -59,5 +66,5 @@ Les tickets suivants livrent la carte et la popup elles-mêmes côté **thème b
 
 - Formulaire de réglages détaillé par connecteur de canal (MYO-231).
 - Choix du fournisseur pour les agents paramétrables (Mistral uniquement pour l'instant).
-- Publication de la branche `myorg` sur `origin/main` (MYO-241, bloqué sur le secret `github_token`, propriétaire : board).
+- Fusion de la branche `myorg` sur `origin/main` : `myorg` est publiée sur GitHub depuis MYO-241 (2026-09-15) mais `main` reste un cran derrière tant que la fusion n'a pas de ticket dédié.
 - Pas d'écran listant l'historique des exécutions (`agent_run`) au-delà du badge « Dernière exécution » sur la carte de l'agent.

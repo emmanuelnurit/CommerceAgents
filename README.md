@@ -18,6 +18,8 @@ Inspired by the [anthropics/commerce-agents](https://github.com/anthropics/comme
 
 ## Installation
 
+> **⚠️ Production warning.** Never expose `/agent/chat*` on the public internet without an upstream rate-limit. The module's own daily-message limit is per conversation, not per IP — a bare `curl` loop that opens a new conversation on every request bypasses it entirely and burns LLM budget. See [Production deployment prerequisites](#production-deployment-prerequisites) below before going live.
+
 ```bash
 # from the Thelia project root
 git clone https://github.com/emmanuelnurit/CommerceAgents.git local/modules/CommerceAgents
@@ -26,11 +28,78 @@ php Thelia module:activate CommerceAgents
 php Thelia cache:clear
 ```
 
-> **Branch note.** The `main` branch on GitHub currently lags the `myorg` development branch: most of what this README describes (default Mistral provider, configurable agents, triggers, channels, proactive shopping assistant) has not been merged upstream yet (tracked as MYO-241, blocked on a GitHub token). Until that merge lands, check out `myorg` explicitly after cloning (`git checkout myorg`) to get the version documented here.
+> **Branch note.** The `main` branch on GitHub currently lags the `myorg` development branch: most of what this README describes (default Mistral provider, configurable agents, triggers, channels, proactive shopping assistant) has not been merged into `main` yet. Check out `myorg` explicitly after cloning (`git checkout myorg`) to get the version documented here.
 
 Activation creates the module's tables (see **Database** below) and seeds the model catalog. Upgrades run the SQL files in `Config/update/` and re-seed the catalog without touching rows edited by hand.
 
 Then open **Modules › CommerceAgents › Configure** in the back office and set a provider key. The front widget and both assistants stay silent until a key is configured.
+
+## Production deployment prerequisites
+
+The module's own guardrails (daily message limit per conversation, monthly budget, server-side scope checks) assume the surrounding environment is sane. Three prerequisites below are **not implemented in the module's code on purpose** — they are operational, not application concerns — and were called out by the [security audit](docs/security-audit-commerceagents.md) (findings M1, B1, B6). Apply all three before pointing a real domain at a store running CommerceAgents.
+
+### M1 — Rate-limit `/agent/chat*` by IP
+
+**Risk.** The module limits messages per *conversation* per day, but a client can open a fresh conversation on every request (no login required for the shopping assistant). Without an upstream limit, a simple loop drives unbounded LLM spend and can exhaust the LLM provider's own rate limit for the whole store.
+
+**Recommended value.** Something in the region of 10 requests/minute per IP with a small burst allowance — adjust to real traffic once you have some.
+
+nginx (`limit_req`):
+
+```nginx
+# http { } block
+limit_req_zone $binary_remote_addr zone=agentchat:10m rate=10r/m;
+
+# server { } block, in front of the PHP upstream
+location ~ ^/agent/chat {
+    limit_req zone=agentchat burst=20 nodelay;
+    limit_req_status 429;
+
+    # ... existing fastcgi_pass / proxy_pass to the app
+}
+```
+
+Equally valid: a Symfony `RateLimiter` wired at the kernel/firewall level, or a rule on whatever reverse proxy, CDN or WAF already sits in front of the store.
+
+### B1 — Cap the request body size
+
+**Risk.** `/agent/chat*` validates message length in PHP, after the body has already been read into memory. An oversized POST forces the server to buffer and parse it before that check ever runs.
+
+**Recommended value.** Chat messages are short text — a few KB is enough headroom; 64 KB is a comfortable, still-tight ceiling.
+
+nginx:
+
+```nginx
+location ~ ^/agent/chat {
+    client_max_body_size 64k;
+}
+```
+
+PHP (`php.ini`, applies store-wide, not just to this route):
+
+```ini
+post_max_size = 1M
+upload_max_filesize = 1M
+```
+
+### B6 — Strong `kernel.secret` entropy + rotation procedure
+
+**This is the most important of the three.** `agent_channel.settings` and, since the H4 fix, every LLM provider API key saved in the **Providers** tab are encrypted at rest with sodium `secretbox` (`Service/Channel/ChannelSettingsEncryptor` — key derived from Symfony's `kernel.secret`). A default or low-entropy `kernel.secret` (e.g. a fresh Symfony skeleton's placeholder value, never regenerated) makes that encryption decorative: anyone who can read the codebase's default can derive the same key.
+
+**Generate a strong value:**
+
+```bash
+php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
+```
+
+Set it as `APP_SECRET` in `.env.local` (never commit this file) and confirm `kernel.secret: '%env(APP_SECRET)%'` in the framework config actually reads from it — do this once, before the store ever has real provider keys or channel settings saved.
+
+**Rotation procedure — and what it breaks.** `kernel.secret` rotation is a one-way operation for anything already encrypted with the old value:
+
+1. Generate a new value with the command above and update `APP_SECRET`.
+2. **Every provider API key already saved (Providers tab) and every configured channel's settings (`agent_channel.settings` — webhook URLs, tokens) stop decrypting.** They are not silently wrong; the module will surface the failure (a failed connection test, `send_to_channel` erroring on the next run) rather than leaking garbage.
+3. Re-enter the affected values by hand: each provider's API key in **Configuration › Providers**, and each agent's channel settings in the **AI agents** wizard's channel step. V1 has no bulk re-encryption command — for the handful of rows a real store has (one row per active provider, one per configured channel), re-entry is the supported path.
+4. Rotate on suspected compromise of the secret or the database at minimum; the module does not enforce or track a fixed rotation schedule.
 
 ## Configuration
 
