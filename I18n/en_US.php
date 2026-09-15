@@ -356,7 +356,7 @@ return [
     'Dismiss suggestion' => 'Dismiss suggestion',
     'Tell me more' => 'Tell me more',
     'No thanks' => 'No thanks',
-    'Automatic triggering on these events is coming soon — in the meantime, every agent can be run manually via "Run now" on its card.' => 'Automatic triggering on these events is coming soon — in the meantime, every agent can be run manually via "Run now" on its card.',
+    'These triggers run automatically according to their frequency — "Run now" on the agent\'s card is always available for an immediate test.' => 'These triggers run automatically according to their frequency — "Run now" on the agent\'s card is always available for an immediate test.',
     'Apply' => 'Apply',
     'Applying…' => 'Applying…',
     'Code applied:' => 'Code applied:',

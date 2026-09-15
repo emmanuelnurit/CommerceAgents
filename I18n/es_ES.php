@@ -354,7 +354,7 @@ return [
     'Dismiss suggestion' => 'Descartar la sugerencia',
     'Tell me more' => 'Cuénteme más',
     'No thanks' => 'No, gracias',
-    'Automatic triggering on these events is coming soon — in the meantime, every agent can be run manually via "Run now" on its card.' => 'La activación automática de estos eventos llegará pronto — mientras tanto, cada agente puede ejecutarse manualmente mediante «Ejecutar ahora» en su tarjeta.',
+    'These triggers run automatically according to their frequency — "Run now" on the agent\'s card is always available for an immediate test.' => 'Estos disparadores se ejecutan automáticamente según su frecuencia — «Ejecutar ahora» en la tarjeta del agente sigue estando siempre disponible para una prueba inmediata.',
     'Apply' => 'Aplicar',
     'Applying…' => 'Aplicando…',
     'Code applied:' => 'Código aplicado:',
