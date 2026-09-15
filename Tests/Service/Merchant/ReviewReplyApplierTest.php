@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace CommerceAgents\Tests\Service\Merchant;
 
 use Comment\Model\Comment;
+use CommerceAgents\Model\AgentConversation;
 use CommerceAgents\Model\AgentReviewReplyQuery;
+use CommerceAgents\Model\AgentStagedChange;
 use CommerceAgents\Service\Merchant\ReviewReplyApplier;
 use CommerceAgents\StagedChange\StagedChangeData;
 use Thelia\Test\IntegrationTestCase;
@@ -21,10 +23,33 @@ final class ReviewReplyApplierTest extends IntegrationTestCase
         $this->applier = new ReviewReplyApplier();
     }
 
-    private function change(int $commentId, array $after): StagedChangeData
+    /**
+     * apply() persists AgentReviewReply.staged_change_id as a real foreign
+     * key: the id must reference an actual agent_staged_change row (auto-increment
+     * values are never rolled back between tests, so a hardcoded id is not safe here).
+     */
+    private function stageReviewReplyChange(int $commentId): AgentStagedChange
+    {
+        $conversation = (new AgentConversation())->setType('merchant');
+        $conversation->save();
+
+        $stagedChange = (new AgentStagedChange())
+            ->setConversationId($conversation->getId())
+            ->setAdminId(1)
+            ->setTargetType('review_reply')
+            ->setTargetId($commentId)
+            ->setPayloadBefore('{}')
+            ->setPayloadAfter('{}')
+            ->setStatus(StagedChangeData::STATUS_PENDING);
+        $stagedChange->save();
+
+        return $stagedChange;
+    }
+
+    private function change(int $id, int $commentId, array $after): StagedChangeData
     {
         return new StagedChangeData(
-            id: 1,
+            id: $id,
             targetType: 'review_reply',
             targetId: $commentId,
             payloadBefore: [],
@@ -54,30 +79,34 @@ final class ReviewReplyApplierTest extends IntegrationTestCase
     public function testApplyCreatesTheReviewReplyRow(): void
     {
         $comment = $this->productReview();
+        $stagedChange = $this->stageReviewReplyChange($comment->getId());
 
-        $this->applier->apply($this->change($comment->getId(), ['reply' => 'Merci pour votre retour !']));
+        $this->applier->apply($this->change($stagedChange->getId(), $comment->getId(), ['reply' => 'Merci pour votre retour !']));
 
         $reply = AgentReviewReplyQuery::create()->filterByCommentId($comment->getId())->findOne();
         $this->assertNotNull($reply);
         $this->assertSame('Merci pour votre retour !', $reply->getContent());
+        $this->assertSame($stagedChange->getId(), $reply->getStagedChangeId());
     }
 
     public function testApplyRefusesWhenReviewNoLongerExists(): void
     {
         $this->expectException(\RuntimeException::class);
 
-        $this->applier->apply($this->change(999999999, ['reply' => 'Merci !']));
+        $this->applier->apply($this->change(1, 999999999, ['reply' => 'Merci !']));
     }
 
     public function testApplyRefusesWhenAlreadyReplied(): void
     {
         $comment = $this->productReview();
-        $this->applier->apply($this->change($comment->getId(), ['reply' => 'First reply']));
+        $firstChange = $this->stageReviewReplyChange($comment->getId());
+        $this->applier->apply($this->change($firstChange->getId(), $comment->getId(), ['reply' => 'First reply']));
 
+        $secondChange = $this->stageReviewReplyChange($comment->getId());
         $this->expectException(\RuntimeException::class);
 
         try {
-            $this->applier->apply($this->change($comment->getId(), ['reply' => 'Second reply']));
+            $this->applier->apply($this->change($secondChange->getId(), $comment->getId(), ['reply' => 'Second reply']));
         } finally {
             $this->assertSame(1, AgentReviewReplyQuery::create()->filterByCommentId($comment->getId())->count(), 'No duplicate reply must be created');
         }
@@ -89,6 +118,6 @@ final class ReviewReplyApplierTest extends IntegrationTestCase
 
         $this->expectException(\RuntimeException::class);
 
-        $this->applier->apply($this->change($comment->getId(), ['reply' => '   ']));
+        $this->applier->apply($this->change(1, $comment->getId(), ['reply' => '   ']));
     }
 }

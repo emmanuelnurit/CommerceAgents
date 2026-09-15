@@ -20,16 +20,24 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
     }
 
     /**
-     * @return array[] raw rows for the approval console, newest first
+     * @return array[] raw rows for the approval console, newest first, optionally
+     *                 scoped to one agent (MYO-324 §4) so an agent-specific page can reuse it
      */
-    public function findRecent(int $limit = 50): array
+    public function findRecent(int $limit = 50, ?int $agentDefinitionId = null): array
     {
+        $query = AgentStagedChangeQuery::create()->orderById(Criteria::DESC);
+        if ($agentDefinitionId !== null) {
+            $query->filterByAgentDefinitionId($agentDefinitionId);
+        }
+
         $rows = [];
-        foreach (AgentStagedChangeQuery::create()->orderById(Criteria::DESC)->limit($limit)->find() as $model) {
+        foreach ($query->limit($limit)->find() as $model) {
             $rows[] = [
                 'id' => $model->getId(),
                 'targetType' => $model->getTargetType(),
                 'targetId' => $model->getTargetId(),
+                'agentDefinitionId' => $model->getAgentDefinitionId(),
+                'agentTitle' => $model->getAgentDefinition()?->getTitle(),
                 'payloadBefore' => json_decode((string) $model->getPayloadBefore(), true) ?? [],
                 'payloadAfter' => json_decode((string) $model->getPayloadAfter(), true) ?? [],
                 'status' => $model->getStatus(),
@@ -41,6 +49,21 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
         }
 
         return $rows;
+    }
+
+    /**
+     * Overwrites the "after" payload of a still-pending change (MYO-324 §2): lets
+     * the merchant amend an agent's draft (e.g. a review reply text) before
+     * approving it, without changing StagedChangeManager's approve contract.
+     */
+    public function updatePayloadAfter(int $id, array $payloadAfter): void
+    {
+        $model = AgentStagedChangeQuery::create()->findPk($id);
+        if ($model === null) {
+            return;
+        }
+
+        $model->setPayloadAfter(json_encode($payloadAfter, \JSON_THROW_ON_ERROR))->save();
     }
 
     /**

@@ -6,7 +6,9 @@ namespace CommerceAgents\Controller\Admin;
 
 use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
 use CommerceAgents\Service\Merchant\TheliaStagedChangeRepository;
+use CommerceAgents\StagedChange\StagedChangeData;
 use CommerceAgents\StagedChange\StagedChangeManager;
+use CommerceAgents\Tool\Admin\Gateway\ReviewsGatewayInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,6 +45,7 @@ final readonly class StagedChangesController
         private SecurityContext $securityContext,
         private TheliaStagedChangeRepository $repository,
         private StagedChangeManager $manager,
+        private ReviewsGatewayInterface $reviewsGateway,
         private CsrfTokenManagerInterface $csrfTokenManager,
         private UrlGeneratorInterface $urlGenerator,
         private Environment $twig,
@@ -51,17 +54,44 @@ final readonly class StagedChangesController
     }
 
     #[Route('/admin/merchant-agent/changes', name: 'commerceagents_changes', methods: ['GET'])]
-    public function list(): Response
+    public function list(Request $request): Response
     {
         if ($denied = $this->access->check([], 'commerceagents', AccessManager::VIEW)) {
             return $denied;
         }
 
+        $agentId = $request->query->get('agentId');
+        $agentDefinitionId = \is_numeric($agentId) ? (int) $agentId : null;
+
+        $changes = array_map(
+            fn (array $row): array => $this->decorate($row),
+            $this->repository->findRecent(50, $agentDefinitionId),
+        );
+
         return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/merchant-chat/changes.html.twig', [
-            'changes' => $this->repository->findRecent(50),
+            'changes' => $changes,
+            'agentId' => $agentDefinitionId,
             'canApprove' => $this->securityContext->isGranted(['ADMIN'], [], ['commerceagents'], [AccessManager::UPDATE]),
             'csrfToken' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
         ]));
+    }
+
+    /**
+     * Adds the read model the template needs for a typed, human-readable
+     * rendering (MYO-324 §1): the original customer review for `review_reply`
+     * proposals, fetched live so it reflects the review as it stands today.
+     *
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function decorate(array $row): array
+    {
+        if ($row['targetType'] === 'review_reply') {
+            $row['review'] = $this->reviewsGateway->findReview($row['targetId']);
+        }
+
+        return $row;
     }
 
     /**
@@ -115,6 +145,24 @@ final readonly class StagedChangesController
         $nativeResource = $change !== null ? (self::NATIVE_RESOURCE_BY_TARGET_TYPE[$change->targetType] ?? null) : null;
         if ($nativeResource !== null && ($denied = $this->access->check([$nativeResource], [], AccessManager::UPDATE))) {
             return $denied;
+        }
+
+        // Lets the merchant amend the agent's draft reply before approving it
+        // (MYO-324 §2). Scoped to review_reply so pse_price/pse_stock approval
+        // never touches StagedChangeManager's existing contract.
+        if ($approve && $change !== null && $change->targetType === 'review_reply' && $change->status === StagedChangeData::STATUS_PENDING && $request->request->has('reply_content')) {
+            $editedReply = trim((string) $request->request->get('reply_content'));
+            if ($editedReply === '') {
+                if ($request->isXmlHttpRequest()) {
+                    return new JsonResponse(['success' => false, 'reason' => 'empty_reply', 'message' => 'Reply text is required'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                return new RedirectResponse($this->urlGenerator->generate('commerceagents_changes'));
+            }
+
+            if ($editedReply !== ($change->payloadAfter['reply'] ?? null)) {
+                $this->repository->updatePayloadAfter($id, ['reply' => $editedReply]);
+            }
         }
 
         $adminId = (int) $this->securityContext->getAdminUser()->getId();

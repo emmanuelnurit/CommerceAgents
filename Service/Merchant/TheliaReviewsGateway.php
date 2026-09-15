@@ -61,12 +61,7 @@ final readonly class TheliaReviewsGateway implements ReviewsGatewayInterface
             return null;
         }
 
-        return [
-            'id' => $comment->getId(),
-            'productTitle' => $this->productTitle($comment, 'fr_FR'),
-            'rating' => $comment->getRating(),
-            'content' => $comment->getContent(),
-        ];
+        return $this->toArray($comment, 'fr_FR');
     }
 
     /**
@@ -91,12 +86,5 @@ final readonly class TheliaReviewsGateway implements ReviewsGatewayInterface
             'createdAt' => $createdAt instanceof \DateTimeInterface ? $createdAt->format('Y-m-d') : null,
             'hasReply' => AgentReviewReplyQuery::create()->filterByCommentId($comment->getId())->exists(),
         ];
-    }
-
-    private function productTitle(Comment $comment, string $locale): ?string
-    {
-        $product = $comment->getRefId() !== null ? ProductQuery::create()->findPk($comment->getRefId()) : null;
-
-        return $product?->setLocale($comment->getLocale() ?? $locale)->getTitle();
     }
 }

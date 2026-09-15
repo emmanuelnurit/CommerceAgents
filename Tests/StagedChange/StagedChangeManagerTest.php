@@ -24,6 +24,11 @@ class FakeStagedChangeRepository implements StagedChangeRepositoryInterface
         return $this->changes[$id] ?? null;
     }
 
+    public function updatePayloadAfter(int $id, array $payloadAfter): void
+    {
+        $this->calls[] = ['updatePayloadAfter', $id, $payloadAfter];
+    }
+
     public function markApplied(int $id, int $approvedBy): void
     {
         $this->calls[] = ['markApplied', $id, $approvedBy];

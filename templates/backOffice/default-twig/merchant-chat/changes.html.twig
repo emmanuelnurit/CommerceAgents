@@ -17,6 +17,13 @@
     <div class="container-fluid" data-testid="changes-page">
         <h1 class="h3 mb-3">{{ 'Proposed changes'|trans({}, 'commerceagents') }}</h1>
 
+        {% if agentId %}
+            <div class="alert alert-secondary d-flex justify-content-between align-items-center" data-testid="changes-agent-filter">
+                <span>{{ 'Showing proposals from one agent only.'|trans({}, 'commerceagents') }}</span>
+                <a href="{{ path('commerceagents_changes') }}" class="btn btn-sm btn-outline-secondary">{{ 'Show all agents'|trans({}, 'commerceagents') }}</a>
+            </div>
+        {% endif %}
+
         {% if changes is empty %}
             <div class="alert alert-info">{{ 'No proposal yet. The Merchant Agent records its price and stock proposals here.'|trans({}, 'commerceagents') }}</div>
         {% else %}
@@ -35,7 +42,8 @@
                 </thead>
                 <tbody>
                     {% for change in changes %}
-                        <tr data-change-id="{{ change.id }}">
+                        {% set canEditThisChange = change.status == 'pending' and canApprove %}
+                        <tr data-change-id="{{ change.id }}" data-target-type="{{ change.targetType }}">
                             <td>{{ change.id }}</td>
                             <td>{{ change.createdAt }}</td>
                             <td>
@@ -43,16 +51,67 @@
                                     <span class="badge text-bg-secondary">{{ 'Price'|trans({}, 'commerceagents') }}</span>
                                 {% elseif change.targetType == 'pse_stock' %}
                                     <span class="badge text-bg-secondary">{{ 'Stock'|trans({}, 'commerceagents') }}</span>
+                                {% elseif change.targetType == 'review_reply' %}
+                                    <span class="badge text-bg-secondary">{{ 'Review reply'|trans({}, 'commerceagents') }}</span>
                                 {% else %}
                                     <span class="badge text-bg-secondary">{{ change.targetType }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                PSE #{{ change.targetId }}
-                                {% if change.payloadBefore.pseRef is defined %}<br><small class="text-muted">{{ change.payloadBefore.pseRef }}</small>{% endif %}
+                                {% if change.targetType == 'pse_price' or change.targetType == 'pse_stock' %}
+                                    PSE #{{ change.targetId }}
+                                    {% if change.payloadBefore.pseRef is defined %}<br><small class="text-muted">{{ change.payloadBefore.pseRef }}</small>{% endif %}
+                                {% elseif change.targetType == 'review_reply' %}
+                                    {% if change.review %}
+                                        {{ change.review.productTitle ?? 'Review #%id%'|trans({'%id%': change.targetId}, 'commerceagents') }}
+                                        <br><small class="text-muted">{{ 'By %author%'|trans({'%author%': change.review.author}, 'commerceagents') }}</small>
+                                    {% else %}
+                                        <span class="text-muted">{{ 'Review #%id% (deleted)'|trans({'%id%': change.targetId}, 'commerceagents') }}</span>
+                                    {% endif %}
+                                    {% if change.agentTitle %}<br><small class="text-muted">{{ 'Proposed by %agent%'|trans({'%agent%': change.agentTitle}, 'commerceagents') }}</small>{% endif %}
+                                {% else %}
+                                    {{ 'Item #%id%'|trans({'%id%': change.targetId}, 'commerceagents') }}
+                                {% endif %}
                             </td>
-                            <td><code>{{ change.payloadBefore|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
-                            <td><code>{{ change.payloadAfter|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
+                            <td>
+                                {% if change.targetType == 'pse_price' %}
+                                    {{ change.payloadBefore.price|default('?')|number_format(2, ',', ' ') }} €
+                                    {% if change.payloadBefore.promo|default(false) %}<br><small class="text-muted">{{ 'Promo: %price%'|trans({'%price%': change.payloadBefore.promoPrice|default('?')|number_format(2, ',', ' ') ~ ' €'}, 'commerceagents') }}</small>{% endif %}
+                                {% elseif change.targetType == 'pse_stock' %}
+                                    {{ change.payloadBefore.quantity|default('?') }}
+                                {% elseif change.targetType == 'review_reply' %}
+                                    {% if change.review %}
+                                        <div class="mb-1" aria-label="{{ 'Rating: %rating%/5'|trans({'%rating%': change.review.rating|default('?')}, 'commerceagents') }}">
+                                            {% for i in 1..5 %}<i class="bi {{ i <= change.review.rating|default(0) ? 'bi-star-fill text-warning' : 'bi-star text-muted' }}" aria-hidden="true"></i>{% endfor %}
+                                            <span class="text-muted">({{ change.review.rating|default('?') }}/5)</span>
+                                        </div>
+                                        {% if change.review.createdAt|default(null) %}<div class="small text-muted mb-1">{{ change.review.createdAt }}</div>{% endif %}
+                                        <p class="mb-0">{{ change.review.content|default('') }}</p>
+                                    {% else %}
+                                        <span class="text-muted fst-italic">{{ 'This review no longer exists.'|trans({}, 'commerceagents') }}</span>
+                                        {% if change.payloadBefore.content is defined %}<p class="mb-0 mt-1">{{ change.payloadBefore.content }}</p>{% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <code>{{ change.payloadBefore|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if change.targetType == 'pse_price' %}
+                                    {{ change.payloadAfter.price|default('?')|number_format(2, ',', ' ') }} €
+                                    {% if change.payloadAfter.promo|default(false) %}<br><small class="text-muted">{{ 'Promo: %price%'|trans({'%price%': change.payloadAfter.promoPrice|default('?')|number_format(2, ',', ' ') ~ ' €'}, 'commerceagents') }}</small>{% endif %}
+                                {% elseif change.targetType == 'pse_stock' %}
+                                    {{ change.payloadAfter.quantity|default('?') }}
+                                {% elseif change.targetType == 'review_reply' %}
+                                    <label class="visually-hidden" for="reply-content-{{ change.id }}">{{ 'Proposed reply'|trans({}, 'commerceagents') }}</label>
+                                    {% if canEditThisChange %}
+                                        <textarea id="reply-content-{{ change.id }}" name="reply_content" form="approve-form-{{ change.id }}" class="form-control form-control-sm" rows="4">{{ change.payloadAfter.reply|default('') }}</textarea>
+                                    {% else %}
+                                        <p class="mb-0">{{ change.payloadAfter.reply|default('') }}</p>
+                                    {% endif %}
+                                {% else %}
+                                    <code>{{ change.payloadAfter|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if change.status == 'pending' %}
                                     <span class="badge text-bg-warning">{{ 'Pending'|trans({}, 'commerceagents') }}</span>
@@ -66,8 +125,8 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if change.status == 'pending' and canApprove %}
-                                    <form method="post" action="{{ path('commerceagents_change_approve', {id: change.id}) }}" class="d-inline">
+                                {% if canEditThisChange %}
+                                    <form id="approve-form-{{ change.id }}" method="post" action="{{ path('commerceagents_change_approve', {id: change.id}) }}" class="d-inline">
                                         <input type="hidden" name="_token" value="{{ csrfToken }}">
                                         <button type="submit" class="btn btn-sm btn-success">{{ 'Approve'|trans({}, 'commerceagents') }}</button>
                                     </form>

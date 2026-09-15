@@ -15,7 +15,8 @@ interface ReviewsGatewayInterface
     public function getProductReviews(bool $onlyWithoutReply, int $limit, ToolContext $ctx): array;
 
     /**
-     * @return array{id: int, productTitle: ?string, rating: ?int, content: ?string}|null
+     * @return array{id: int, productRef: ?string, productTitle: ?string, rating: ?int,
+     *               title: ?string, content: ?string, author: string, createdAt: ?string, hasReply: bool}|null
      */
     public function findReview(int $commentId): ?array;
 }
