@@ -795,6 +795,11 @@ body.caw-body-locked {
     cursor: default;
 }
 
+#commerce-agents-widget .caw-btn-compact {
+    padding: 0.3125rem 0.625rem;
+    font-size: 0.75rem;
+}
+
 /* -------------------------------------------------------------------- cart */
 
 #commerce-agents-widget .caw-cart-block {
@@ -953,6 +958,12 @@ body.caw-body-locked {
     margin: 0 0 0.625rem;
     color: var(--caw-muted);
     font-size: 0.8125rem;
+}
+
+#commerce-agents-widget .caw-account-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 #commerce-agents-widget .caw-link {

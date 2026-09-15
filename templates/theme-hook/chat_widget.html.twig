@@ -431,9 +431,10 @@
 
                         <template x-if="!account.loggedIn">
                             <div class="caw-account-anonymous">
-                                <p class="caw-card-hint">{{ i18n.accountHint }}</p>
-                                <a class="caw-btn caw-btn-primary caw-btn-block" x-bind:href="account.registerUrl" x-text="i18n.createAccount"></a>
-                                <a class="caw-btn caw-btn-ghost caw-btn-block" x-bind:href="account.loginUrl" x-text="i18n.login"></a>
+                                <div class="caw-account-actions">
+                                    <a class="caw-btn caw-btn-ghost caw-btn-compact" x-bind:href="account.registerUrl" x-text="i18n.createAccount"></a>
+                                    <a class="caw-btn caw-btn-ghost caw-btn-compact" x-bind:href="account.loginUrl" x-text="i18n.login"></a>
+                                </div>
                             </div>
                         </template>
                     </section>
