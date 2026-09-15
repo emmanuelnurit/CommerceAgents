@@ -1,0 +1,47 @@
+{% if proposals|length > 0 %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0">{{ 'Proposals to validate'|trans({}, 'commerceagents') }}</h2>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ path('commerceagents_changes', {agentId: agentId}) }}">
+            <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>{{ 'Open the proposals console'|trans({}, 'commerceagents') }}
+        </a>
+    </div>
+
+    {% if totalCount > maxProposals %}
+        <p class="small text-muted" data-testid="agent-results-stock-capped">
+            {{ 'Showing the %shown% most recent proposals out of %total%.'|trans({'%shown%': maxProposals, '%total%': totalCount}, 'commerceagents') }}
+        </p>
+    {% endif %}
+
+    <div class="list-group" data-testid="agent-results-stock-watch-restock">
+        {% for proposal in proposals %}
+            <div class="list-group-item" data-testid="agent-results-proposal-{{ proposal.id }}">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <span class="small text-muted">{{ proposal.createdAt ? proposal.createdAt|relative_time : '—' }}</span>
+                    {% if proposal.status == 'pending' %}
+                        <span class="badge text-bg-warning">{{ 'Pending'|trans({}, 'commerceagents') }}</span>
+                    {% elseif proposal.status == 'applied' %}
+                        <span class="badge text-bg-success">{{ 'Applied'|trans({}, 'commerceagents') }}</span>
+                    {% elseif proposal.status == 'rejected' %}
+                        <span class="badge text-bg-secondary">{{ 'Rejected'|trans({}, 'commerceagents') }}</span>
+                    {% else %}
+                        <span class="badge text-bg-danger">{{ 'Failed'|trans({}, 'commerceagents') }}</span>
+                    {% endif %}
+                </div>
+                <div>
+                    <strong>{{ proposal.pseRef ?? ('PSE #' ~ proposal.pseId) }}</strong>
+                    <span class="text-muted">
+                        {{ '%before% → %after%'|trans({
+                            '%before%': proposal.quantityBefore ?? '?',
+                            '%after%': proposal.quantityAfter ?? '?',
+                        }, 'commerceagents') }}
+                    </span>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-light border mb-0" data-testid="agent-results-stock-watch-restock-empty">
+        <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
+        {{ 'No proposal for this agent yet.'|trans({}, 'commerceagents') }}
+    </div>
+{% endif %}

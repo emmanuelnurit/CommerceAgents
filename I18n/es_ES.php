@@ -407,4 +407,8 @@ return [
     'Not tracked' => 'Sin seguimiento',
     'No report in the last 30 days.' => 'No hay informes en los últimos 30 días.',
     'This agent has never run yet.' => 'Este agente todavía no se ha ejecutado.',
+    'Proposals to validate' => 'Propuestas por validar',
+    'Open the proposals console' => 'Abrir la consola de propuestas',
+    'Showing the %shown% most recent proposals out of %total%.' => 'Mostrando las %shown% propuestas más recientes de %total%.',
+    'No proposal for this agent yet.' => 'Todavía no hay propuestas para este agente.',
 ];

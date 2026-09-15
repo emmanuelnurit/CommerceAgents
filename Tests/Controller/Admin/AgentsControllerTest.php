@@ -232,10 +232,12 @@ final class AgentsControllerTest extends WebIntegrationTestCase
     }
 
     /**
-     * MYO-328: a recognized preset_code resolves to its own specialty pane
-     * (a stub for this lot) instead of falling through to the generic one.
+     * MYO-328 lot 0 resolved a recognized preset_code to its own specialty
+     * pane, still a stub back then. MYO-336/MYO-338 (lot 2) replaced that
+     * stub with the real "Propositions à valider" pane -- assert its own
+     * empty state now renders instead.
      */
-    public function testShowPageOfAStockWatchAgentRendersItsSpecialtyResultsStub(): void
+    public function testShowPageOfAStockWatchAgentRendersItsSpecialtyResultsPane(): void
     {
         $agent = $this->createAgentDefinition();
         $agent->setPresetCode(AgentPresets::STOCK_WATCH_RESTOCK)->save($this->getPropelConnection());
@@ -243,7 +245,40 @@ final class AgentsControllerTest extends WebIntegrationTestCase
         $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
 
         $html = (string) $this->client->getResponse()->getContent();
-        self::assertStringContainsString('data-testid="agent-results-stub"', $html);
+        self::assertStringContainsString('data-testid="agent-results-stock-watch-restock-empty"', $html);
+    }
+
+    /**
+     * MYO-336/MYO-338: a real proposal for the current agent renders its
+     * quantity change and a link to the approval console -- through the real
+     * Twig template and DI container, not just SpecialtyPane unit coverage.
+     */
+    public function testShowPageOfAStockWatchAgentWithAProposalRendersItsQuantityChange(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $agent->setPresetCode(AgentPresets::STOCK_WATCH_RESTOCK)->save($this->getPropelConnection());
+
+        $conversation = (new \CommerceAgents\Model\AgentConversation())->setType('merchant');
+        $conversation->save($this->getPropelConnection());
+        $change = new \CommerceAgents\Model\AgentStagedChange();
+        $change
+            ->setConversationId($conversation->getId())
+            ->setAgentDefinitionId($agent->getId())
+            ->setAdminId(1)
+            ->setTargetType('pse_stock')
+            ->setTargetId(1)
+            ->setPayloadBefore(json_encode(['pseRef' => 'SKU-42', 'quantity' => 2], \JSON_THROW_ON_ERROR))
+            ->setPayloadAfter(json_encode(['quantity' => 30], \JSON_THROW_ON_ERROR))
+            ->setStatus(\CommerceAgents\StagedChange\StagedChangeData::STATUS_PENDING)
+            ->save($this->getPropelConnection());
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString(\sprintf('data-testid="agent-results-proposal-%d"', $change->getId()), $html);
+        self::assertStringContainsString('SKU-42', $html);
+        self::assertStringNotContainsString('data-testid="agent-results-stub"', $html);
+        self::assertStringContainsString(\sprintf('/admin/merchant-agent/changes?agentId=%d', $agent->getId()), $html);
     }
 
     /**
@@ -271,6 +306,53 @@ final class AgentsControllerTest extends WebIntegrationTestCase
         self::assertStringContainsString('data-testid="agent-recent-runs"', $html);
         self::assertStringContainsString('data-testid="agent-proposals-callout"', $html);
         self::assertStringContainsString(\sprintf('/admin/merchant-agent/changes?agentId=%d', $agent->getId()), $html);
+    }
+
+    /**
+     * MYO-336/MYO-338: a real review-reply proposal renders the original
+     * review and the agent's draft as readable text -- through the real Twig
+     * template and DI container, never a raw json_encode dump.
+     */
+    public function testShowPageOfACustomerReviewsReplyAgentWithAProposalRendersTheReviewAndDraft(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $agent->setPresetCode(AgentPresets::CUSTOMER_REVIEWS_REPLY)->save($this->getPropelConnection());
+
+        $factory = new FixtureFactory($this->getPropelConnection());
+        $product = $factory->product($factory->category(), $factory->taxRule(), $factory->currency());
+        $comment = new \Comment\Model\Comment();
+        $comment
+            ->setUsername('Jane')
+            ->setEmail('jane@example.com')
+            ->setRef('product')
+            ->setRefId($product->getId())
+            ->setContent('Great product, fast delivery!')
+            ->setRating(4)
+            ->setStatus(\Comment\Model\Comment::ACCEPTED)
+            ->save($this->getPropelConnection());
+
+        $conversation = (new \CommerceAgents\Model\AgentConversation())->setType('merchant');
+        $conversation->save($this->getPropelConnection());
+        $change = new \CommerceAgents\Model\AgentStagedChange();
+        $change
+            ->setConversationId($conversation->getId())
+            ->setAgentDefinitionId($agent->getId())
+            ->setAdminId(1)
+            ->setTargetType('review_reply')
+            ->setTargetId($comment->getId())
+            ->setPayloadBefore(json_encode(['content' => $comment->getContent(), 'rating' => 4], \JSON_THROW_ON_ERROR))
+            ->setPayloadAfter(json_encode(['reply' => 'Merci pour votre retour !'], \JSON_THROW_ON_ERROR))
+            ->setStatus(\CommerceAgents\StagedChange\StagedChangeData::STATUS_PENDING)
+            ->save($this->getPropelConnection());
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString(\sprintf('data-testid="agent-results-proposal-%d"', $change->getId()), $html);
+        self::assertStringContainsString('Great product, fast delivery!', $html);
+        self::assertStringContainsString('Merci pour votre retour !', $html);
+        self::assertStringNotContainsString('data-testid="agent-results-stub"', $html);
+        self::assertStringNotContainsString('json_encode', $html);
     }
 
     public function testShowPageOfAnAgentWithNoStagedChangesPresetHasNoProposalsCallout(): void

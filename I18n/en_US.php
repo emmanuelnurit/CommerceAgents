@@ -409,4 +409,8 @@ return [
     'Not tracked' => 'Not tracked',
     'No report in the last 30 days.' => 'No report in the last 30 days.',
     'This agent has never run yet.' => 'This agent has never run yet.',
+    'Proposals to validate' => 'Proposals to validate',
+    'Open the proposals console' => 'Open the proposals console',
+    'Showing the %shown% most recent proposals out of %total%.' => 'Showing the %shown% most recent proposals out of %total%.',
+    'No proposal for this agent yet.' => 'No proposal for this agent yet.',
 ];
