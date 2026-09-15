@@ -83,6 +83,21 @@ Every write lands in `agent_staged_change` with the before/after payload and the
 
 Adding a new kind of write: one tool that stages a change, plus one `ChangeApplierInterface` implementation for its `target_type`. Both are auto-registered.
 
+## Channels
+
+A configurable agent can push a message out through `send_to_channel`, the single channel tool exposed to the model (capability `channels.send`). The channel — mail, a Mattermost/Slack webhook, or a third-party one — is picked by the agent's `agent_channel` configuration, never by the model.
+
+| `agent_channel.mode` | Behaviour |
+|---|---|
+| `draft` (default) | The message becomes a pending `agent_staged_change` (`target_type = channel_message`). Nothing leaves until an administrator approves it in **Proposed changes**; approval runs the same connector as `direct` would have. |
+| `direct` | The connector sends the message immediately. |
+
+Built-in connectors: `mail` (Thelia's mailer) and `webhook` (generic incoming-webhook POST of `{"text": "..."}`, which both Mattermost and Slack accept — no per-provider integration needed for V1).
+
+`agent_channel.settings` (webhook URLs, tokens…) is encrypted with sodium `secretbox` before it reaches the database (`ChannelSettingsEncryptor`, key derived from `kernel.secret`); `TheliaChannelGateway` decrypts it transparently when a tool or applier needs it.
+
+Registering a connector from any module: implement `Channel\ChannelConnectorInterface` under an autowired/autoconfigured service — the `commerce_agents.channel_connector` tag is applied automatically to every implementation, exactly like `ToolInterface` and `ChangeApplierInterface`, so `ChannelConnectorRegistry` picks it up with no further wiring.
+
 ## MCP server
 
 ```bash
@@ -114,7 +129,8 @@ Security model: whoever can run the command acts as the given administrator. The
 
 ```
 Agent/          AgentRuntime (LLM loop + tool calls, streaming events), LLM clients, ToolRegistry, ToolContext
-Tool/           Shopping/* and Admin/* tools; each depends on a gateway interface
+Tool/           Shopping/*, Admin/* and Channel/* tools; each depends on a gateway interface
+Channel/        ChannelConnectorInterface, registry, mail/webhook connectors
 Service/        Thelia gateways (Propel, DataAccessService, events), config, budget, cost, conversations, streaming
 StagedChange/   proposal manager, appliers, repository contract
 Mcp/            JSON-RPC framing, MCP server, stdio transport, tool catalog
@@ -143,6 +159,7 @@ Key points:
 | `agent_message` | role, content, tool calls, tokens in/out, model, cost |
 | `agent_staged_change` | conversation, admin, target type and id, before/after payloads, status, approver, error |
 | `agent_model` | provider, model id, name, prices, context window, enabled, source |
+| `agent_channel` | agent definition, connector code, encrypted settings, mode (`draft`/`direct`), enabled |
 
 ### Security
 

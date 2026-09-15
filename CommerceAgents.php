@@ -82,6 +82,9 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->instanceof(StagedChange\ChangeApplierInterface::class)
             ->tag('commerce_agents.change_applier');
 
+        $servicesConfigurator->instanceof(Channel\ChannelConnectorInterface::class)
+            ->tag('commerce_agents.channel_connector');
+
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
             ->exclude([__DIR__.'/I18n/*', __DIR__.'/Config/*', __DIR__.'/Model/*', __DIR__.'/Tests/*'])
             ->autowire(true)
@@ -105,6 +108,11 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Tool\Admin\Gateway\StagingGatewayInterface::class, Service\Merchant\TheliaStagingGateway::class);
         $servicesConfigurator->alias(StagedChange\StagedChangeRepositoryInterface::class, Service\Merchant\TheliaStagedChangeRepository::class);
         $servicesConfigurator->alias(Agent\Llm\LlmClientFactoryInterface::class, Agent\Llm\LlmClientFactory::class);
+        $servicesConfigurator->alias(Tool\Channel\Gateway\ChannelGatewayInterface::class, Service\Channel\TheliaChannelGateway::class);
+
+        $servicesConfigurator->set(Service\Channel\ChannelSettingsEncryptor::class)
+            ->autowire(true)->autoconfigure(true)
+            ->arg('$appSecret', '%kernel.secret%');
 
         // Reached from the module lifecycle (postActivation / update) through the container.
         $servicesConfigurator->set(Service\ModelCatalog::class)->autowire(true)->autoconfigure(true)->public();
