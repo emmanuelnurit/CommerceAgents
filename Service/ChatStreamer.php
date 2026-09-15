@@ -9,6 +9,8 @@ use CommerceAgents\Agent\AgentRuntime;
 use CommerceAgents\Agent\Llm\LlmConfig;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Model\AgentConversation;
+use CommerceAgents\Service\Suggestion\QuickReplySuggestionResolver;
+use CommerceAgents\Service\Suggestion\Suggestion;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final readonly class ChatStreamer
@@ -17,6 +19,7 @@ final readonly class ChatStreamer
         private ConversationService $conversationService,
         private SessionFreezer $sessionFreezer,
         private ModelCatalog $modelCatalog,
+        private QuickReplySuggestionResolver $suggestionResolver,
     ) {
     }
 
@@ -41,18 +44,22 @@ final readonly class ChatStreamer
         ToolContext $toolContext,
         LlmConfig $llmConfig,
         AgentConversation $conversation,
+        string $userMessage = '',
     ): StreamedResponse {
         $this->sessionFreezer->freeze();
         $prices = $this->modelCatalog->pricesFor($llmConfig->provider, $llmConfig->model);
         $costOf = static fn (int $tokensIn, int $tokensOut): ?float => CostCalculator::cost($prices['input'], $prices['output'], $tokensIn, $tokensOut);
 
-        $response = new StreamedResponse(function () use ($runtime, $history, $system, $toolContext, $llmConfig, $conversation, $costOf): void {
+        $response = new StreamedResponse(function () use ($runtime, $history, $system, $toolContext, $llmConfig, $conversation, $costOf, $userMessage): void {
             $assistantText = '';
             // Usage reported by the provider for the LLM call in progress; it is
             // credited to the next persisted assistant message (the runtime emits
             // it before the tool calls of the same call).
             $pendingTokensIn = 0;
             $pendingTokensOut = 0;
+            // Fed to the quick-reply resolver once the turn ends (MYO-283): the
+            // last tool call of the turn is what drives intent detection.
+            $toolCalls = [];
 
             try {
                 foreach ($runtime->runTurn($history, $system, $toolContext, $llmConfig) as $event) {
@@ -76,6 +83,7 @@ final readonly class ChatStreamer
                         $pendingTokensIn = 0;
                         $pendingTokensOut = 0;
                     } elseif ($event->type === AgentEvent::TOOL_RESULT) {
+                        $toolCalls[] = ['name' => $event->payload['name'], 'result' => $event->payload['result']];
                         $this->conversationService->appendMessage(
                             $conversation->getId(),
                             'tool',
@@ -84,7 +92,21 @@ final readonly class ChatStreamer
                         );
                     }
 
-                    $this->emit($event->type, $event->payload);
+                    if ($event->type === AgentEvent::DONE && !$toolContext->isAdmin) {
+                        // MYO-283: quick replies are a front (shopping) chat feature only —
+                        // the merchant back-office chat (MerchantChatController) never asked
+                        // for this and keeps its original bare "done" payload.
+                        $resolved = $this->suggestionResolver->resolve($toolContext, $toolCalls, $userMessage);
+                        $this->emit($event->type, [
+                            'suggestions' => array_map(
+                                static fn (Suggestion $suggestion): array => $suggestion->toArray(),
+                                $resolved['suggestions'],
+                            ),
+                            'defaultState' => $resolved['isDefaultIntent'],
+                        ]);
+                    } else {
+                        $this->emit($event->type, $event->payload);
+                    }
                 }
             } catch (\Throwable $exception) {
                 $this->emit(AgentEvent::ERROR, ['message' => 'The assistant hit an unexpected error: '.$exception->getMessage()]);

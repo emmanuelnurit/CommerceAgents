@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Service\Shopping;
 
 use CommerceAgents\Tool\Shopping\Gateway\CategoryGatewayInterface;
+use Propel\Runtime\ActiveQuery\Criteria;
 use Thelia\Model\CategoryQuery;
 use Thelia\Model\ProductCategoryQuery;
 
@@ -40,6 +41,44 @@ final class TheliaCategoryGateway implements CategoryGatewayInterface
         }
 
         return null;
+    }
+
+    public function getSiblings(int $categoryId, string $locale, int $limit): array
+    {
+        $category = CategoryQuery::create()->findPk($categoryId);
+        $parentId = $category?->getParent();
+        if ($parentId === null) {
+            return [];
+        }
+
+        $counts = self::visibleProductCounts();
+        $siblings = [];
+
+        foreach (CategoryQuery::create()
+            ->filterByParent($parentId)
+            ->filterByVisible(true)
+            ->filterById($categoryId, Criteria::NOT_EQUAL)
+            ->orderByPosition()
+            ->find() as $sibling) {
+            $count = $counts[(int) $sibling->getId()] ?? 0;
+            if ($count === 0) {
+                continue;
+            }
+
+            $sibling->setLocale($locale);
+            $siblings[] = [
+                'id' => (int) $sibling->getId(),
+                'title' => $sibling->getTitle() ?? '',
+                'url' => $sibling->getUrl($locale),
+                'productCount' => $count,
+            ];
+
+            if (\count($siblings) >= max(1, $limit)) {
+                break;
+            }
+        }
+
+        return $siblings;
     }
 
     /**

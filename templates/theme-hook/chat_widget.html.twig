@@ -213,6 +213,25 @@
 
                                         <div class="caw-message caw-assistant"
                                              x-effect="window.CommerceAgentsMarkdown.render($el, displayText(message, index))"></div>
+
+                                        {# MYO-282/283: contextual quick replies, renewed on every assistant
+                                           reply — only ever under the very last one, never a historical
+                                           message. Real <a href> for navigation, <button> for a relance
+                                           message, so "open in a new tab" keeps working natively (§4). #}
+                                        <div class="caw-quickreplies"
+                                             x-show="index === messages.length - 1 && (message.suggestions || []).length > 0"
+                                             x-bind:class="message.suggestionsDefault ? 'caw-quickreplies--default' : ''"
+                                             role="group"
+                                             aria-label="{{ i18n.quickRepliesLabel }}">
+                                            <template x-for="suggestion in (message.suggestions || [])" x-bind:key="suggestion.id">
+                                                <span class="caw-quickreply-slot">
+                                                    <a class="caw-quickreply caw-quickreply--nav" x-show="suggestion.action.type === 'navigate'"
+                                                       x-bind:href="suggestion.action.url" x-text="suggestion.label"></a>
+                                                    <button type="button" class="caw-quickreply caw-quickreply--message" x-show="suggestion.action.type === 'message'"
+                                                            x-on:click="sendQuickReply(suggestion)" x-text="suggestion.label"></button>
+                                                </span>
+                                            </template>
+                                        </div>
                                     </div>
                                 </template>
 

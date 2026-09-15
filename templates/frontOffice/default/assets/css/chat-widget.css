@@ -486,6 +486,63 @@ body.caw-body-locked {
     }
 }
 
+/* ------------------------------------------------------- quick replies (MYO-282/283) */
+
+#commerce-agents-widget .caw-quickreplies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    align-self: flex-start;
+    max-width: 80%;
+}
+
+#commerce-agents-widget .caw-quickreply-slot {
+    display: contents;
+}
+
+#commerce-agents-widget .caw-quickreply {
+    border: 1px solid var(--caw-line);
+    background: var(--caw-surface);
+    color: var(--caw-ink);
+    border-radius: 999px;
+    padding: 0.375rem 0.75rem;
+    font: inherit;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+    display: inline-block;
+}
+
+#commerce-agents-widget .caw-quickreply:hover {
+    border-color: #c9c9d2;
+    background: #f4f4f8;
+}
+
+#commerce-agents-widget .caw-quickreply:focus-visible {
+    outline: 2px solid var(--caw-strong);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #commerce-agents-widget .caw-quickreplies,
+    #commerce-agents-widget .caw-quickreply {
+        transition: none;
+        animation: none;
+    }
+}
+
+/* Anti-collision with .caw-aside (MYO-282 §1.E): on desktop the sidebar
+   already shows these exact hero prompts permanently, so the row under the
+   message would be a pure visual duplicate — hidden there, restored on
+   mobile/tablette where .caw-aside collapses into a top strip instead. */
+@media (min-width: 1024px) {
+    #commerce-agents-widget .caw-quickreplies--default {
+        display: none;
+    }
+}
+
 /* ---------------------------------------------------------------- products */
 
 #commerce-agents-widget .caw-products {

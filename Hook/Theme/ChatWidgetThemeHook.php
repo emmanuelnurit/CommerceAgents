@@ -74,7 +74,7 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
         // bridges module domains under /admin). Translate here with the Thelia
         // translator, which holds the module I18n files and the session locale.
         $locale = $this->localeResolver->forVisitor($theliaSession?->getLang()->getLocale());
-        $translate = fn (string $id): string => $this->translator->trans($id, [], 'commerceagents', $locale);
+        $translate = fn (string $id, array $parameters = []): string => $this->translator->trans($id, $parameters, 'commerceagents', $locale);
 
         $assistantName = $this->configService->getAssistantName();
 
@@ -85,6 +85,14 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
 
         $checkoutUrl = $this->urlGenerator->generate('checkout_cart');
 
+        // MYO-282 §3: the visitor's first name only ever appears at the very
+        // first opening of the panel (this hero title), and only from the
+        // profile — a blank first name keeps the existing neutral wording.
+        $firstName = trim((string) ($account['firstName'] ?? ''));
+        $helpTitle = $firstName !== ''
+            ? $translate('Hello %firstName%, how can I help you?', ['%firstName%' => $firstName])
+            : $translate('How can I help you?');
+
         return $this->twig->render('@CommerceAgentsModule/theme-hook/chat_widget.html.twig', [
             'assistantName' => $assistantName,
             'i18n' => [
@@ -93,7 +101,7 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'serviceUnavailable' => $translate('Service unavailable'),
                 'error' => $translate('Something went wrong'),
                 'completeOrder' => $translate('Complete my order'),
-                'helpTitle' => $translate('How can I help you?'),
+                'helpTitle' => $helpTitle,
                 'suggestProduct' => $translate('I am looking for a product…'),
                 'suggestCart' => $translate('What is in my cart?'),
                 'suggestShipping' => $translate('What are your shipping conditions?'),
@@ -136,6 +144,7 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'applyCoupon' => $translate('Apply'),
                 'couponApplying' => $translate('Applying…'),
                 'couponAppliedPrefix' => $translate('Code applied:'),
+                'quickRepliesLabel' => $translate('Suggestions'),
             ],
             'assetVersion' => self::assetVersion(),
             'cart' => $this->cartGateway->snapshot(),

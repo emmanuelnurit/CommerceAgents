@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Service\Shopping;
 
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Tool\Shopping\Gateway\CustomerGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\OrderGatewayInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -20,6 +21,7 @@ final readonly class AccountSummaryProvider
 
     public function __construct(
         private OrderGatewayInterface $orderGateway,
+        private CustomerGatewayInterface $customerGateway,
         private UrlGeneratorInterface $urlGenerator,
     ) {
     }
@@ -36,12 +38,15 @@ final readonly class AccountSummaryProvider
     public function forCustomer(int $customerId, string $locale): array
     {
         $ctx = new ToolContext(customerId: $customerId, locale: $locale);
+        // MYO-282 §5.2: firstName only, never a fallback to email or last name.
+        $firstName = trim((string) ($this->customerGateway->getProfile($customerId, $locale)['firstName'] ?? ''));
 
-        return [
+        return array_filter([
             'loggedIn' => true,
             'accountUrl' => $this->urlGenerator->generate('account_index'),
             'ordersUrl' => $this->urlGenerator->generate('account_orders'),
             'orders' => $this->orderGateway->getOrders($customerId, self::RECENT_ORDERS_LIMIT, $ctx),
-        ];
+            'firstName' => $firstName !== '' ? $firstName : null,
+        ], static fn (mixed $value): bool => $value !== null);
     }
 }

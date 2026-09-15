@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MYO-282 — Maquette quick replies contextuels + personnalisation prénom (chat front)</title>
+<!-- Le vrai CSS du widget front, chargé tel quel : toutes les variables --caw-*, -->
+<!-- classes .caw-chip/.caw-message/.caw-aside/.caw-proactive-* utilisées plus bas -->
+<!-- viennent de ce fichier, pas d'une réinvention. -->
+<link rel="stylesheet" href="../../templates/frontOffice/default/assets/css/chat-widget.css">
+<style>
+    :root { color-scheme: light; }
+    body {
+        margin: 0;
+        padding: 2rem 1.5rem 6rem;
+        background: #eef0f4;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #26262e;
+    }
+    .intro-banner {
+        background: #1f2937;
+        color: #fff;
+        padding: 1rem 1.5rem;
+        border-radius: 0.75rem;
+        margin: 0 0 2rem;
+        max-width: 1100px;
+    }
+    .intro-banner code { color: #ffd8cc; }
+    .intro-banner h1 { font-size: 1.05rem; margin: 0 0 .5rem; }
+    .intro-banner p { margin: .25rem 0; font-size: .875rem; line-height: 1.5; opacity: .92; }
+
+    section.demo-block { max-width: 1100px; margin: 0 auto 3rem; }
+    section.demo-block h2 { font-size: 1.15rem; margin: 0 0 .25rem; }
+    section.demo-block .demo-note { color: #4f4f5a; font-size: .875rem; margin: 0 0 1rem; max-width: 72ch; }
+
+    /* ------------------------------------------------------------------ */
+    /* Cadre de démonstration : le vrai .caw-shell est position:fixed pour */
+    /* l'overlay en production — ici on le remet en flux normal pour       */
+    /* juxtaposer plusieurs scénarios sur une seule page.                  */
+    /* ------------------------------------------------------------------ */
+    .demo-frame#commerce-agents-widget { position: static; display: block; }
+    .demo-frame .caw-shell {
+        position: static;
+        inset: auto;
+        margin: 0;
+        width: 100%;
+        max-width: 980px;
+        height: 620px;
+    }
+    .demo-frame.is-mobile .caw-shell {
+        max-width: 375px;
+        height: 640px;
+    }
+    .demo-frame .caw-backdrop { display: none; }
+
+    /* ============================================================== */
+    /* NOUVEAU (proposé) : ligne de quick-replies contextuels.          */
+    /* S'appuie sur les tokens existants, ajoute uniquement la          */
+    /* géométrie + un focus-visible dédié (aucun ne préexistait).       */
+    /* ============================================================== */
+    #commerce-agents-widget .caw-quickreplies {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem;
+        margin-top: 0.125rem;
+    }
+    /* Le rang est décalé sous le message assistant, jamais accolé à la   */
+    /* carte proactive (règle CEO #5 : la proactive garde la priorité).   */
+    #commerce-agents-widget .caw-reply .caw-quickreplies { margin-left: 0; }
+
+    #commerce-agents-widget .caw-quickreply {
+        border: 1px solid var(--caw-line);
+        background: var(--caw-surface);
+        color: var(--caw-ink);
+        border-radius: 999px;
+        padding: 0.375rem 0.75rem;
+        font: inherit;
+        font-size: 0.8125rem;
+        cursor: pointer;
+        text-align: left;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3125rem;
+        line-height: 1.3;
+    }
+    #commerce-agents-widget .caw-quickreply:hover {
+        border-color: #c9c9d2;
+        background: #f4f4f8;
+    }
+    /* Focus clavier dédié : rien de tel n'existe aujourd'hui sur .caw-chip, */
+    /* on ne le change pas ailleurs — nouveauté strictement scopée ici.      */
+    #commerce-agents-widget .caw-quickreply:focus-visible {
+        outline: 2px solid var(--caw-strong);
+        outline-offset: 2px;
+    }
+    #commerce-agents-widget .caw-quickreply--nav::after {
+        content: "→";
+        opacity: .55;
+        font-size: .75em;
+    }
+    #commerce-agents-widget .caw-quickreply--message::before {
+        content: "💬";
+        font-size: .8em;
+    }
+    /* État chargement : squelette, jamais de texte qui saute une fois résolu */
+    #commerce-agents-widget .caw-quickreply-skeleton {
+        width: 6.5rem;
+        height: 1.875rem;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #ececf1 25%, #f6f6fa 37%, #ececf1 63%);
+        background-size: 400% 100%;
+        animation: caw-qr-loading 1.4s ease infinite;
+    }
+    @keyframes caw-qr-loading { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+    @media (prefers-reduced-motion: reduce) {
+        #commerce-agents-widget .caw-quickreply-skeleton { animation: none; }
+    }
+
+    /* Annotation callouts utilisés uniquement dans cette maquette (pas dans le widget) */
+    .annot {
+        position: relative;
+        display: inline-block;
+    }
+    .callout {
+        margin-top: .5rem;
+        padding: .5rem .75rem;
+        background: #fff7e6;
+        border: 1px solid #f0c869;
+        border-radius: .5rem;
+        font-size: .8125rem;
+        color: #6b4c00;
+        max-width: 46ch;
+    }
+    .state-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+    .state-buttons button {
+        border: 1px solid #c9c9d2; background: #fff; border-radius: .5rem;
+        padding: .4rem .75rem; font-size: .8125rem; cursor: pointer;
+    }
+    .state-buttons button[aria-pressed="true"] { background: #282828; color: #fff; border-color: #282828; }
+
+    table.ref-table { border-collapse: collapse; width: 100%; max-width: 1100px; background: #fff; font-size: .8125rem; }
+    table.ref-table th, table.ref-table td { border: 1px solid #e2e4ea; padding: .5rem .625rem; text-align: left; vertical-align: top; }
+    table.ref-table th { background: #f4f4f8; }
+    table.ref-table code { font-size: .75rem; }
+</style>
+</head>
+<body>
+
+<div class="intro-banner">
+    <h1>Maquette statique — MYO-282</h1>
+    <p>Fichier HTML autonome, charge le <strong>vrai</strong> <code>chat-widget.css</code> du module (variables <code>--caw-*</code>, classes <code>.caw-chip</code>, <code>.caw-message</code>, <code>.caw-aside</code>, <code>.caw-proactive-*</code> inchangées). Les seules classes nouvelles sont préfixées <code>.caw-quickreply</code> — tout le reste est de la réutilisation à l'identique.</p>
+    <p>Aucun endpoint réel n'est appelé : conversations et suggestions sont figées en dur pour illustrer les 3 exemples du board. Voir le document <code>ux-spec-quick-replies-prenom</code> de l'issue MYO-282 pour la taxonomie complète, le contrat de données et les clés i18n.</p>
+</div>
+
+<!-- ============================================================= -->
+<!-- Scénario 1 — Catalogue : "chaises" (desktop, panneau ouvert)   -->
+<!-- ============================================================= -->
+<section class="demo-block">
+    <h2>Scénario 1 — Catalogue/produit : « chaises »</h2>
+    <p class="demo-note">Le client demande des chaises. La réponse de l'assistant se termine par une ligne de suggestions contextuelles, sous le dernier message — distincte de la carte « Keep going » toujours affichée dans la colonne de droite (pas de doublon : le contenu diffère).</p>
+
+    <div class="demo-frame" id="commerce-agents-widget">
+        <div class="caw-shell">
+            <div class="caw-shell-frame">
+                <div class="caw-shell-inner">
+                    <div class="caw-main">
+                        <header class="caw-header">
+                            <span class="caw-avatar" aria-hidden="true">✦</span>
+                            <span class="caw-header-titles">
+                                <strong>Assistant boutique</strong>
+                                <small>Assistant d'achat propulsé par l'IA</small>
+                            </span>
+                            <button type="button" class="caw-icon-button" title="Nouvelle conversation" aria-label="Nouvelle conversation">↺</button>
+                            <button type="button" class="caw-icon-button" title="Fermer" aria-label="Fermer">✕</button>
+                        </header>
+                        <div class="caw-spacer"></div>
+                        <div class="caw-messages">
+                            <div class="caw-row">
+                                <p class="caw-message caw-user">Vous avez des chaises ?</p>
+                            </div>
+                            <div class="caw-row">
+                                <div class="caw-reply">
+                                    <div class="caw-message caw-assistant">
+                                        Voici deux modèles de chaises disponibles en stock. Vous voulez que je filtre par couleur ?
+                                    </div>
+                                    <!-- Ligne de quick-replies : NOUVEAU, sous le dernier message assistant uniquement -->
+                                    <div class="caw-quickreplies" role="group" aria-label="Suggestions">
+                                        <a class="caw-quickreply caw-quickreply--nav" href="#categorie-tabourets">Voir aussi les tabourets</a>
+                                        <button type="button" class="caw-quickreply caw-quickreply--message">La sélection de chaises orange</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <form class="caw-composer">
+                            <div class="caw-glow caw-glow-composer">
+                                <div class="caw-composer-inner">
+                                    <input type="text" placeholder="Demandez-moi un produit, votre panier, une livraison…" aria-label="Demandez-moi un produit, votre panier, une livraison…">
+                                    <button type="submit" aria-label="Envoyer">➤</button>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="caw-spacer caw-spacer-bottom"></div>
+                    </div>
+                    <aside class="caw-aside">
+                        <section class="caw-card">
+                            <h3 class="caw-card-title">Continuer</h3>
+                            <div class="caw-chips">
+                                <button type="button" class="caw-chip">Je cherche un produit…</button>
+                                <button type="button" class="caw-chip">Qu'y a-t-il dans mon panier ?</button>
+                                <button type="button" class="caw-chip">Quelles sont vos conditions de livraison ?</button>
+                            </div>
+                        </section>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="callout">
+        <strong>Pourquoi ces deux suggestions et pas trois :</strong> « Voir aussi les tabourets » n'apparaît que parce qu'une catégorie sœur réelle et visible existe (même catégorie parente). Le 3<sup>e</sup> emplacement (produit complémentaire) est vide ici car aucun accessoire réel n'a été renvoyé par <code>get_product_details</code> — on n'invente pas un troisième bouton pour « faire plein ».
+    </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- Scénario 2 — Compte & commandes, prénom au premier message      -->
+<!-- ============================================================= -->
+<section class="demo-block">
+    <h2>Scénario 2 — Compte &amp; commandes + accueil personnalisé</h2>
+    <p class="demo-note">Claire est connectée. L'accueil du panneau (avant tout message) reprend son prénom une seule fois. Elle demande à modifier son adresse : les 3 suggestions « compte » apparaissent, toutes vers des routes réellement exposées aujourd'hui par le widget.</p>
+
+    <div class="demo-frame" id="commerce-agents-widget">
+        <div class="caw-shell">
+            <div class="caw-shell-frame">
+                <div class="caw-shell-inner">
+                    <div class="caw-main">
+                        <header class="caw-header">
+                            <span class="caw-avatar" aria-hidden="true">✦</span>
+                            <span class="caw-header-titles">
+                                <strong>Assistant boutique</strong>
+                                <small>Assistant d'achat propulsé par l'IA</small>
+                            </span>
+                            <button type="button" class="caw-icon-button" title="Nouvelle conversation" aria-label="Nouvelle conversation">↺</button>
+                            <button type="button" class="caw-icon-button" title="Fermer" aria-label="Fermer">✕</button>
+                        </header>
+                        <div class="caw-spacer"></div>
+                        <div class="caw-messages">
+                            <div class="caw-row">
+                                <p class="caw-message caw-user">Je voudrais changer mon adresse de livraison.</p>
+                            </div>
+                            <div class="caw-row">
+                                <div class="caw-reply">
+                                    <div class="caw-message caw-assistant">
+                                        Vous pouvez modifier votre adresse directement depuis votre compte. Je vous mets les liens utiles ci-dessous.
+                                    </div>
+                                    <div class="caw-quickreplies" role="group" aria-label="Suggestions">
+                                        <a class="caw-quickreply caw-quickreply--nav" href="#compte-adresse">Modifier mon adresse</a>
+                                        <a class="caw-quickreply caw-quickreply--nav" href="#compte-commandes">Voir toutes mes commandes</a>
+                                        <a class="caw-quickreply caw-quickreply--nav" href="#compte-index">Accéder à mon compte</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <form class="caw-composer">
+                            <div class="caw-glow caw-glow-composer">
+                                <div class="caw-composer-inner">
+                                    <input type="text" placeholder="Demandez-moi un produit, votre panier, une livraison…" aria-label="Demandez-moi un produit, votre panier, une livraison…">
+                                    <button type="submit" aria-label="Envoyer">➤</button>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="caw-spacer caw-spacer-bottom"></div>
+                    </div>
+                    <aside class="caw-aside">
+                        <section class="caw-card caw-card-account">
+                            <h3 class="caw-card-title">Mon compte</h3>
+                            <div class="caw-account-connected">
+                                <a class="caw-btn caw-btn-primary caw-btn-block" href="#compte-index">Accéder à mon compte</a>
+                            </div>
+                        </section>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="callout">
+        <strong>Prénom, une fois :</strong> l'en-tête du panneau (hors capture ci-dessus, visible seulement avant le premier message — voir « Ton &amp; personnalisation » dans la spec) aurait affiché « Bonjour Claire, comment puis-je vous aider ? » à l'ouverture. Il n'est pas répété ici dans la bulle assistant.<br><br>
+        <strong>Honnêteté des libellés :</strong> « Modifier mon adresse » pointe aujourd'hui vers la même page que « Accéder à mon compte » (<code>account_index</code>) — aucune route d'édition d'adresse dédiée n'existe dans le front actuel. À confirmer/ajuster en MYO-283 (voir §5 du document de spec) plutôt que d'inventer une URL qui n'existe pas.
+    </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- Scénario 3 — Panier, confirmation avec prénom (moment clé)      -->
+<!-- ============================================================= -->
+<section class="demo-block">
+    <h2>Scénario 3 — Panier : confirmation avec prénom (moment clé, une fois par session)</h2>
+    <div class="demo-frame" id="commerce-agents-widget">
+        <div class="caw-shell">
+            <div class="caw-shell-frame">
+                <div class="caw-shell-inner">
+                    <div class="caw-main">
+                        <header class="caw-header">
+                            <span class="caw-avatar" aria-hidden="true">✦</span>
+                            <span class="caw-header-titles"><strong>Assistant boutique</strong><small>Assistant d'achat propulsé par l'IA</small></span>
+                            <button type="button" class="caw-icon-button" aria-label="Fermer">✕</button>
+                        </header>
+                        <div class="caw-spacer"></div>
+                        <div class="caw-messages">
+                            <div class="caw-row"><p class="caw-message caw-user">Ajoute la chaise Wilson noire à mon panier.</p></div>
+                            <div class="caw-row">
+                                <div class="caw-reply">
+                                    <div class="caw-message caw-assistant">C'est ajouté à votre panier, Claire !</div>
+                                    <div class="caw-quickreplies" role="group" aria-label="Suggestions">
+                                        <a class="caw-quickreply caw-quickreply--nav" href="#panier">Votre panier</a>
+                                        <a class="caw-quickreply caw-quickreply--nav" href="#checkout">Finaliser ma commande</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <form class="caw-composer">
+                            <div class="caw-glow caw-glow-composer">
+                                <div class="caw-composer-inner">
+                                    <input type="text" placeholder="Demandez-moi un produit, votre panier, une livraison…" aria-label="Demandez-moi un produit, votre panier, une livraison…">
+                                    <button type="submit" aria-label="Envoyer">➤</button>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="caw-spacer caw-spacer-bottom"></div>
+                    </div>
+                    <aside class="caw-aside">
+                        <section class="caw-card"><h3 class="caw-card-title">Continuer</h3>
+                            <div class="caw-chips"><button type="button" class="caw-chip">Je cherche un produit…</button></div>
+                        </section>
+                    </aside>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="callout">
+        <strong>Une seule fois :</strong> si Claire ajoute un 2<sup>e</sup> article plus tard dans la même session, l'assistant confirme sans reprendre son prénom (« C'est ajouté à votre panier ! ») — voir la règle de parcimonie §3 de la spec. Ce texte de confirmation est généré par l'agent (prompt système), ce n'est pas une clé i18n statique.
+    </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- États de la ligne de quick-replies                              -->
+<!-- ============================================================= -->
+<section class="demo-block">
+    <h2>États de la ligne de suggestions</h2>
+    <p class="demo-note">Défaut, survol, focus clavier (utilisez Tab), chargement, vide, débordement au-delà de 3 — même composant à chaque fois.</p>
+    <div class="demo-frame" id="commerce-agents-widget" style="max-width:640px;">
+        <div class="caw-shell" style="height:auto;">
+            <div class="caw-shell-frame" style="padding:1.25rem;">
+
+                <p style="font-size:.8125rem;color:var(--caw-muted);margin:0 0 .375rem;">Défaut / survol / focus (essayez Tab + Entrée) :</p>
+                <div class="caw-quickreplies" role="group" aria-label="Suggestions" style="margin-bottom:1.25rem;">
+                    <button type="button" class="caw-quickreply caw-quickreply--message">Voir mon panier</button>
+                    <a class="caw-quickreply caw-quickreply--nav" href="#exemple">Accéder à mon compte</a>
+                    <button type="button" class="caw-quickreply caw-quickreply--message">Quelles sont vos conditions de livraison ?</button>
+                </div>
+
+                <p style="font-size:.8125rem;color:var(--caw-muted);margin:0 0 .375rem;">Chargement (le tour n'est pas encore terminé — aucune suggestion tant que l'événement <code>done</code> n'est pas reçu) :</p>
+                <div class="caw-quickreplies" aria-hidden="true" style="margin-bottom:1.25rem;">
+                    <span class="caw-quickreply-skeleton"></span>
+                    <span class="caw-quickreply-skeleton" style="width:8.5rem;"></span>
+                </div>
+
+                <p style="font-size:.8125rem;color:var(--caw-muted);margin:0 0 .375rem;">Vide (intent par défaut sur desktop, ou aucune action réelle résolue) — rien n'est rendu, pas de conteneur vide, pas de placeholder :</p>
+                <div style="border:1px dashed #c9c9d2;border-radius:.5rem;padding:.5rem .75rem;color:var(--caw-muted);font-size:.8125rem;margin-bottom:1.25rem;">
+                    (aucun élément — le <code>&lt;div class="caw-quickreplies"&gt;</code> n'existe pas dans le DOM)
+                </div>
+
+                <p style="font-size:.8125rem;color:var(--caw-muted);margin:0 0 .375rem;">Débordement : le serveur a proposé 5 candidats, seuls 3 sont envoyés au client (jamais de scroll horizontal caché ni de « +2 » cliquable) :</p>
+                <div class="caw-quickreplies">
+                    <button type="button" class="caw-quickreply caw-quickreply--message">Voir aussi les tabourets</button>
+                    <button type="button" class="caw-quickreply caw-quickreply--message">La sélection en orange</button>
+                    <button type="button" class="caw-quickreply caw-quickreply--message">Voir aussi les tables basses</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- Mobile : aside en bande horizontale + quick-replies + proactive -->
+<!-- ============================================================= -->
+<section class="demo-block">
+    <h2>Mobile (&lt;1024px) — coexistence avec la barre de suggestions statiques et la carte proactive</h2>
+    <p class="demo-note">Sous 1024px, <code>.caw-aside</code> bascule déjà en bande horizontale scrollable au-dessus du fil (règle CSS existante, <code>chat-widget.css:1241</code>). Les quick-replies contextuels restent sous le dernier message, dans le flux vertical principal — deux zones distinctes, pas de recouvrement. La carte proactive (MYO-236/245), quand une est active, s'affiche par-dessus en <em>dock</em> flottant : rang visuel supérieur, jamais mélangée à la ligne de quick-replies.</p>
+
+    <div class="demo-frame is-mobile" id="commerce-agents-widget">
+        <div class="caw-shell">
+            <div class="caw-shell-frame">
+                <div class="caw-shell-inner" style="grid-template-columns:1fr;grid-template-rows:auto auto 1fr auto;">
+                    <aside class="caw-aside" style="order:-1;flex-direction:row;overflow-x:auto;max-height:30vh;border-left:none;border-bottom:1px solid var(--caw-line);">
+                        <section class="caw-card" style="flex:0 0 15rem;">
+                            <h3 class="caw-card-title">Continuer</h3>
+                            <div class="caw-chips">
+                                <button type="button" class="caw-chip">Je cherche un produit…</button>
+                                <button type="button" class="caw-chip">Qu'y a-t-il dans mon panier ?</button>
+                            </div>
+                        </section>
+                    </aside>
+                    <header class="caw-header">
+                        <span class="caw-avatar" aria-hidden="true">✦</span>
+                        <span class="caw-header-titles"><strong>Assistant boutique</strong></span>
+                        <button type="button" class="caw-icon-button" aria-label="Fermer">✕</button>
+                    </header>
+                    <div class="caw-messages">
+                        <div class="caw-row"><p class="caw-message caw-user">Des chaises orange ?</p></div>
+                        <div class="caw-row">
+                            <div class="caw-reply">
+                                <div class="caw-message caw-assistant">Oui, deux modèles sont disponibles en orange.</div>
+                                <div class="caw-quickreplies" role="group" aria-label="Suggestions">
+                                    <button type="button" class="caw-quickreply caw-quickreply--nav">Voir aussi les tabourets</button>
+                                    <button type="button" class="caw-quickreply caw-quickreply--message">Autres coloris disponibles</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <form class="caw-composer">
+                        <div class="caw-glow caw-glow-composer">
+                            <div class="caw-composer-inner">
+                                <input type="text" placeholder="Demandez-moi un produit…" aria-label="Demandez-moi un produit…">
+                                <button type="submit" aria-label="Envoyer">➤</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- Illustration simplifiée de la carte proactive flottante (spec détaillée = MYO-245) : -->
+        <div class="caw-proactive-card" style="position:relative;margin:.75rem auto 0;max-width:320px;">
+            <header class="caw-proactive-head">
+                <span class="caw-proactive-badge"><span class="caw-proactive-badge-icon" aria-hidden="true">✨</span>Suggestion</span>
+            </header>
+            <p class="caw-proactive-text">Il vous reste 8&nbsp;€ d'achats pour débloquer la livraison offerte.</p>
+        </div>
+    </div>
+</section>
+
+<!-- ============================================================= -->
+<!-- Tables de référence (extrait spec)                              -->
+<!-- ============================================================= -->
+<section class="demo-block">
+    <h2>Référence rapide — taxonomie d'intentions</h2>
+    <table class="ref-table">
+        <thead><tr><th>Intention</th><th>Déclencheur</th><th>Suggestions (FR)</th><th>Type d'action</th></tr></thead>
+        <tbody>
+            <tr><td>Catalogue / produit</td><td>dernier tour = <code>products</code>/<code>variants</code></td><td>Voir aussi les {catégorie sœur} · La sélection de {catégorie} {attribut}</td><td>navigation (catégorie réelle) · message préempli</td></tr>
+            <tr><td>Compte &amp; commandes (connecté)</td><td>mots-clés compte/commande/adresse ou tool <code>get_my_profile</code>/<code>get_orders</code></td><td>Modifier mon adresse · Voir toutes mes commandes · Accéder à mon compte</td><td>navigation (routes existantes)</td></tr>
+            <tr><td>Compte &amp; commandes (anonyme)</td><td>idem, <code>account.loggedIn === false</code></td><td>Me connecter · Créer mon compte</td><td>navigation (<code>loginUrl</code>/<code>registerUrl</code>)</td></tr>
+            <tr><td>Panier &amp; livraison</td><td>dernier tour = <code>cart</code>, ou mots-clés livraison</td><td>Votre panier · Finaliser ma commande · Quelles sont vos conditions de livraison ?</td><td>navigation · navigation · message préempli</td></tr>
+            <tr><td>SAV / aide</td><td>mots-clés retour/réclamation, ou tour précédent en erreur</td><td>Politique de retour · Contacter le service client</td><td>message préempli · navigation (si page contact réelle résolue)</td></tr>
+            <tr><td>Défaut (ouverture)</td><td>aucune intention détectée</td><td>réutilise les 4 prompts existants du hero</td><td>message préempli (déjà existant)</td></tr>
+        </tbody>
+    </table>
+</section>
+
+</body>
+</html>

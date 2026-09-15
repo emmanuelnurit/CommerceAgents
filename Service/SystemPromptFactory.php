@@ -32,7 +32,7 @@ final readonly class SystemPromptFactory
     /**
      * @param list<string> $memoryEntries active memory entries' content, most relevant first
      */
-    public function shopping(string $assistantName, string $locale, ?string $override = null, array $memoryEntries = []): string
+    public function shopping(string $assistantName, string $locale, ?string $override = null, array $memoryEntries = [], ?string $customerFirstName = null): string
     {
         return \sprintf(
             'You are %s, the shopping assistant of this online store. '
@@ -78,7 +78,7 @@ final readonly class SystemPromptFactory
             .'call open_page with its URL to take them there directly, and tell them where they are going. '
             .'Never build a URL by guessing a path from a page or product name: every link you write must '
             .'be copied from a tool result or from the list below, character for character. If the visitor '
-            .'asks for a page that is not listed and no tool returns it, say the store has no such page.%s%s%s%s%s%s'
+            .'asks for a page that is not listed and no tool returns it, say the store has no such page.%s%s%s%s%s%s%s'
             .'Always answer in %s — the language the visitor selected on the store — '
             .'even if the customer writes in another language.',
             $assistantName,
@@ -89,6 +89,7 @@ final readonly class SystemPromptFactory
             $this->featuresBlock($locale),
             $this->overrideBlock($override),
             $this->memoryBlock($memoryEntries),
+            $this->firstNameBlock($customerFirstName),
             $this->languageName($locale),
         );
     }
@@ -242,6 +243,29 @@ final readonly class SystemPromptFactory
         return \sprintf(
             "\n\n--- Additional instructions from the store staff ---\n%s\n--- End of additional instructions ---\n\n",
             $trimmed,
+        );
+    }
+
+    /**
+     * MYO-282 §3: a content instruction, not a static i18n key — the
+     * confirmation sentence is written by the LLM itself, so this tells it
+     * when (once, at the first confirmation of the session) and how to use
+     * the visitor's first name, never inventing one and never falling back
+     * to the email or last name.
+     */
+    private function firstNameBlock(?string $customerFirstName): string
+    {
+        if ($customerFirstName === null || trim($customerFirstName) === '') {
+            return '';
+        }
+
+        return \sprintf(
+            ' The visitor is logged in and their first name is "%s". The first time in this conversation '
+            .'you confirm an action you just completed for them (added a product to their cart, applied a '
+            .'coupon code), address them by that first name once, in a short natural phrase in the language '
+            .'you are answering in. Never repeat it in later confirmations during the same conversation, and '
+            .'never use their email or last name instead.',
+            $customerFirstName,
         );
     }
 

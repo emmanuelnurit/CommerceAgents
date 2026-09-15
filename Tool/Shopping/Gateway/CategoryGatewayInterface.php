@@ -24,4 +24,14 @@ interface CategoryGatewayInterface
      * @return array{id: int, title: string, url: string|null, productCount: int}|null
      */
     public function findById(int $id, string $locale): ?array;
+
+    /**
+     * Other visible categories under the same parent as $categoryId, excluding
+     * it — the "see also" neighbours for a quick reply (MYO-282 §1.A). Only
+     * categories that actually hold products are returned; an empty list
+     * means no real sibling exists, never a guessed one.
+     *
+     * @return list<array{id: int, title: string, url: string|null, productCount: int}>
+     */
+    public function getSiblings(int $categoryId, string $locale, int $limit): array;
 }

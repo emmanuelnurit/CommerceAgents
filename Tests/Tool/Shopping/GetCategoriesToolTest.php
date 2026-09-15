@@ -42,6 +42,11 @@ class FakeCategoryGateway implements CategoryGatewayInterface
     {
         return null;
     }
+
+    public function getSiblings(int $categoryId, string $locale, int $limit): array
+    {
+        return [];
+    }
 }
 
 class GetCategoriesToolTest extends TestCase

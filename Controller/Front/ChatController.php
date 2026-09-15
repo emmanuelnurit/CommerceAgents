@@ -23,6 +23,7 @@ use CommerceAgents\Service\ProactiveGuard;
 use CommerceAgents\Service\ProactiveScenarioRegistry;
 use CommerceAgents\Service\ProactiveSessionRepository;
 use CommerceAgents\Service\SystemPromptFactory;
+use CommerceAgents\Tool\Shopping\Gateway\CustomerGatewayInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -45,6 +46,19 @@ final class ChatController extends BaseFrontController
     private const MAX_MESSAGE_LENGTH = 2000;
     private const MAX_SIGNAL_TYPE_LENGTH = 60;
 
+    /**
+     * MYO-284 M3: these 4 routes are public, unauthenticated JSON endpoints
+     * that today rely only on `cookie_samesite: lax` + CORS -- infra config
+     * outside the module's own guarantee. A simple cross-site form post or
+     * <img>/<script> tag cannot set a custom header, and a fetch()/XHR that
+     * tries to triggers a CORS preflight the browser blocks unless this
+     * origin explicitly allows it. Requiring this header makes the
+     * protection travel with the module instead of depending on server
+     * config it does not control.
+     */
+    private const REQUIRE_HEADER_NAME = 'X-Requested-With';
+    private const REQUIRE_HEADER_VALUE = 'XMLHttpRequest';
+
     public function __construct(
         private readonly AgentConfigService $configService,
         private readonly BudgetGuard $budgetGuard,
@@ -62,12 +76,16 @@ final class ChatController extends BaseFrontController
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
         private readonly AssistantLocaleResolver $localeResolver,
+        private readonly CustomerGatewayInterface $customerGateway,
     ) {
     }
 
     #[Route('/agent/chat', name: 'commerceagents_chat', methods: ['POST'])]
     public function chat(Request $request): Response
     {
+        if ($denied = $this->assertRequestedWithHeader($request)) {
+            return $denied;
+        }
         if (!$this->configService->isFrontChatEnabled()) {
             throw new NotFoundHttpException();
         }
@@ -125,14 +143,22 @@ final class ChatController extends BaseFrontController
         $runtime = new AgentRuntime($this->llmClientFactory->create($llmConfig->provider), $this->toolRegistry);
 
         $assistant = $this->agentDefinitionManager->findByCode(AgentDefinitionSeeder::SHOPPING_CODE);
+        // MYO-282 §3: the first name only ever comes from the profile, never
+        // from the email or last name, and it feeds a content instruction
+        // (not a static i18n key) since the confirmation sentence is written
+        // by the LLM itself, once per session.
+        $customerFirstName = $customerId !== null
+            ? trim((string) ($this->customerGateway->getProfile($customerId, $locale)['firstName'] ?? ''))
+            : null;
         $system = $this->systemPromptFactory->shopping(
             $this->configService->getAssistantName(),
             $locale,
             $assistant?->getRolePrompt(),
             $assistant !== null ? $this->agentMemoryManager->activeContents($assistant->getId()) : [],
+            $customerFirstName !== '' ? $customerFirstName : null,
         );
 
-        return $this->chatStreamer->stream($runtime, $history, $system, $toolContext, $llmConfig, $conversation);
+        return $this->chatStreamer->stream($runtime, $history, $system, $toolContext, $llmConfig, $conversation, $userMessage);
     }
 
     /**
@@ -145,6 +171,9 @@ final class ChatController extends BaseFrontController
     #[Route('/agent/chat/proactive-check', name: 'commerceagents_chat_proactive_check', methods: ['POST'])]
     public function proactiveCheck(Request $request): Response
     {
+        if ($denied = $this->assertRequestedWithHeader($request)) {
+            return $denied;
+        }
         if (!$this->configService->isFrontChatEnabled()) {
             throw new NotFoundHttpException();
         }
@@ -227,6 +256,9 @@ final class ChatController extends BaseFrontController
     #[Route('/agent/chat/proactive-apply-coupon', name: 'commerceagents_chat_proactive_apply_coupon', methods: ['POST'])]
     public function proactiveApplyCoupon(Request $request): Response
     {
+        if ($denied = $this->assertRequestedWithHeader($request)) {
+            return $denied;
+        }
         if (!$this->configService->isFrontChatEnabled()) {
             throw new NotFoundHttpException();
         }
@@ -313,6 +345,10 @@ final class ChatController extends BaseFrontController
     #[Route('/agent/chat/proactive-dismiss', name: 'commerceagents_chat_proactive_dismiss', methods: ['POST'])]
     public function proactiveDismiss(Request $request): Response
     {
+        if ($denied = $this->assertRequestedWithHeader($request)) {
+            return $denied;
+        }
+
         $session = $request->getSession();
         $customerId = $session->getCustomerUser()?->getId();
         $locale = $this->localeResolver->forVisitor($session->getLang()->getLocale());
@@ -325,5 +361,14 @@ final class ChatController extends BaseFrontController
         ]);
 
         return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    private function assertRequestedWithHeader(Request $request): ?JsonResponse
+    {
+        if ($request->headers->get(self::REQUIRE_HEADER_NAME) === self::REQUIRE_HEADER_VALUE) {
+            return null;
+        }
+
+        return new JsonResponse(['error' => 'Missing or invalid '.self::REQUIRE_HEADER_NAME.' header'], Response::HTTP_FORBIDDEN);
     }
 }

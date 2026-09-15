@@ -330,4 +330,10 @@ return [
     'Apply' => 'Apply',
     'Applying…' => 'Applying…',
     'Code applied:' => 'Code applied:',
+    'Suggestions' => 'Suggestions',
+    'Hello %firstName%, how can I help you?' => 'Hello %firstName%, how can I help you?',
+    'See also %category%' => 'See also %category%',
+    'Edit my address' => 'Edit my address',
+    'Return policy' => 'Return policy',
+    'Contact customer service' => 'Contact customer service',
 ];

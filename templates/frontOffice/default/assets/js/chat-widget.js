@@ -141,6 +141,7 @@ function commerceAgentsChat() {
             applyCoupon: 'Apply',
             couponApplying: 'Applying…',
             couponAppliedPrefix: 'Code applied:',
+            quickRepliesLabel: 'Suggestions',
         },
 
         init() {
@@ -500,7 +501,7 @@ function commerceAgentsChat() {
             try {
                 const response = await fetch('/agent/chat', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ message: text }),
                 });
 
@@ -567,9 +568,39 @@ function commerceAgentsChat() {
             } else if (event === 'error') {
                 this.pushError(payload.message || this.i18n.error);
             } else if (event === 'done') {
+                this.applySuggestions(payload.suggestions, payload.defaultState);
                 this.navigateIfRequested();
             }
             this.scrollDown();
+        },
+
+        /**
+         * MYO-282/283: quick replies are attached to the assistant message
+         * that was just streamed, not kept as separate state — so the
+         * template only ever renders them under the *last* one (never a
+         * historical message) and they persist/restore for free alongside it.
+         */
+        applySuggestions(suggestions, defaultState) {
+            if (!Array.isArray(suggestions) || suggestions.length === 0) {
+                return;
+            }
+            const last = this.messages[this.messages.length - 1];
+            if (last && last.kind === 'text' && last.role === 'assistant') {
+                last.suggestions = suggestions.slice(0, 3);
+                last.suggestionsDefault = !!defaultState;
+            }
+        },
+
+        /**
+         * Only "message" quick replies go through JS: a11y spec MYO-282 §4
+         * wants navigation suggestions as real <a href> anchors (so "open in
+         * a new tab" keeps working natively), never a button navigating
+         * through a click handler.
+         */
+        sendQuickReply(suggestion) {
+            if (suggestion && suggestion.action && suggestion.action.type === 'message' && suggestion.action.text) {
+                this.sendSuggestion(suggestion.action.text);
+            }
         },
 
         navigateIfRequested() {
@@ -737,7 +768,7 @@ function commerceAgentsChat() {
             }
             return fetch('/agent/chat/proactive-check', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ signal_type: signalType, context: context || {} }),
             }).then((response) => (response.ok ? response.json() : null))
                 .then((payload) => {
@@ -798,7 +829,7 @@ function commerceAgentsChat() {
             cardData.error = null;
             return fetch('/agent/chat/proactive-apply-coupon', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 body: JSON.stringify({ code: cardData.code }),
             })
                 .then((response) => response.json().catch(() => ({})).then((payload) => ({ ok: response.ok, payload: payload })))
@@ -841,7 +872,10 @@ function commerceAgentsChat() {
             }
             signals.dismissed = true;
             this.writeSignals(signals);
-            return fetch('/agent/chat/proactive-dismiss', { method: 'POST' }).catch(() => {});
+            return fetch('/agent/chat/proactive-dismiss', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            }).catch(() => {});
         },
 
         // ---------- Scenario 3: hesitation ----------

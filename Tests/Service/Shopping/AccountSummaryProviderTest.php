@@ -6,6 +6,7 @@ namespace CommerceAgents\Tests\Service\Shopping;
 
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Service\Shopping\AccountSummaryProvider;
+use CommerceAgents\Tool\Shopping\Gateway\CustomerGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\OrderGatewayInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -26,6 +27,18 @@ class FakeAccountOrderGateway implements OrderGatewayInterface
     }
 }
 
+class FakeAccountCustomerGateway implements CustomerGatewayInterface
+{
+    public function __construct(private readonly ?array $profile = ['firstName' => 'Alex'])
+    {
+    }
+
+    public function getProfile(int $customerId, string $locale): ?array
+    {
+        return $this->profile;
+    }
+}
+
 class AccountSummaryProviderTest extends TestCase
 {
     private function urlGenerator(): UrlGeneratorInterface
@@ -41,22 +54,23 @@ class AccountSummaryProviderTest extends TestCase
     public function testAnonymousPayloadNeverTouchesTheOrderGateway(): void
     {
         $gateway = new FakeAccountOrderGateway([['ref' => 'ORD-1']]);
-        $provider = new AccountSummaryProvider($gateway, $this->urlGenerator());
+        $provider = new AccountSummaryProvider($gateway, new FakeAccountCustomerGateway(), $this->urlGenerator());
 
         $result = $provider->forAnonymous();
 
         $this->assertSame([], $gateway->lastCall);
         $this->assertFalse($result['loggedIn']);
         $this->assertArrayNotHasKey('orders', $result);
+        $this->assertArrayNotHasKey('firstName', $result);
         $this->assertSame('/customer_login', $result['loginUrl']);
         $this->assertSame('/customer_register', $result['registerUrl']);
     }
 
-    public function testCustomerPayloadCarriesUpToThreeRecentOrders(): void
+    public function testCustomerPayloadCarriesUpToThreeRecentOrdersAndFirstName(): void
     {
         $orders = [['ref' => 'ORD-1'], ['ref' => 'ORD-2'], ['ref' => 'ORD-3']];
         $gateway = new FakeAccountOrderGateway($orders);
-        $provider = new AccountSummaryProvider($gateway, $this->urlGenerator());
+        $provider = new AccountSummaryProvider($gateway, new FakeAccountCustomerGateway(['firstName' => 'Alex']), $this->urlGenerator());
 
         $result = $provider->forCustomer(42, 'fr_FR');
 
@@ -64,6 +78,17 @@ class AccountSummaryProviderTest extends TestCase
         $this->assertSame('/account_index', $result['accountUrl']);
         $this->assertSame('/account_orders', $result['ordersUrl']);
         $this->assertSame($orders, $result['orders']);
+        $this->assertSame('Alex', $result['firstName']);
         $this->assertSame(['customerId' => 42, 'limit' => 3, 'locale' => 'fr_FR'], $gateway->lastCall);
+    }
+
+    public function testCustomerPayloadNeverFallsBackToEmailOrLastName(): void
+    {
+        $gateway = new FakeAccountOrderGateway([]);
+        $provider = new AccountSummaryProvider($gateway, new FakeAccountCustomerGateway(['firstName' => '', 'lastName' => 'Doe', 'email' => 'alex@example.com']), $this->urlGenerator());
+
+        $result = $provider->forCustomer(42, 'fr_FR');
+
+        $this->assertArrayNotHasKey('firstName', $result);
     }
 }

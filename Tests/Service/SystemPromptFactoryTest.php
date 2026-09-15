@@ -74,6 +74,11 @@ class FakePromptCategoryGateway implements CategoryGatewayInterface
     {
         return $this->categories[0] ?? null;
     }
+
+    public function getSiblings(int $categoryId, string $locale, int $limit): array
+    {
+        return [];
+    }
 }
 
 class FakePromptOptionGateway implements OptionGatewayInterface

@@ -140,6 +140,68 @@ test('a navigation tool result never leaves the store origin', () => {
     assert.equal(widget.messages.length, 0);
 });
 
+test('quick replies are attached to the last assistant message only', () => {
+    const widget = component({});
+    widget.messages.push({ kind: 'text', role: 'assistant', text: 'Voici nos chaises' });
+
+    widget.applySuggestions([
+        { id: 'cat-9', label: 'Voir aussi les tabourets', action: { type: 'navigate', url: '/tabourets.html' } },
+    ], false);
+
+    const message = widget.messages[widget.messages.length - 1];
+    assert.equal(message.suggestions.length, 1);
+    assert.equal(message.suggestions[0].label, 'Voir aussi les tabourets');
+    assert.equal(message.suggestionsDefault, false);
+});
+
+test('quick replies never attach to a message that is not the last assistant text turn', () => {
+    const widget = component({});
+    widget.messages.push({ kind: 'products', role: 'assistant', data: [] });
+
+    widget.applySuggestions([{ id: 'x', label: 'X', action: { type: 'message', text: 'X' } }], false);
+
+    assert.equal(widget.messages[widget.messages.length - 1].suggestions, undefined);
+});
+
+test('an empty or missing suggestions array leaves the message untouched', () => {
+    const widget = component({});
+    widget.messages.push({ kind: 'text', role: 'assistant', text: 'Bonjour' });
+
+    widget.applySuggestions([], false);
+    widget.applySuggestions(undefined, false);
+
+    assert.equal(widget.messages[widget.messages.length - 1].suggestions, undefined);
+});
+
+test('the default-state flag is carried onto the message for the anti-collision CSS rule', () => {
+    const widget = component({});
+    widget.messages.push({ kind: 'text', role: 'assistant', text: 'Bonjour' });
+
+    widget.applySuggestions([{ id: 'default-product', label: 'X', action: { type: 'message', text: 'X' } }], true);
+
+    assert.equal(widget.messages[widget.messages.length - 1].suggestionsDefault, true);
+});
+
+test('clicking a message quick reply sends it like a hero chip', () => {
+    const widget = component({});
+    let sent = null;
+    widget.sendSuggestion = (text) => { sent = text; };
+
+    widget.sendQuickReply({ action: { type: 'message', text: 'Montrez-moi les chaises en orange' } });
+
+    assert.equal(sent, 'Montrez-moi les chaises en orange');
+});
+
+test('clicking a navigate quick reply is a no-op in JS (rendered as a real <a href>)', () => {
+    const widget = component({});
+    let sent = null;
+    widget.sendSuggestion = (text) => { sent = text; };
+
+    widget.sendQuickReply({ action: { type: 'navigate', url: '/tabourets.html' } });
+
+    assert.equal(sent, null);
+});
+
 test('a fresh visitor gets the bottom bar only', () => {
     const widget = component({});
 
