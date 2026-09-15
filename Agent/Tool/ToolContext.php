@@ -12,6 +12,11 @@ final readonly class ToolContext
      *                                        null for the historical chat
      *                                        contexts, where tools rely on
      *                                        their own isAllowed() rules only
+     * @param string            $locale       every production call site passes this
+     *                                        explicitly, resolved through
+     *                                        AssistantLocaleResolver (MYO-274); the
+     *                                        default below only saves tests that don't
+     *                                        care about locale from naming one
      */
     public function __construct(
         public bool $isAdmin = false,

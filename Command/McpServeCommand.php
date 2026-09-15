@@ -9,6 +9,7 @@ use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Mcp\Server\McpServer;
 use CommerceAgents\Mcp\Server\StdioTransport;
 use CommerceAgents\Service\ConversationService;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -31,6 +32,7 @@ final class McpServeCommand extends Command
         private readonly ToolRegistry $toolRegistry,
         private readonly ConversationService $conversationService,
         private readonly RouterInterface $router,
+        private readonly AssistantLocaleResolver $localeResolver,
     ) {
         parent::__construct();
     }
@@ -62,7 +64,7 @@ final class McpServeCommand extends Command
             return Command::FAILURE;
         }
 
-        $locale = (string) ($input->getOption('locale') ?: ($admin->getLocale() ?: 'en_US'));
+        $locale = (string) ($input->getOption('locale') ?: $this->localeResolver->forAdmin($admin->getLocale()));
         $this->configureRouterContext((string) ($input->getOption('base-url') ?: ConfigQuery::read('url_site', '')));
 
         $conversation = $this->conversationService->getOrCreate('merchant', 'mcp:'.$login, null, $locale, $admin->getId());

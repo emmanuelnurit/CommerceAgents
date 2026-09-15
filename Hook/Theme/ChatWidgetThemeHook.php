@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Hook\Theme;
 
 use CommerceAgents\Service\AgentConfigService;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\Shopping\AccountSummaryProvider;
 use CommerceAgents\Service\Shopping\TheliaCartGateway;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -46,6 +47,7 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
         private UrlGeneratorInterface $urlGenerator,
         private Translator $translator,
         private Environment $twig,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -71,7 +73,7 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
         // never carries module catalogues on front requests (the BO bundle only
         // bridges module domains under /admin). Translate here with the Thelia
         // translator, which holds the module I18n files and the session locale.
-        $locale = $theliaSession?->getLang()->getLocale() ?? 'en_US';
+        $locale = $this->localeResolver->forVisitor($theliaSession?->getLang()->getLocale());
         $translate = fn (string $id): string => $this->translator->trans($id, [], 'commerceagents', $locale);
 
         $assistantName = $this->configService->getAssistantName();

@@ -7,6 +7,8 @@ namespace CommerceAgents\Tests\Agent\Proactive\Scenario;
 use CommerceAgents\Agent\Proactive\ProactiveSignal;
 use CommerceAgents\Agent\Proactive\Scenario\HesitationScenarioResolver;
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
+use CommerceAgents\Tests\Service\Locale\FakeSiteDefaultLocaleProvider;
 use CommerceAgents\Tool\Shopping\Gateway\CatalogGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\PolicyGatewayInterface;
 use PHPUnit\Framework\TestCase;
@@ -52,9 +54,14 @@ final class FakeHesitationPolicyGateway implements PolicyGatewayInterface
 
 final class HesitationScenarioResolverTest extends TestCase
 {
+    private function resolver(CatalogGatewayInterface $catalog, PolicyGatewayInterface $policy, string $siteDefaultLocale = 'fr_FR'): HesitationScenarioResolver
+    {
+        return new HesitationScenarioResolver($catalog, $policy, new AssistantLocaleResolver(new FakeSiteDefaultLocaleProvider($siteDefaultLocale)));
+    }
+
     public function testIgnoresOtherSignalTypes(): void
     {
-        $resolver = new HesitationScenarioResolver(new FakeHesitationCatalogGateway(), new FakeHesitationPolicyGateway());
+        $resolver = $this->resolver(new FakeHesitationCatalogGateway(), new FakeHesitationPolicyGateway());
 
         $result = $resolver->resolve(new ProactiveSignal('cart_abandoned_session'), new ToolContext());
 
@@ -64,7 +71,7 @@ final class HesitationScenarioResolverTest extends TestCase
     public function testRealStockIsSummedAcrossVariants(): void
     {
         $product = ['id' => 7, 'pses' => [['stock' => 3.0], ['stock' => 2.0]]];
-        $resolver = new HesitationScenarioResolver(new FakeHesitationCatalogGateway($product), new FakeHesitationPolicyGateway());
+        $resolver = $this->resolver(new FakeHesitationCatalogGateway($product), new FakeHesitationPolicyGateway());
 
         $message = $resolver->resolve(new ProactiveSignal('hesitation', ['product_id' => 7]), new ToolContext(locale: 'fr_FR'));
 
@@ -73,7 +80,7 @@ final class HesitationScenarioResolverTest extends TestCase
 
     public function testNoStockLineWhenTheProductIsNotFound(): void
     {
-        $resolver = new HesitationScenarioResolver(new FakeHesitationCatalogGateway(null), new FakeHesitationPolicyGateway());
+        $resolver = $this->resolver(new FakeHesitationCatalogGateway(null), new FakeHesitationPolicyGateway());
 
         $message = $resolver->resolve(new ProactiveSignal('hesitation', ['product_id' => 999]), new ToolContext(locale: 'fr_FR'));
 
@@ -83,7 +90,7 @@ final class HesitationScenarioResolverTest extends TestCase
 
     public function testNoProductIdMeansNoStockClaim(): void
     {
-        $resolver = new HesitationScenarioResolver(new FakeHesitationCatalogGateway(['id' => 7, 'pses' => [['stock' => 9]]]), new FakeHesitationPolicyGateway());
+        $resolver = $this->resolver(new FakeHesitationCatalogGateway(['id' => 7, 'pses' => [['stock' => 9]]]), new FakeHesitationPolicyGateway());
 
         $message = $resolver->resolve(new ProactiveSignal('hesitation'), new ToolContext(locale: 'fr_FR'));
 
@@ -92,11 +99,11 @@ final class HesitationScenarioResolverTest extends TestCase
 
     public function testShippingReturnsLineOnlyWhenPoliciesAreConfigured(): void
     {
-        $withPolicies = new HesitationScenarioResolver(
+        $withPolicies = $this->resolver(
             new FakeHesitationCatalogGateway(),
             new FakeHesitationPolicyGateway([['title' => 'Livraison', 'text' => '...']]),
         );
-        $withoutPolicies = new HesitationScenarioResolver(new FakeHesitationCatalogGateway(), new FakeHesitationPolicyGateway());
+        $withoutPolicies = $this->resolver(new FakeHesitationCatalogGateway(), new FakeHesitationPolicyGateway());
 
         $withMessage = $withPolicies->resolve(new ProactiveSignal('hesitation'), new ToolContext(locale: 'fr_FR'));
         $withoutMessage = $withoutPolicies->resolve(new ProactiveSignal('hesitation'), new ToolContext(locale: 'fr_FR'));
@@ -107,22 +114,51 @@ final class HesitationScenarioResolverTest extends TestCase
 
     public function testMessageIsLocalisedByLocalePrefix(): void
     {
-        $resolver = new HesitationScenarioResolver(
+        $resolver = $this->resolver(
             new FakeHesitationCatalogGateway(['id' => 7, 'pses' => [['stock' => 4]]]),
             new FakeHesitationPolicyGateway(),
         );
 
         $en = $resolver->resolve(new ProactiveSignal('hesitation', ['product_id' => 7]), new ToolContext(locale: 'en_US'));
-        $unknown = $resolver->resolve(new ProactiveSignal('hesitation', ['product_id' => 7]), new ToolContext(locale: 'de_DE'));
 
         $this->assertStringContainsString('left in stock', $en?->message);
-        // Locales outside the module's 4 shipped catalogues fall back to French.
-        $this->assertStringContainsString('en stock', $unknown?->message);
+    }
+
+    public function testUnsupportedVisitorLocaleFallsBackToTheSiteDefaultLanguage(): void
+    {
+        // The store's default language is French, so a visitor whose browsing
+        // locale has no shipped templates (German) still gets French, not a
+        // language picked at random.
+        $resolver = $this->resolver(
+            new FakeHesitationCatalogGateway(['id' => 7, 'pses' => [['stock' => 4]]]),
+            new FakeHesitationPolicyGateway(),
+            'fr_FR',
+        );
+
+        $message = $resolver->resolve(new ProactiveSignal('hesitation', ['product_id' => 7]), new ToolContext(locale: 'de_DE'));
+
+        $this->assertStringContainsString('en stock', $message?->message);
+    }
+
+    public function testUnsupportedVisitorAndSiteDefaultLocaleFallsBackToEnglish(): void
+    {
+        // Neither the visitor's browsing locale nor the store's own default
+        // language (German, here) has templates: English is used rather than
+        // silently assuming French.
+        $resolver = $this->resolver(
+            new FakeHesitationCatalogGateway(['id' => 7, 'pses' => [['stock' => 4]]]),
+            new FakeHesitationPolicyGateway(),
+            'de_DE',
+        );
+
+        $message = $resolver->resolve(new ProactiveSignal('hesitation', ['product_id' => 7]), new ToolContext(locale: 'de_DE'));
+
+        $this->assertStringContainsString('left in stock', $message?->message);
     }
 
     public function testNonIntegerProductIdIsIgnoredNotCrashed(): void
     {
-        $resolver = new HesitationScenarioResolver(new FakeHesitationCatalogGateway(), new FakeHesitationPolicyGateway());
+        $resolver = $this->resolver(new FakeHesitationCatalogGateway(), new FakeHesitationPolicyGateway());
 
         $message = $resolver->resolve(new ProactiveSignal('hesitation', ['product_id' => ['not' => 'a scalar']]), new ToolContext());
 

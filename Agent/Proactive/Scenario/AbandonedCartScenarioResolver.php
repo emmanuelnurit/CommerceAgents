@@ -8,6 +8,7 @@ use CommerceAgents\Agent\Proactive\ProactiveMessage;
 use CommerceAgents\Agent\Proactive\ProactiveScenarioResolverInterface;
 use CommerceAgents\Agent\Proactive\ProactiveSignal;
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ProactiveLocale;
 use CommerceAgents\Tool\Shopping\Gateway\CartGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\PolicyGatewayInterface;
@@ -53,6 +54,7 @@ final readonly class AbandonedCartScenarioResolver implements ProactiveScenarioR
     public function __construct(
         private CartGatewayInterface $cartGateway,
         private PolicyGatewayInterface $policyGateway,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -69,8 +71,9 @@ final readonly class AbandonedCartScenarioResolver implements ProactiveScenarioR
         }
 
         $hasPolicies = $this->policyGateway->getPolicies($context->locale) !== [];
+        $group = ProactiveLocale::group($context->locale, $this->localeResolver->siteDefault());
 
-        return new ProactiveMessage($this->compose($itemCount, $hasPolicies, ProactiveLocale::group($context->locale)));
+        return new ProactiveMessage($this->compose($itemCount, $hasPolicies, $group));
     }
 
     private function compose(int $itemCount, bool $hasPolicies, string $group): string

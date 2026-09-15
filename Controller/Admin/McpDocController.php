@@ -8,6 +8,7 @@ use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Mcp\McpToolCatalog;
 use CommerceAgents\Mcp\Server\ServerInfo;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -22,6 +23,7 @@ final readonly class McpDocController
         private SecurityContext $securityContext,
         private McpToolCatalog $toolCatalog,
         private Environment $twig,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -51,7 +53,7 @@ final readonly class McpDocController
             'tools' => $this->toolCatalog->describe(new ToolContext(
                 isAdmin: true,
                 adminId: $admin->getId(),
-                locale: $admin->getLocale() ?: 'en_US',
+                locale: $this->localeResolver->forAdmin($admin->getLocale()),
             )),
         ]));
     }

@@ -85,13 +85,16 @@ final readonly class AgentDefinitionSeeder
             return;
         }
 
+        // No setLocale() here: the "Agents IA" UI exposes no per-agent locale
+        // field, so AgentRunner always derives the run's language from the
+        // site's default (AssistantLocaleResolver::forAgentRun(), MYO-274) and
+        // ignores this column's value, whatever it ends up being.
         $definition = (new AgentDefinition())
             ->setCode($code)
             ->setTitle($title)
             ->setDescription($description)
             ->setEnabled($enabled ? 1 : 0)
-            ->setRolePrompt('')
-            ->setLocale('fr_FR');
+            ->setRolePrompt('');
         $definition->save();
 
         foreach ($capabilities as $capability) {

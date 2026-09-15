@@ -7,6 +7,7 @@ namespace CommerceAgents\Service\Shopping;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolException;
 use CommerceAgents\Service\Catalog\ProductThumbnailProvider;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Tool\Shopping\Gateway\CartGatewayInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Domain\Cart\CartFacade;
@@ -24,6 +25,7 @@ final readonly class TheliaCartGateway implements CartGatewayInterface
         private TaxEngine $taxEngine,
         private RequestStack $requestStack,
         private ProductThumbnailProvider $thumbnailProvider,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -72,7 +74,7 @@ final readonly class TheliaCartGateway implements CartGatewayInterface
     private function cartState(Cart $cart): array
     {
         $country = $this->taxEngine->getDeliveryCountry();
-        $locale = $this->requestStack->getMainRequest()?->getSession()?->getLang()?->getLocale() ?? 'fr_FR';
+        $locale = $this->localeResolver->forVisitor($this->requestStack->getMainRequest()?->getSession()?->getLang()?->getLocale());
 
         $items = [];
         $itemCount = 0;

@@ -113,6 +113,7 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(StagedChange\StagedChangeRepositoryInterface::class, Service\Merchant\TheliaStagedChangeRepository::class);
         $servicesConfigurator->alias(Agent\Llm\LlmClientFactoryInterface::class, Agent\Llm\LlmClientFactory::class);
         $servicesConfigurator->alias(Tool\Channel\Gateway\ChannelGatewayInterface::class, Service\Channel\TheliaChannelGateway::class);
+        $servicesConfigurator->alias(Service\Locale\SiteDefaultLocaleProviderInterface::class, Service\Locale\TheliaSiteDefaultLocaleProvider::class);
 
         $servicesConfigurator->set(Service\Channel\ChannelSettingsEncryptor::class)
             ->autowire(true)->autoconfigure(true)

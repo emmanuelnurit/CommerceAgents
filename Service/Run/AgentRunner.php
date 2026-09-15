@@ -17,6 +17,7 @@ use CommerceAgents\Service\AgentSpendRepository;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ConversationService;
 use CommerceAgents\Service\CostCalculator;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\SystemPromptFactory;
 use Psr\Log\LoggerInterface;
@@ -44,6 +45,7 @@ final readonly class AgentRunner
         private AgentSpendRepository $spendRepository,
         private ModelCatalog $modelCatalog,
         private LoggerInterface $logger,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -80,7 +82,7 @@ final readonly class AgentRunner
         }
 
         $context = $this->decodeContext($run);
-        $locale = $definition->getLocale() ?: 'fr_FR';
+        $locale = $this->localeResolver->forAgentRun();
 
         $conversation = $this->conversationService->getOrCreate(
             'agent',

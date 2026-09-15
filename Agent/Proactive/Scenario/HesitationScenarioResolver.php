@@ -8,6 +8,7 @@ use CommerceAgents\Agent\Proactive\ProactiveMessage;
 use CommerceAgents\Agent\Proactive\ProactiveScenarioResolverInterface;
 use CommerceAgents\Agent\Proactive\ProactiveSignal;
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ProactiveLocale;
 use CommerceAgents\Tool\Shopping\Gateway\CatalogGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\PolicyGatewayInterface;
@@ -61,6 +62,7 @@ final readonly class HesitationScenarioResolver implements ProactiveScenarioReso
     public function __construct(
         private CatalogGatewayInterface $catalogGateway,
         private PolicyGatewayInterface $policyGateway,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -72,8 +74,9 @@ final readonly class HesitationScenarioResolver implements ProactiveScenarioReso
 
         $stock = $this->realStock($signal->context['product_id'] ?? null, $context);
         $hasPolicies = $this->policyGateway->getPolicies($context->locale) !== [];
+        $group = ProactiveLocale::group($context->locale, $this->localeResolver->siteDefault());
 
-        return new ProactiveMessage($this->compose($stock, $hasPolicies, ProactiveLocale::group($context->locale)));
+        return new ProactiveMessage($this->compose($stock, $hasPolicies, $group));
     }
 
     private function realStock(mixed $rawProductId, ToolContext $context): ?int

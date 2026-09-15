@@ -15,6 +15,7 @@ use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
 use CommerceAgents\Service\LanguageReminder;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ProactiveGuard;
 use CommerceAgents\Service\ProactiveScenarioRegistry;
 use CommerceAgents\Service\ProactiveSessionRepository;
@@ -55,6 +56,7 @@ final class ChatController extends BaseFrontController
         private readonly ProactiveScenarioRegistry $proactiveScenarioRegistry,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly LoggerInterface $logger,
+        private readonly AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -85,7 +87,7 @@ final class ChatController extends BaseFrontController
 
         $session = $request->getSession();
         $customerId = $session->getCustomerUser()?->getId();
-        $locale = $session->getLang()->getLocale();
+        $locale = $this->localeResolver->forVisitor($session->getLang()->getLocale());
 
         $toolContext = new ToolContext(
             isAdmin: false,
@@ -140,7 +142,7 @@ final class ChatController extends BaseFrontController
 
         $session = $request->getSession();
         $customerId = $session->getCustomerUser()?->getId();
-        $locale = $session->getLang()->getLocale();
+        $locale = $this->localeResolver->forVisitor($session->getLang()->getLocale());
 
         $conversation = $this->conversationService->getOrCreate('shopping', $session->getId(), $customerId, $locale);
         $now = new \DateTimeImmutable();
@@ -296,7 +298,7 @@ final class ChatController extends BaseFrontController
     {
         $session = $request->getSession();
         $customerId = $session->getCustomerUser()?->getId();
-        $locale = $session->getLang()->getLocale();
+        $locale = $this->localeResolver->forVisitor($session->getLang()->getLocale());
 
         $conversation = $this->conversationService->getOrCreate('shopping', $session->getId(), $customerId, $locale);
         $this->proactiveSessionRepository->recordDismissal($conversation);

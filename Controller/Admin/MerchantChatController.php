@@ -13,6 +13,7 @@ use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\SystemPromptFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -37,6 +38,7 @@ final readonly class MerchantChatController
         private ChatStreamer $chatStreamer,
         private SystemPromptFactory $systemPromptFactory,
         private Environment $twig,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -79,7 +81,7 @@ final readonly class MerchantChatController
         }
 
         $admin = $this->securityContext->getAdminUser();
-        $locale = $admin->getLocale() ?: 'en_US';
+        $locale = $this->localeResolver->forAdmin($admin->getLocale());
 
         $conversation = $this->conversationService->getOrCreate(
             'merchant',

@@ -7,6 +7,8 @@ namespace CommerceAgents\Tests\Agent\Proactive\Scenario;
 use CommerceAgents\Agent\Proactive\ProactiveSignal;
 use CommerceAgents\Agent\Proactive\Scenario\AbandonedCartScenarioResolver;
 use CommerceAgents\Agent\Tool\ToolContext;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
+use CommerceAgents\Tests\Service\Locale\FakeSiteDefaultLocaleProvider;
 use CommerceAgents\Tool\Shopping\Gateway\CartGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\PolicyGatewayInterface;
 use PHPUnit\Framework\TestCase;
@@ -42,9 +44,14 @@ final class FakeAbandonedCartPolicyGateway implements PolicyGatewayInterface
 
 final class AbandonedCartScenarioResolverTest extends TestCase
 {
+    private function resolver(CartGatewayInterface $cart, PolicyGatewayInterface $policy, string $siteDefaultLocale = 'fr_FR'): AbandonedCartScenarioResolver
+    {
+        return new AbandonedCartScenarioResolver($cart, $policy, new AssistantLocaleResolver(new FakeSiteDefaultLocaleProvider($siteDefaultLocale)));
+    }
+
     public function testIgnoresOtherSignalTypes(): void
     {
-        $resolver = new AbandonedCartScenarioResolver(
+        $resolver = $this->resolver(
             new FakeAbandonedCartGateway(['itemCount' => 2]),
             new FakeAbandonedCartPolicyGateway(),
         );
@@ -56,7 +63,7 @@ final class AbandonedCartScenarioResolverTest extends TestCase
 
     public function testEmptyCartMeansNoMessage(): void
     {
-        $resolver = new AbandonedCartScenarioResolver(
+        $resolver = $this->resolver(
             new FakeAbandonedCartGateway(['itemCount' => 0]),
             new FakeAbandonedCartPolicyGateway(),
         );
@@ -68,7 +75,7 @@ final class AbandonedCartScenarioResolverTest extends TestCase
 
     public function testNonEmptyCartMentionsTheRealItemCount(): void
     {
-        $resolver = new AbandonedCartScenarioResolver(
+        $resolver = $this->resolver(
             new FakeAbandonedCartGateway(['itemCount' => 3]),
             new FakeAbandonedCartPolicyGateway(),
         );
@@ -80,11 +87,11 @@ final class AbandonedCartScenarioResolverTest extends TestCase
 
     public function testShippingReturnsLineOnlyWhenPoliciesAreConfigured(): void
     {
-        $withPolicies = new AbandonedCartScenarioResolver(
+        $withPolicies = $this->resolver(
             new FakeAbandonedCartGateway(['itemCount' => 1]),
             new FakeAbandonedCartPolicyGateway([['title' => 'Retours', 'text' => '...']]),
         );
-        $withoutPolicies = new AbandonedCartScenarioResolver(
+        $withoutPolicies = $this->resolver(
             new FakeAbandonedCartGateway(['itemCount' => 1]),
             new FakeAbandonedCartPolicyGateway(),
         );
@@ -98,7 +105,7 @@ final class AbandonedCartScenarioResolverTest extends TestCase
 
     public function testMessageIsLocalisedByLocalePrefix(): void
     {
-        $resolver = new AbandonedCartScenarioResolver(
+        $resolver = $this->resolver(
             new FakeAbandonedCartGateway(['itemCount' => 1]),
             new FakeAbandonedCartPolicyGateway(),
         );
@@ -108,11 +115,24 @@ final class AbandonedCartScenarioResolverTest extends TestCase
         $this->assertStringContainsString('carrito', $message?->message);
     }
 
+    public function testUnsupportedVisitorLocaleFallsBackToTheSiteDefaultLanguage(): void
+    {
+        $resolver = $this->resolver(
+            new FakeAbandonedCartGateway(['itemCount' => 1]),
+            new FakeAbandonedCartPolicyGateway(),
+            'es_ES',
+        );
+
+        $message = $resolver->resolve(new ProactiveSignal('cart_abandoned_session'), new ToolContext(locale: 'de_DE'));
+
+        $this->assertStringContainsString('carrito', $message?->message);
+    }
+
     public function testNeverAttachesACouponCode(): void
     {
         // Scenario 4's promo-code half needs MYO-247's eligibility tool: this
         // resolver only ever ships the reassurance text.
-        $resolver = new AbandonedCartScenarioResolver(
+        $resolver = $this->resolver(
             new FakeAbandonedCartGateway(['itemCount' => 1]),
             new FakeAbandonedCartPolicyGateway([['title' => 'Retours', 'text' => '...']]),
         );
