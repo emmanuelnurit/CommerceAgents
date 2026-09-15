@@ -1,0 +1,133 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'Run #%id%'|trans({'%id%': run.id}, 'commerceagents') }}{% endblock %}
+{% block body_testid %}commerceagents-run-detail{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('commerceagents_agents_page') }}">{{ 'AI agents'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ listUrl }}">{{ 'Run history'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'Run #%id%'|trans({'%id%': run.id}, 'commerceagents') }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" data-testid="commerceagents-run-detail">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h1 class="h3 mb-1">{{ 'Run #%id%'|trans({'%id%': run.id}, 'commerceagents') }}</h1>
+            <div class="text-muted"><a href="{{ run.agentEditUrl }}">{{ run.agentTitle }}</a></div>
+        </div>
+        <span class="badge {{ run.statusBadge.class }} fs-6" data-testid="commerceagents-run-status">{{ run.statusBadge.label }}</span>
+    </div>
+
+    <dl class="row mb-4">
+        <dt class="col-sm-2">{{ 'Started at'|trans({}, 'commerceagents') }}</dt>
+        <dd class="col-sm-4">{% if run.startedAt %}<time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('d/m/Y H:i:s') }}</time>{% else %}—{% endif %}</dd>
+        <dt class="col-sm-2">{{ 'Duration'|trans({}, 'commerceagents') }}</dt>
+        <dd class="col-sm-4">{{ run.durationLabel ?? '—' }}</dd>
+        <dt class="col-sm-2">{{ 'Trigger'|trans({}, 'commerceagents') }}</dt>
+        <dd class="col-sm-4">{{ run.triggerLabel }}</dd>
+    </dl>
+
+    {% if run.error %}
+        <div class="mb-4">
+            <h2 class="h5">{{ 'Error'|trans({}, 'commerceagents') }}</h2>
+            <pre class="alert alert-danger" data-testid="commerceagents-run-error">{{ run.error }}</pre>
+        </div>
+    {% endif %}
+
+    {% if run.summary %}
+        <div class="mb-4">
+            <h2 class="h5">{{ 'Summary'|trans({}, 'commerceagents') }}</h2>
+            <pre class="border rounded p-3 bg-light" data-testid="commerceagents-run-summary">{{ run.summary }}</pre>
+        </div>
+    {% endif %}
+
+    {% if actionLogs|length > 0 %}
+        <div class="mb-4">
+            <h2 class="h5">{{ 'Actions log'|trans({}, 'commerceagents') }}</h2>
+            <table class="table table-sm table-hover align-middle" data-testid="commerceagents-run-action-logs">
+                <thead>
+                    <tr>
+                        <th>{{ 'Date'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Tool'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Capability'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Channel'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Status'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Arguments'|trans({}, 'commerceagents') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in actionLogs %}
+                        <tr>
+                            <td>{{ log.createdAt|date('d/m/Y H:i') }}</td>
+                            <td>{{ log.toolName }}</td>
+                            <td>{{ log.capability }}</td>
+                            <td>{{ log.channel }}</td>
+                            <td>
+                                {% if log.status == 'error' %}
+                                    <span class="badge text-bg-danger">{{ log.status }}</span>
+                                    {% if log.error %}<br><small class="text-danger">{{ log.error }}</small>{% endif %}
+                                {% else %}
+                                    <span class="badge text-bg-secondary">{{ log.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td><code>{{ log.arguments|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    {% if stagedChanges|length > 0 %}
+        <div class="mb-4">
+            <h2 class="h5">{{ 'Proposed changes'|trans({}, 'commerceagents') }}</h2>
+            <table class="table table-sm table-hover align-middle" data-testid="commerceagents-run-staged-changes">
+                <thead>
+                    <tr>
+                        <th>{{ 'Date'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Type'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Target'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Before'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'After'|trans({}, 'commerceagents') }}</th>
+                        <th>{{ 'Status'|trans({}, 'commerceagents') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for change in stagedChanges %}
+                        <tr>
+                            <td>{{ change.createdAt|date('d/m/Y H:i') }}</td>
+                            <td><span class="badge text-bg-secondary">{{ change.targetType }}</span></td>
+                            <td>#{{ change.targetId }}</td>
+                            <td><code>{{ change.payloadBefore|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
+                            <td><code>{{ change.payloadAfter|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code></td>
+                            <td>
+                                {% if change.status == 'pending' %}
+                                    <span class="badge text-bg-warning">{{ 'Pending'|trans({}, 'commerceagents') }}</span>
+                                {% elseif change.status == 'applied' %}
+                                    <span class="badge text-bg-success">{{ 'Applied'|trans({}, 'commerceagents') }}</span>
+                                {% elseif change.status == 'rejected' %}
+                                    <span class="badge text-bg-secondary">{{ 'Rejected'|trans({}, 'commerceagents') }}</span>
+                                {% else %}
+                                    <span class="badge text-bg-danger">{{ 'Failed'|trans({}, 'commerceagents') }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    {% if not run.error and not run.summary and actionLogs|length == 0 and stagedChanges|length == 0 %}
+        <div class="alert alert-light border" data-testid="commerceagents-run-nothing">{{ 'Nothing to show for this run yet.'|trans({}, 'commerceagents') }}</div>
+    {% endif %}
+
+    <a href="{{ listUrl }}" class="btn btn-outline-secondary">{{ 'Back to run history'|trans({}, 'commerceagents') }}</a>
+</div>
+{% endblock %}

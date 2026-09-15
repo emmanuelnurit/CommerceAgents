@@ -1,0 +1,91 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ 'Run history'|trans({}, 'commerceagents') }}{% endblock %}
+{% block body_testid %}commerceagents-runs-page{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('commerceagents_agents_page') }}">{{ 'AI agents'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'Run history'|trans({}, 'commerceagents') }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" data-testid="commerceagents-runs-list">
+    <h1 class="h3 mb-3">{{ 'Run history'|trans({}, 'commerceagents') }}</h1>
+
+    <form method="get" action="{{ path('commerceagents_agents_runs') }}" class="row row-cols-auto g-2 align-items-end mb-3" data-testid="commerceagents-runs-filters">
+        <div class="col">
+            <label class="form-label small text-muted" for="runs-filter-agent">{{ 'Agent'|trans({}, 'commerceagents') }}</label>
+            <select id="runs-filter-agent" name="agentId" class="form-select" data-testid="commerceagents-runs-filter-agent">
+                <option value="">{{ 'All agents'|trans({}, 'commerceagents') }}</option>
+                {% for agent in agents %}
+                    <option value="{{ agent.id }}"{% if filters.agentId == agent.id %} selected{% endif %}>{{ agent.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col">
+            <label class="form-label small text-muted" for="runs-filter-status">{{ 'Status'|trans({}, 'commerceagents') }}</label>
+            <select id="runs-filter-status" name="status" class="form-select" data-testid="commerceagents-runs-filter-status">
+                <option value="">{{ 'All statuses'|trans({}, 'commerceagents') }}</option>
+                {% for status in statuses %}
+                    <option value="{{ status.code }}"{% if filters.status == status.code %} selected{% endif %}>{{ status.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col">
+            <button type="submit" class="btn btn-primary">{{ 'Filter'|trans({}, 'commerceagents') }}</button>
+        </div>
+    </form>
+
+    {% if runs|length == 0 %}
+        <div class="alert alert-info" data-testid="commerceagents-runs-empty">{{ 'No runs match these filters.'|trans({}, 'commerceagents') }}</div>
+    {% else %}
+        <table class="table table-hover align-middle" data-testid="commerceagents-runs-table">
+            <thead>
+                <tr>
+                    <th>{{ 'Agent'|trans({}, 'commerceagents') }}</th>
+                    <th>{{ 'Started at'|trans({}, 'commerceagents') }}</th>
+                    <th>{{ 'Duration'|trans({}, 'commerceagents') }}</th>
+                    <th>{{ 'Status'|trans({}, 'commerceagents') }}</th>
+                    <th>{{ 'Trigger'|trans({}, 'commerceagents') }}</th>
+                    <th>{{ 'Summary'|trans({}, 'commerceagents') }}</th>
+                    <th>{{ 'Actions'|trans({}, 'commerceagents') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                    <tr data-testid="commerceagents-run-{{ run.id }}">
+                        <td><a href="{{ run.agentEditUrl }}">{{ run.agentTitle }}</a></td>
+                        <td>{% if run.startedAt %}<time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('d/m/Y H:i') }}</time>{% else %}—{% endif %}</td>
+                        <td>{{ run.durationLabel ?? '—' }}</td>
+                        <td><span class="badge {{ run.statusBadge.class }}">{{ run.statusBadge.label }}</span></td>
+                        <td>{{ run.triggerLabel }}</td>
+                        <td class="small text-muted">
+                            {% if run.errorExcerpt %}
+                                <span class="text-danger">{{ run.errorExcerpt }}</span>
+                            {% elseif run.summaryExcerpt %}
+                                {{ run.summaryExcerpt }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td><a href="{{ run.showUrl }}" class="btn btn-sm btn-outline-secondary" data-testid="commerceagents-run-{{ run.id }}-details">{{ 'Details'|trans({}, 'commerceagents') }}</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {{ component('BoPagination', {
+            route: 'commerceagents_agents_runs',
+            currentPage: currentPage,
+            lastPage: lastPage,
+            routeParams: { agentId: filters.agentId, status: filters.status },
+            testid: 'commerceagents-runs-pagination',
+        }) }}
+    {% endif %}
+</div>
+{% endblock %}
