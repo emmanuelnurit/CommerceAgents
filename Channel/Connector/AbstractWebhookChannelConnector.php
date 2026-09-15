@@ -8,9 +8,11 @@ use CommerceAgents\Channel\ChannelConnectorInterface;
 use CommerceAgents\Channel\ChannelException;
 use CommerceAgents\Channel\ChannelMessage;
 use CommerceAgents\Channel\ConnectorTestResult;
+use CommerceAgents\CommerceAgents;
 use CommerceAgents\Service\Security\OutboundUrlValidatorInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Thelia\Core\Translation\Translator;
 
 /**
  * Incoming-webhook send/test logic shared by every provider that accepts a
@@ -26,6 +28,7 @@ abstract readonly class AbstractWebhookChannelConnector implements ChannelConnec
     public function __construct(
         private HttpClientInterface $httpClient,
         private OutboundUrlValidatorInterface $urlValidator,
+        private Translator $translator,
     ) {
     }
 
@@ -37,7 +40,11 @@ abstract readonly class AbstractWebhookChannelConnector implements ChannelConnec
                 'url' => [
                     'type' => 'string',
                     'format' => 'uri',
-                    'description' => \sprintf('URL du webhook entrant %s', $this->getLabel()),
+                    'description' => $this->translator->trans(
+                        'Incoming webhook URL %label%',
+                        ['%label%' => $this->getLabel()],
+                        CommerceAgents::DOMAIN_NAME,
+                    ),
                 ],
             ],
             'required' => ['url'],

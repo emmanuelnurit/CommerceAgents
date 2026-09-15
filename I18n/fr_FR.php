@@ -426,4 +426,8 @@ return [
     'Pending validation' => 'En attente de validation',
     'Send failed' => "Échec de l'envoi",
     'To: %recipient%' => 'À : %recipient%',
+
+    // MYO-419 — schéma de configuration des canaux (texte auparavant codé en dur, jamais passé par trans())
+    'Incoming webhook URL %label%' => 'URL du webhook entrant %label%',
+    'Recipient e-mail address' => 'Adresse e-mail destinataire',
 ];

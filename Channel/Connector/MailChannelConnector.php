@@ -8,16 +8,19 @@ use CommerceAgents\Channel\ChannelConnectorInterface;
 use CommerceAgents\Channel\ChannelException;
 use CommerceAgents\Channel\ChannelMessage;
 use CommerceAgents\Channel\ConnectorTestResult;
+use CommerceAgents\CommerceAgents;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
+use Thelia\Core\Translation\Translator;
 use Thelia\Model\ConfigQuery;
 
 final readonly class MailChannelConnector implements ChannelConnectorInterface
 {
     public function __construct(
         private MailerInterface $mailer,
+        private Translator $translator,
     ) {
     }
 
@@ -39,7 +42,7 @@ final readonly class MailChannelConnector implements ChannelConnectorInterface
                 'to' => [
                     'type' => 'string',
                     'format' => 'email',
-                    'description' => 'Adresse e-mail destinataire',
+                    'description' => $this->translator->trans('Recipient e-mail address', [], CommerceAgents::DOMAIN_NAME),
                 ],
             ],
             'required' => ['to'],

@@ -426,4 +426,8 @@ return [
     'Pending validation' => 'Pending validation',
     'Send failed' => 'Send failed',
     'To: %recipient%' => 'To: %recipient%',
+
+    // MYO-419 — channel connector settings schema (was hardcoded French, never went through trans())
+    'Incoming webhook URL %label%' => 'Incoming webhook URL %label%',
+    'Recipient e-mail address' => 'Recipient e-mail address',
 ];

@@ -426,4 +426,8 @@ return [
     'Pending validation' => 'In attesa di convalida',
     'Send failed' => "Invio non riuscito",
     'To: %recipient%' => 'A: %recipient%',
+
+    // MYO-419 — schema di configurazione dei canali (testo prima codificato in francese, mai passato da trans())
+    'Incoming webhook URL %label%' => 'URL del webhook in ingresso %label%',
+    'Recipient e-mail address' => 'Indirizzo e-mail del destinatario',
 ];
