@@ -484,6 +484,7 @@ final readonly class AgentsController
             'channelsAvailable' => $this->agentManager->channelsAvailable(),
             'channelConnectors' => AgentDefinitionManager::CHANNEL_CONNECTORS,
             'channelConnectorsSoon' => AgentDefinitionManager::CHANNEL_CONNECTORS_SOON,
+            'channelsConfigUrl' => $this->urlGenerator->generate('admin.module.configure', ['module_code' => 'CommerceAgents']).'#channels',
             'saveUrl' => $this->urlGenerator->generate('commerceagents_agents_save'),
             'listUrl' => $this->urlGenerator->generate('commerceagents_agents_page'),
             'csrfToken' => $this->csrfTokenManager->getToken(AdminHookManager::CSRF_TOKEN_ID)->getValue(),

@@ -139,7 +139,7 @@
             });
 
             var channel = button.dataset.presetChannel;
-            ['email', 'webhook'].forEach(function (code) {
+            ['mail', 'mattermost', 'slack'].forEach(function (code) {
                 check('channel-' + code, code === channel);
             });
 

@@ -200,5 +200,63 @@
             }
         });
     }
+
+    // --- Channel connectors ("Canaux" tab, MYO-300) ---
+    root.querySelectorAll('.ca-channel-form').forEach(function (form) {
+        const status = form.querySelector('.ca-channel-status');
+        const badge = form.querySelector('.ca-channel-configured-badge');
+
+        function setStatus(success, message) {
+            status.className = 'ca-channel-status small ' + (success ? 'text-success' : 'text-danger');
+            status.textContent = message || '';
+        }
+
+        async function callChannelEndpoint(url) {
+            const response = await fetch(url, { method: 'POST', body: new FormData(form) });
+
+            return response.json().catch(function () {
+                return { success: false, message: 'HTTP ' + response.status };
+            });
+        }
+
+        form.querySelector('.ca-channel-test').addEventListener('click', async function () {
+            const button = this;
+            button.disabled = true;
+            setStatus(true, '…');
+            try {
+                const payload = await callChannelEndpoint(form.dataset.testUrl);
+                setStatus(payload.success, payload.message);
+            } catch (error) {
+                setStatus(false, 'Request failed');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const saveButton = form.querySelector('.ca-channel-save');
+            saveButton.disabled = true;
+            setStatus(true, '…');
+            try {
+                const payload = await callChannelEndpoint(form.dataset.saveUrl);
+                setStatus(payload.success, payload.message);
+                if (payload.success) {
+                    if (badge) {
+                        badge.className = 'badge text-bg-success ca-channel-configured-badge';
+                        badge.textContent = badge.dataset.configuredLabel || badge.textContent;
+                    }
+                    form.querySelectorAll('input[data-secret="1"]').forEach(function (input) {
+                        input.value = '';
+                        input.placeholder = input.dataset.configuredPlaceholder || input.placeholder;
+                    });
+                }
+            } catch (error) {
+                setStatus(false, 'Request failed');
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+    });
 })();
 </script>

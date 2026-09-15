@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace CommerceAgents\Hook\Admin;
 
 use CommerceAgents\Agent\Llm\LlmClientFactory;
+use CommerceAgents\Channel\ChannelConnectorRegistry;
 use CommerceAgents\Model\AgentModel;
 use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\BudgetStatus;
+use CommerceAgents\Service\Channel\ChannelConnectorConfigService;
 use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\ModelChoice;
 use CommerceAgents\Service\TokenUsageRepository;
@@ -47,6 +49,8 @@ class AdminHookManager extends BaseHook
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly Environment $twig,
+        private readonly ChannelConnectorRegistry $channelRegistry,
+        private readonly ChannelConnectorConfigService $channelConfig,
         ?EventDispatcherInterface $dispatcher = null,
         ?ParserResolver $parserResolver = null,
     ) {
@@ -189,7 +193,55 @@ class AdminHookManager extends BaseHook
             'tokenUsage' => $usage,
             'usageByModel' => $this->tokenUsageRepository->byModel((new \DateTimeImmutable())->setTime(0, 0)->modify('-29 days')),
             'agentTypes' => TokenUsageRepository::AGENT_TYPES,
+            'channels' => $this->buildChannelsViewModel(),
         ]));
+    }
+
+    /**
+     * "Canaux" tab (MYO-300): one card per registered connector, its form
+     * fields generated from getSettingsSchema() — never hardcoded per
+     * connector — with secret fields (format "uri") masked, exactly like the
+     * LLM API key field above.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function buildChannelsViewModel(): array
+    {
+        $icons = ['mail' => 'bi-envelope', 'mattermost' => 'bi-chat-square-dots', 'slack' => 'bi-slack'];
+
+        $channels = [];
+        foreach ($this->channelRegistry->describeAll() as $description) {
+            $code = $description['code'];
+            $schema = $description['settingsSchema'];
+            $current = $this->channelConfig->getSettings($code);
+            $secretProperties = ChannelConnectorConfigService::secretProperties($schema);
+
+            $fields = [];
+            foreach ($schema['properties'] ?? [] as $name => $definition) {
+                $isSecret = \in_array($name, $secretProperties, true);
+                $fields[] = [
+                    'name' => $name,
+                    'label' => $definition['description'] ?? $name,
+                    'type' => ($definition['format'] ?? null) === 'email' ? 'email' : ($isSecret ? 'password' : 'text'),
+                    'required' => \in_array($name, $schema['required'] ?? [], true),
+                    'secret' => $isSecret,
+                    'value' => $isSecret ? '' : ($current[$name] ?? ''),
+                    'configured' => $isSecret && ($current[$name] ?? '') !== '',
+                ];
+            }
+
+            $channels[] = [
+                'code' => $code,
+                'label' => $description['label'],
+                'icon' => $icons[$code] ?? 'bi-broadcast',
+                'configured' => $current !== [],
+                'fields' => $fields,
+                'testUrl' => $this->urlGenerator->generate('commerceagents_channels_test', ['code' => $code]),
+                'saveUrl' => $this->urlGenerator->generate('commerceagents_channels_save', ['code' => $code]),
+            ];
+        }
+
+        return $channels;
     }
 
     /**

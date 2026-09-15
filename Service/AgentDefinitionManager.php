@@ -27,8 +27,8 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class AgentDefinitionManager
 {
-    /** Channel connectors offered while MYO-231 (issue D) is not yet delivered. */
-    public const CHANNEL_CONNECTORS = ['email', 'webhook'];
+    /** Channel connectors selectable in the wizard, matching ChannelConnectorRegistry codes (MYO-300). */
+    public const CHANNEL_CONNECTORS = ['mail', 'mattermost', 'slack'];
 
     /** Connectors announced but not selectable yet (V2). */
     public const CHANNEL_CONNECTORS_SOON = ['telegram'];
@@ -45,16 +45,14 @@ final readonly class AgentDefinitionManager
     }
 
     /**
-     * Flipped to true once the channel connector registry (MYO-231, issue D)
-     * ships its getSettingsSchema() contract: the channel step then renders
-     * real settings forms instead of the "coming soon" placeholder (issue
-     * description: "prévoir l'écran canaux derrière un flag"). Until then,
-     * channel selection only records the merchant's intent (agent_channel
-     * row, no settings).
+     * True since MYO-300 shipped the central channel connector settings panel:
+     * the wizard step renders real channel checkboxes instead of the "coming
+     * soon" placeholder. Settings themselves are configured once, centrally,
+     * via ChannelConnectorConfigService — not per agent_channel row.
      */
     public function channelsAvailable(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -320,9 +318,11 @@ final readonly class AgentDefinitionManager
      */
     private function channelChip(AgentChannel $channel): array
     {
-        $icons = ['email' => 'bi-envelope', 'webhook' => 'bi-slack', 'telegram' => 'bi-telegram'];
+        $icons = ['mail' => 'bi-envelope', 'mattermost' => 'bi-chat-square-dots', 'slack' => 'bi-slack', 'telegram' => 'bi-telegram'];
+        $labels = ['mail' => 'E-mail', 'mattermost' => 'Mattermost', 'slack' => 'Slack', 'telegram' => 'Telegram'];
+        $code = $channel->getConnectorCode();
 
-        return ['icon' => $icons[$channel->getConnectorCode()] ?? 'bi-broadcast', 'label' => $channel->getConnectorCode()];
+        return ['icon' => $icons[$code] ?? 'bi-broadcast', 'label' => $labels[$code] ?? $code];
     }
 
     /**

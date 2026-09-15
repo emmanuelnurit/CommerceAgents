@@ -13,29 +13,20 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExcep
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * Generic incoming-webhook connector: both Mattermost and Slack accept a
- * `{"text": "..."}` JSON body on their incoming webhook URL, so one connector
- * covers both without knowing which of the two it is talking to (plan
- * MYO-226 §3.6 — rich per-provider integrations are V2).
+ * Incoming-webhook send/test logic shared by every provider that accepts a
+ * `{"text": "..."}` JSON body on an incoming webhook URL (Mattermost, Slack —
+ * MYO-300 splits what used to be one generic 'webhook' connector into two
+ * named, registry-visible connectors so the BO screen doesn't force merchants
+ * to know they share a wire format; only getCode()/getLabel() differ).
  */
-final readonly class WebhookChannelConnector implements ChannelConnectorInterface
+abstract readonly class AbstractWebhookChannelConnector implements ChannelConnectorInterface
 {
-    private const TIMEOUT_SECONDS = 10;
+    protected const TIMEOUT_SECONDS = 10;
 
     public function __construct(
         private HttpClientInterface $httpClient,
         private OutboundUrlValidatorInterface $urlValidator,
     ) {
-    }
-
-    public function getCode(): string
-    {
-        return 'webhook';
-    }
-
-    public function getLabel(): string
-    {
-        return 'Webhook (Mattermost / Slack)';
     }
 
     public function getSettingsSchema(): array
@@ -46,7 +37,7 @@ final readonly class WebhookChannelConnector implements ChannelConnectorInterfac
                 'url' => [
                     'type' => 'string',
                     'format' => 'uri',
-                    'description' => 'URL du webhook entrant Mattermost ou Slack',
+                    'description' => \sprintf('URL du webhook entrant %s', $this->getLabel()),
                 ],
             ],
             'required' => ['url'],

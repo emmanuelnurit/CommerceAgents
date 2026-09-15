@@ -19,7 +19,7 @@ final readonly class ChannelMessageApplier implements ChangeApplierInterface
 {
     public function __construct(
         private ChannelConnectorRegistry $registry,
-        private ChannelSettingsEncryptor $encryptor,
+        private ChannelConnectorConfigService $channelConfig,
     ) {
     }
 
@@ -47,6 +47,6 @@ final readonly class ChannelMessageApplier implements ChangeApplierInterface
             $change->payloadAfter['metadata'] ?? [],
         );
 
-        $connector->send($message, $this->encryptor->decrypt($channel->getSettings()));
+        $connector->send($message, $this->channelConfig->getSettings($connectorCode));
     }
 }

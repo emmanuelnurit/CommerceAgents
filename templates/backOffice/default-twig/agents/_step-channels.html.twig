@@ -1,28 +1,38 @@
 {# Wizard step 4 / edit section: channels + capabilities (spec MYO-227 §4.3 étape 4) #}
 <div class="mb-4">
-    <div class="fw-semibold mb-2">{{ 'Channels'|trans({}, 'commerceagents') }}</div>
-    {% if not channelsAvailable %}
-        <p class="text-muted small">{{ 'Channel settings are coming soon — you can already pick a channel, it will just need a quick setup once connectors ship.'|trans({}, 'commerceagents') }}</p>
-    {% endif %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-semibold">{{ 'Channels'|trans({}, 'commerceagents') }}</div>
+        {% if channelsConfigUrl %}
+            <a href="{{ channelsConfigUrl }}" class="small" data-testid="channels-config-link"><i class="bi bi-gear me-1" aria-hidden="true"></i>{{ 'Configure channel connectors'|trans({}, 'commerceagents') }}</a>
+        {% endif %}
+    </div>
+    <p class="text-muted small">{{ 'Pick which channel(s) this agent uses. Webhook URLs, mail settings… are configured once for the whole shop in the channel connectors panel.'|trans({}, 'commerceagents') }}</p>
     <div class="row g-2">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="border rounded p-3 h-100">
                 <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="channel-email" name="channel_email" value="1" {{ values.channels.email ? 'checked' : '' }}>
-                    <label class="form-check-label" for="channel-email"><i class="bi bi-envelope me-1" aria-hidden="true"></i>{{ 'E-mail'|trans({}, 'commerceagents') }}</label>
+                    <input class="form-check-input" type="checkbox" id="channel-mail" name="channel_mail" value="1" {{ values.channels.mail ? 'checked' : '' }}>
+                    <label class="form-check-label" for="channel-mail"><i class="bi bi-envelope me-1" aria-hidden="true"></i>{{ 'E-mail'|trans({}, 'commerceagents') }}</label>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="border rounded p-3 h-100">
                 <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="channel-webhook" name="channel_webhook" value="1" {{ values.channels.webhook ? 'checked' : '' }}>
-                    <label class="form-check-label" for="channel-webhook"><i class="bi bi-slack me-1" aria-hidden="true"></i>{{ 'Mattermost / Slack (webhook)'|trans({}, 'commerceagents') }}</label>
+                    <input class="form-check-input" type="checkbox" id="channel-mattermost" name="channel_mattermost" value="1" {{ values.channels.mattermost ? 'checked' : '' }}>
+                    <label class="form-check-label" for="channel-mattermost"><i class="bi bi-chat-square-dots me-1" aria-hidden="true"></i>{{ 'Mattermost'|trans({}, 'commerceagents') }}</label>
                 </div>
-                {% if not channelsAvailable %}<div class="form-text">{{ 'Configure this channel: coming soon'|trans({}, 'commerceagents') }}</div>{% endif %}
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="border rounded p-3 h-100">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="channel-slack" name="channel_slack" value="1" {{ values.channels.slack ? 'checked' : '' }}>
+                    <label class="form-check-label" for="channel-slack"><i class="bi bi-slack me-1" aria-hidden="true"></i>{{ 'Slack'|trans({}, 'commerceagents') }}</label>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="border rounded p-3 h-100 opacity-50">
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="channel-telegram" disabled>

@@ -153,6 +153,7 @@
                             ['providers', 'Other providers'|trans({}, 'commerceagents'), 'bi-plug'],
                             ['models', 'Models and prices'|trans({}, 'commerceagents'), 'bi-tags'],
                             ['assistants', 'Shop assistant'|trans({}, 'commerceagents'), 'bi-chat-dots'],
+                            ['channels', 'Channels'|trans({}, 'commerceagents'), 'bi-broadcast'],
                             ['budget', 'Budget and guardrails'|trans({}, 'commerceagents'), 'bi-speedometer2'],
                             ['usage', 'Detailed usage'|trans({}, 'commerceagents'), 'bi-bar-chart'],
                         ] %}
@@ -447,6 +448,42 @@
                                     {% endfor %}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    {# ------------------------------------------------------------ Channel connectors (MYO-300) #}
+                    <div class="ca-tab-pane d-none" data-ca-pane="channels" data-testid="commerceagents-channels">
+                        <p class="text-muted small mb-3">{{ 'Configure each channel connector once — every agent using it shares these settings.'|trans({}, 'commerceagents') }}</p>
+                        <div class="row g-3">
+                            {% for channel in channels %}
+                                <div class="col-md-6">
+                                    <form class="border rounded p-3 h-100 ca-channel-form" data-code="{{ channel.code }}" data-test-url="{{ channel.testUrl }}" data-save-url="{{ channel.saveUrl }}" data-testid="ca-channel-{{ channel.code }}">
+                                        <input type="hidden" name="_token" value="{{ csrfToken }}">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <strong><i class="bi {{ channel.icon }} me-2" aria-hidden="true"></i>{{ channel.label }}</strong>
+                                            <span class="badge {{ channel.configured ? 'text-bg-success' : 'text-bg-secondary' }} ca-channel-configured-badge" data-configured-label="{{ 'Configured'|trans({}, 'commerceagents') }}">
+                                                {{ channel.configured ? 'Configured'|trans({}, 'commerceagents') : 'Not configured'|trans({}, 'commerceagents') }}
+                                            </span>
+                                        </div>
+                                        {% for field in channel.fields %}
+                                            <label class="form-label small" for="ca-channel-{{ channel.code }}-{{ field.name }}">{{ field.label }}{% if field.required %} *{% endif %}</label>
+                                            <input class="form-control form-control-sm mb-2" id="ca-channel-{{ channel.code }}-{{ field.name }}"
+                                                   name="settings[{{ field.name }}]" type="{{ field.type }}" autocomplete="off"
+                                                   value="{{ field.value }}" {{ (field.required and not (field.secret and field.configured)) ? 'required' : '' }}
+                                                   placeholder="{{ field.configured ? 'Configured — leave empty to keep'|trans({}, 'commerceagents') : '' }}"
+                                                   data-secret="{{ field.secret ? '1' : '0' }}"
+                                                   data-configured-placeholder="{{ 'Configured — leave empty to keep'|trans({}, 'commerceagents') }}">
+                                        {% endfor %}
+                                        <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                            <button type="submit" class="btn btn-sm btn-primary ca-channel-save">{{ 'Save'|trans({}, 'commerceagents') }}</button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary ca-channel-test">{{ 'Test connection'|trans({}, 'commerceagents') }}</button>
+                                            <span class="ca-channel-status small" role="status" aria-live="polite"></span>
+                                        </div>
+                                    </form>
+                                </div>
+                            {% else %}
+                                <p class="text-muted">{{ 'No channel connector registered.'|trans({}, 'commerceagents') }}</p>
+                            {% endfor %}
                         </div>
                     </div>
 

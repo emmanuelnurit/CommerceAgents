@@ -14,7 +14,7 @@ namespace CommerceAgents\Channel;
 interface ChannelConnectorInterface
 {
     /**
-     * Stable identifier stored in agent_channel.connector_code, e.g. 'mail', 'webhook'.
+     * Stable identifier stored in agent_channel.connector_code, e.g. 'mail', 'mattermost', 'slack'.
      */
     public function getCode(): string;
 
