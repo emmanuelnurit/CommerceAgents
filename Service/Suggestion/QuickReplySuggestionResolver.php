@@ -283,13 +283,26 @@ final readonly class QuickReplySuggestionResolver
     }
 
     /**
+     * `open_page` (MYO-283 recette, MYO-290) always navigates using a URL an
+     * earlier tool call already produced — it never carries intent of its
+     * own. When the agent chains e.g. `search_products` then `open_page` to
+     * jump the visitor straight to a category, the *previous* call is what
+     * the turn actually resolved; skip trailing `open_page` entries so the
+     * resolver still sees it.
+     *
      * @param list<array{name: string, result: array}> $toolCalls
      *
      * @return array{name: string, result: array}|null
      */
     private static function lastToolCall(array $toolCalls): ?array
     {
-        return $toolCalls === [] ? null : $toolCalls[array_key_last($toolCalls)];
+        for ($i = \count($toolCalls) - 1; $i >= 0; --$i) {
+            if ($toolCalls[$i]['name'] !== 'open_page') {
+                return $toolCalls[$i];
+            }
+        }
+
+        return null;
     }
 
     /**

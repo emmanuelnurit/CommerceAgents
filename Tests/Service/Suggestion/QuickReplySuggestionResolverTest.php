@@ -196,6 +196,30 @@ class QuickReplySuggestionResolverTest extends TestCase
         $this->assertSame([], $result['suggestions']);
     }
 
+    public function testCatalogIntentSurvivesAnOpenPageCallChainedAfterTheSearch(): void
+    {
+        // Real e2e recette flow (MYO-290): "I am looking for chairs" makes the
+        // agent search, then immediately open_page the visitor straight to the
+        // matched category. open_page must not shadow the search's intent.
+        $resolver = $this->resolver(siblings: [
+            ['id' => 9, 'title' => 'Stools', 'url' => 'https://shop.example/stools.html', 'productCount' => 4],
+        ]);
+        $toolCalls = [
+            ['name' => 'get_categories', 'result' => ['categories' => []]],
+            ['name' => 'search_products', 'result' => [
+                'products' => [['id' => 1, 'title' => 'Chair']],
+                'matched_category' => ['id' => 3, 'title' => 'Chairs', 'url' => '/chairs.html', 'productCount' => 10],
+            ]],
+            ['name' => 'open_page', 'result' => ['navigation' => ['url' => 'https://shop.example/chairs.html']]],
+        ];
+
+        $result = $resolver->resolve($this->ctx(), $toolCalls, 'I am looking for chairs');
+
+        $this->assertFalse($result['isDefaultIntent']);
+        $this->assertCount(1, $result['suggestions']);
+        $this->assertSame('See also Stools', $result['suggestions'][0]->toArray()['label']);
+    }
+
     public function testCatalogIntentIgnoresAnOptionOnlyVariantSearch(): void
     {
         $resolver = $this->resolver(siblings: [['id' => 9, 'title' => 'Tabourets', 'url' => '/t.html', 'productCount' => 4]]);
