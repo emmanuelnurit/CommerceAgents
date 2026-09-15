@@ -14,6 +14,7 @@ use CommerceAgents\Model\AgentStagedChangeQuery;
 use CommerceAgents\Model\AgentTrigger;
 use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\Run\AgentTriggerType;
+use CommerceAgents\Service\Run\TriggerCatalogMapping;
 use CommerceAgents\Service\TriggerCatalog;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Symfony\Component\HttpFoundation\Request;
@@ -215,10 +216,11 @@ final readonly class AgentRunsController
     }
 
     /**
-     * The wizard only ever writes triggers of type `event` (its `eventName`
-     * carries a {@see TriggerCatalog} code, see AgentsController::parseTriggers)
-     * or `cron`; `abandoned_cart`/`low_stock` are the seeded business-cron
-     * triggers (AgentRunQueue::enqueueDueAbandonedCartRuns/DueLowStockRuns).
+     * The technical (type, event_name) pair a trigger carries is never a
+     * {@see TriggerCatalog} code by itself (MYO-344:
+     * {@see \CommerceAgents\Service\Run\TriggerCatalogMapping} is the single
+     * source of truth for that mapping), so it goes through the reverse
+     * lookup before it can be turned into a business label.
      */
     private function triggerLabel(?AgentTrigger $trigger): string
     {
@@ -226,12 +228,13 @@ final readonly class AgentRunsController
             return $this->translator->trans('Manual', [], 'commerceagents');
         }
 
-        return match ($trigger->getType()) {
-            AgentTriggerType::CRON => $this->translator->trans('Schedule', [], 'commerceagents'),
-            AgentTriggerType::ABANDONED_CART => $this->triggerCatalog->label(TriggerCatalog::CART_ABANDONED),
-            AgentTriggerType::LOW_STOCK => $this->triggerCatalog->label(TriggerCatalog::LOW_STOCK),
-            default => $this->triggerCatalog->label((string) $trigger->getEventName()),
-        };
+        if ($trigger->getType() === AgentTriggerType::CRON) {
+            return $this->translator->trans('Schedule', [], 'commerceagents');
+        }
+
+        $code = TriggerCatalogMapping::catalogCodeFor($trigger);
+
+        return $this->triggerCatalog->label($code ?? (string) $trigger->getEventName());
     }
 
     private function formatDuration(?\DateTimeInterface $startedAt, ?\DateTimeInterface $finishedAt): ?string

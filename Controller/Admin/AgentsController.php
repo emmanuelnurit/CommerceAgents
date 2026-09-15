@@ -20,7 +20,9 @@ use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\ModuleAvailabilityInterface;
 use CommerceAgents\Service\Run\AgentRunQueue;
+use CommerceAgents\Service\Run\AgentTriggerType;
 use CommerceAgents\Service\Run\ReportResendService;
+use CommerceAgents\Service\Run\TriggerCatalogMapping;
 use CommerceAgents\Service\SpecialtyPane\SpecialtyResultsPaneRegistry;
 use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Service\TriggerCatalog;
@@ -259,12 +261,16 @@ final readonly class AgentsController
 
         $triggers = [];
         foreach ($data['triggers'] as $trigger) {
+            $code = TriggerCatalogMapping::catalogCodeFor($trigger);
+            if ($code === null) {
+                continue;
+            }
             $conditions = $trigger->getConditions() !== null ? json_decode($trigger->getConditions(), true) : [];
             $triggers[] = [
-                'type' => $trigger->getType() === 'cron' ? TriggerCatalog::SCHEDULE : $trigger->getEventName(),
-                'hours' => $conditions['hours'] ?? null,
-                'time' => $trigger->getCronExpression() !== null ? self::cronToTime($trigger->getCronExpression()) : null,
-                'orderStatusIds' => $conditions['order_status_ids'] ?? [],
+                'type' => $code,
+                'hours' => $conditions['delay_hours'] ?? null,
+                'time' => $code === TriggerCatalog::SCHEDULE && $trigger->getCronExpression() !== null ? self::cronToTime($trigger->getCronExpression()) : null,
+                'orderStatusIds' => $conditions['target_statuses'] ?? [],
                 'threshold' => $conditions['threshold'] ?? null,
             ];
         }
@@ -486,24 +492,27 @@ final readonly class AgentsController
         $triggers = [];
 
         if ($request->request->get('trigger_cart_abandoned') === '1') {
-            $triggers[] = ['type' => 'event', 'eventName' => TriggerCatalog::CART_ABANDONED, 'conditions' => ['hours' => max(1, (int) $request->request->get('trigger_cart_abandoned_hours', 24))]];
+            $triggers[] = TriggerCatalogMapping::technicalFor(TriggerCatalog::CART_ABANDONED)
+                + ['conditions' => ['delay_hours' => max(1, (int) $request->request->get('trigger_cart_abandoned_hours', 24))]];
         }
         if ($request->request->get('trigger_new_order') === '1') {
-            $triggers[] = ['type' => 'event', 'eventName' => TriggerCatalog::NEW_ORDER, 'conditions' => null];
+            $triggers[] = TriggerCatalogMapping::technicalFor(TriggerCatalog::NEW_ORDER) + ['conditions' => null];
         }
         if ($request->request->get('trigger_order_status_change') === '1') {
             $ids = array_values(array_filter(array_map('intval', (array) $request->request->all('trigger_order_status_ids'))));
-            $triggers[] = ['type' => 'event', 'eventName' => TriggerCatalog::ORDER_STATUS_CHANGE, 'conditions' => ['order_status_ids' => $ids]];
+            $triggers[] = TriggerCatalogMapping::technicalFor(TriggerCatalog::ORDER_STATUS_CHANGE)
+                + ['conditions' => ['target_statuses' => $ids]];
         }
         if ($request->request->get('trigger_new_customer') === '1') {
-            $triggers[] = ['type' => 'event', 'eventName' => TriggerCatalog::NEW_CUSTOMER, 'conditions' => null];
+            $triggers[] = TriggerCatalogMapping::technicalFor(TriggerCatalog::NEW_CUSTOMER) + ['conditions' => null];
         }
         if ($request->request->get('trigger_low_stock') === '1') {
-            $triggers[] = ['type' => 'event', 'eventName' => TriggerCatalog::LOW_STOCK, 'conditions' => ['threshold' => max(0, (int) $request->request->get('trigger_low_stock_threshold', 5))]];
+            $triggers[] = TriggerCatalogMapping::technicalFor(TriggerCatalog::LOW_STOCK)
+                + ['conditions' => ['threshold' => max(0, (int) $request->request->get('trigger_low_stock_threshold', 5))]];
         }
         if ($request->request->get('trigger_schedule') === '1') {
             $time = (string) $request->request->get('trigger_schedule_time', '09:00');
-            $triggers[] = ['type' => 'cron', 'cronExpression' => self::timeToCron($time), 'conditions' => null];
+            $triggers[] = ['type' => AgentTriggerType::CRON, 'eventName' => null, 'cronExpression' => self::timeToCron($time), 'conditions' => null];
         }
 
         return $triggers;
