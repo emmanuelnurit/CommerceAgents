@@ -176,6 +176,35 @@
         <behavior name="timestampable"/>
     </table>
 
+    <table name="agent_action_log" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <column name="tool_name" required="true" size="120" type="VARCHAR"/>
+        <column name="capability" size="60" type="VARCHAR"/>
+        <column defaultValue="chat" name="channel" required="true" size="20" type="VARCHAR"/>
+        <column name="status" required="true" size="20" type="VARCHAR"/>
+        <column name="conversation_id" type="INTEGER"/>
+        <column name="agent_definition_id" type="INTEGER"/>
+        <column name="admin_id" type="INTEGER"/>
+        <column name="customer_id" type="INTEGER"/>
+        <column name="arguments" type="CLOB"/>
+        <column name="error" type="CLOB"/>
+        <index name="idx_agent_action_log_tool_name">
+            <index-column name="tool_name"/>
+        </index>
+        <index name="idx_agent_action_log_definition">
+            <index-column name="agent_definition_id"/>
+        </index>
+        <foreign-key foreignTable="agent_conversation" name="fk_agent_action_log_conversation" onDelete="SETNULL">
+            <reference foreign="id" local="conversation_id"/>
+        </foreign-key>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_action_log_definition" onDelete="SETNULL">
+            <reference foreign="id" local="agent_definition_id"/>
+        </foreign-key>
+        <behavior name="timestampable">
+            <parameter name="disable_updated_at" value="true"/>
+        </behavior>
+    </table>
+
     <table name="agent_model" namespace="CommerceAgents\Model">
         <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
         <column name="provider" required="true" size="40" type="VARCHAR"/>

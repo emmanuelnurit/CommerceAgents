@@ -6,6 +6,10 @@ namespace CommerceAgents\Agent\Tool;
 
 final readonly class ToolContext
 {
+    public const CHANNEL_CHAT = 'chat';
+    public const CHANNEL_MCP = 'mcp';
+    public const CHANNEL_RUN = 'run';
+
     /**
      * @param list<string>|null $capabilities capabilities granted to the agent
      *                                        definition running this context;
@@ -17,6 +21,11 @@ final readonly class ToolContext
      *                                        AssistantLocaleResolver (MYO-274); the
      *                                        default below only saves tests that don't
      *                                        care about locale from naming one
+     * @param string            $channel      which surface this call came through
+     *                                        (MYO-286 audit log): CHANNEL_CHAT for the
+     *                                        front/merchant chat widgets, CHANNEL_MCP
+     *                                        for an external MCP client, CHANNEL_RUN
+     *                                        for an autonomous trigger-fired run
      */
     public function __construct(
         public bool $isAdmin = false,
@@ -28,6 +37,7 @@ final readonly class ToolContext
         public string $currencyCode = 'EUR',
         public ?int $agentDefinitionId = null,
         public ?array $capabilities = null,
+        public string $channel = self::CHANNEL_CHAT,
     ) {
     }
 

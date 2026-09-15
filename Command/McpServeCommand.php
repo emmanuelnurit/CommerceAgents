@@ -98,6 +98,7 @@ final class McpServeCommand extends Command
             sessionId: 'mcp:'.$login,
             locale: $locale,
             currencyCode: CurrencyQuery::create()->filterByByDefault(true)->findOne()?->getCode() ?? 'EUR',
+            channel: ToolContext::CHANNEL_MCP,
         );
 
         // Nothing but JSON-RPC may reach stdout.

@@ -108,6 +108,7 @@ final readonly class AgentRunner
             locale: $locale,
             agentDefinitionId: $definition->getId(),
             capabilities: $this->capabilityCodes($definition),
+            channel: ToolContext::CHANNEL_RUN,
         );
 
         $instruction = $this->instruction($context);

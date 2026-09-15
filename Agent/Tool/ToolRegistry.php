@@ -16,6 +16,7 @@ class ToolRegistry
      */
     public function __construct(
         #[TaggedIterator('commerce_agents.tool')] iterable $tools = [],
+        private readonly ?AgentActionLoggerInterface $actionLogger = null,
     ) {
         foreach ($tools as $tool) {
             $this->register($tool);
@@ -27,17 +28,40 @@ class ToolRegistry
         $this->tools[$tool->getName()] = $tool;
     }
 
+    /**
+     * Every call — granted, denied or failing — goes through here for both
+     * the chat and MCP call sites, so this is also where the agent action
+     * audit log (MYO-286 item 4) is written: what an agent can write must be
+     * traceable before its write capabilities are ever extended.
+     */
     public function execute(string $name, array $args, ToolContext $ctx): array
     {
-        $tool = $this->tools[$name] ?? throw new ToolException(\sprintf('Unknown tool "%s"', $name));
+        $tool = $this->tools[$name] ?? null;
+        if ($tool === null) {
+            $this->actionLogger?->log($name, null, AgentActionLoggerInterface::STATUS_ERROR, $ctx, $args, \sprintf('Unknown tool "%s"', $name));
+
+            throw new ToolException(\sprintf('Unknown tool "%s"', $name));
+        }
 
         if (!$this->isAllowed($tool, $ctx)) {
+            $this->actionLogger?->log($name, $tool->getRequiredCapability(), AgentActionLoggerInterface::STATUS_DENIED, $ctx, $args);
+
             throw new ToolException(\sprintf('Tool "%s" not allowed in this context', $name));
         }
 
-        $this->validateArguments($tool->getInputSchema(), $args, $name);
+        try {
+            $this->validateArguments($tool->getInputSchema(), $args, $name);
+            $result = $tool->execute($args, $ctx);
+        } catch (ToolException $exception) {
+            $this->actionLogger?->log($name, $tool->getRequiredCapability(), AgentActionLoggerInterface::STATUS_ERROR, $ctx, $args, $exception->getMessage());
 
-        return $tool->execute($args, $ctx);
+            throw $exception;
+        }
+
+        $status = isset($result['error']) ? AgentActionLoggerInterface::STATUS_ERROR : AgentActionLoggerInterface::STATUS_SUCCESS;
+        $this->actionLogger?->log($name, $tool->getRequiredCapability(), $status, $ctx, $args, $result['error'] ?? null);
+
+        return $result;
     }
 
     /**
