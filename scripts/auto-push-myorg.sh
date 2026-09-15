@@ -20,6 +20,15 @@
 # script distinct : celui-ci pousse (a besoin de credentials), l'autre ne
 # fait que lire (n'en a pas besoin, ce dépôt GitHub est public en lecture).
 #
+# MYO-376 — `git push` seul ne pousse AUCUN tag, même sur la branche
+# poussée : un `git tag -a` posé localement (ex. tag de release v0.3.x)
+# reste invisible sur origin tant que personne ne pense à `--tags`. On
+# ajoute donc `--follow-tags` à l'appel de push (pas `--tags` brut, qui
+# pousserait aussi des tags locaux volontairement non publiés) : ne pousse
+# que les tags *annotés* déjà atteignables depuis la branche poussée et
+# absents du remote — exactement le cas des tags de release. Le filet
+# check-unpushed-myorg.sh vérifie séparément qu'aucun tag ne reste local-only.
+#
 # ── Credentials — jamais en clair dans une commande ou un log ─────────────
 #
 # Pattern GIT_ASKPASS éphémère (cf. historique MYO-241) : le token n'est
@@ -132,7 +141,7 @@ chmod 700 "$ASKPASS_FILE"
 before="$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo unknown)"
 
 push_output="$(AUTO_PUSH_TOKEN="$token" GIT_ASKPASS="$ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
-  git push "$REMOTE" "$BRANCH" 2>&1)"
+  git push "$REMOTE" "$BRANCH" --follow-tags 2>&1)"
 status=$?
 token=""
 AUTO_PUSH_TOKEN=""

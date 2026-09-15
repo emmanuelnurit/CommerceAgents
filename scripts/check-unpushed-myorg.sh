@@ -23,6 +23,13 @@
 # le verrou de auto-push-myorg.sh, fichiers séparés), sortie silencieuse
 # quand tout est à jour.
 #
+# MYO-376 — vérifie aussi les tags (pas seulement les commits de branche) :
+# auto-push-myorg.sh pousse désormais avec --follow-tags, mais un tag posé
+# hors d'un run agent (pas de credentials disponibles) resterait local-only
+# sans que rien ne le signale. On compare `git tag` local à
+# `git ls-remote --tags` (lecture publique, pas de credentials nécessaires,
+# même raisonnement que le fetch des commits ci-dessus).
+#
 # ── Usage ────────────────────────────────────────────────────────────────
 #
 #   ./scripts/check-unpushed-myorg.sh [cron|manual]
@@ -75,17 +82,29 @@ fi
 
 oldest_unpushed="$(git log --reverse --format=%H "${REMOTE}/${BRANCH}..${BRANCH}" -- 2>/dev/null | head -1)"
 
-if [[ -z "$oldest_unpushed" ]]; then
-  exit 0
+if [[ -n "$oldest_unpushed" ]]; then
+  commit_epoch="$(git log -1 --format=%ct "$oldest_unpushed" 2>/dev/null || echo 0)"
+  now_epoch="$(date -u +%s)"
+  age_minutes=$(( (now_epoch - commit_epoch) / 60 ))
+
+  if [[ "$age_minutes" -ge "$STALE_MINUTES" ]]; then
+    count="$(git log --oneline "${REMOTE}/${BRANCH}..${BRANCH}" -- 2>/dev/null | wc -l | tr -d ' ')"
+    log "$(now_iso) [${TRIGGER_SOURCE}] WARN-UNPUSHED ${count} commit(s) non poussé(s) sur ${BRANCH} depuis ${age_minutes}min (plus ancien: ${oldest_unpushed:0:12}) — auto-push-myorg.sh a dû échouer, voir RESULT FAILED ci-dessus"
+  fi
 fi
 
-commit_epoch="$(git log -1 --format=%ct "$oldest_unpushed" 2>/dev/null || echo 0)"
-now_epoch="$(date -u +%s)"
-age_minutes=$(( (now_epoch - commit_epoch) / 60 ))
-
-if [[ "$age_minutes" -ge "$STALE_MINUTES" ]]; then
-  count="$(git log --oneline "${REMOTE}/${BRANCH}..${BRANCH}" -- 2>/dev/null | wc -l | tr -d ' ')"
-  log "$(now_iso) [${TRIGGER_SOURCE}] WARN-UNPUSHED ${count} commit(s) non poussé(s) sur ${BRANCH} depuis ${age_minutes}min (plus ancien: ${oldest_unpushed:0:12}) — auto-push-myorg.sh a dû échouer, voir RESULT FAILED ci-dessus"
+# Vérification des tags : indépendante de l'état des commits ci-dessus (un
+# tag peut rester local-only même quand la branche est entièrement à jour),
+# donc jamais dans le `if` précédent ni derrière un `exit 0` anticipé.
+local_tags="$(git tag 2>/dev/null | sort -u)"
+if [[ -n "$local_tags" ]]; then
+  remote_tags="$(git ls-remote --tags "$REMOTE" 2>/dev/null |
+    awk '{print $2}' | sed -e 's#refs/tags/##' -e 's/\^{}$//' | sort -u)"
+  missing_tags="$(comm -23 <(printf '%s\n' "$local_tags") <(printf '%s\n' "$remote_tags") | tr '\n' ' ')"
+  missing_tags_trimmed="$(printf '%s' "$missing_tags" | tr -d '[:space:]')"
+  if [[ -n "$missing_tags_trimmed" ]]; then
+    log "$(now_iso) [${TRIGGER_SOURCE}] WARN-UNPUSHED-TAGS tag(s) absent(s) de ${REMOTE}: ${missing_tags}— auto-push-myorg.sh --follow-tags n'a pas (encore) couvert ce(s) tag(s), pousser manuellement (git push --tags)"
+  fi
 fi
 
 exit 0
