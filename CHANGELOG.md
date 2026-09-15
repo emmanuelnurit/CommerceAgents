@@ -110,7 +110,7 @@ Cinq migrations de schéma (`Config/update/0.3.4.sql` → `0.3.8.sql`) portent l
 
 ## Post-V1, suite (MYO-372 → MYO-407)
 
-Le module passe de **0.3.8** à **0.4.0** (pas 0.3.9) : ce lot ajoute `bin/console commerce-agents:rotate-secrets`, une capacité opérationnelle nouvelle exposée aux administrateurs système (rotation de `kernel.secret` sans réécriture manuelle des secrets chiffrés en base), et pas seulement des correctifs — même si le lot en contient aussi. **Aucun changement de schéma** dans ce lot : `Config/update/` s'arrête toujours à `0.3.8.sql`, il n'y a pas de `0.4.0.sql` (voir « Migrations » ci-dessous).
+Le module passe de **0.3.8** à **0.4.0** (pas 0.3.9) : ce lot ajoute `bin/console commerce-agents:rotate-secrets`, une capacité opérationnelle nouvelle exposée aux administrateurs système (rotation de `kernel.secret` sans réécriture manuelle des secrets chiffrés en base), et pas seulement des correctifs — même si le lot en contient aussi (MYO-372, 373, 378, 379, 382, 384, 406, 407). **Aucun changement de schéma** dans ce lot : `Config/update/` s'arrête toujours à `0.3.8.sql`, il n'y a pas de `0.4.0.sql` (voir « Migrations » ci-dessous).
 
 ### Garde-fou auto-push étendu aux tags — MYO-372
 
@@ -122,6 +122,11 @@ Le module passe de **0.3.8** à **0.4.0** (pas 0.3.9) : ce lot ajoute `bin/conso
 - **MYO-378** — Les migrations `Config/update/*.sql` sont rendues idempotentes (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN`/`ADD INDEX IF NOT EXISTS`, `ADD CONSTRAINT` gardé par une procédure `information_schema`), car `CommerceAgents::update()` ne peut pas se fier à `$currentVersion` (fourni par `Thelia\Module\ModuleManagement`) pour savoir quels fichiers ont réellement tourné — voir [MYO-408](/MYO/issues/MYO-408) et la section « Migrations » ci-dessous pour un cas concret. Un test de non-régression dédié (`Tests/Config/UpdateSqlIdempotencyTest.php`, découverte des fichiers par `glob()`) vérifie ces trois garanties sur chaque fichier de `Config/update/`, y compris les futurs.
 - **MYO-379** — `ReviewsTabHook` autowirait en dur le modèle `Comment` du module core `Comment` ; sur une installation où ce module n'est pas actif (ou son code absent, cf. [MYO-403](/MYO/issues/MYO-403)), le conteneur d'injection de dépendances refusait de se compiler. Le service est désormais résolu en `nullOnInvalid()`, dégradé proprement (onglet Avis masqué) plutôt que de bloquer tout le DI du module.
 - **MYO-382** — `AgentRuntime::runTurn()` ne recouvrait que `ToolException` pendant l'exécution d'un tool ; toute autre exception (`\Throwable` générique) traversait le générateur et faisait échouer le run entier au lieu d'être recouvrée en `tool_result` comme les `ToolException` le sont déjà depuis MYO-373. Recouvrement généralisé, avec stacktrace complète journalisée (nouveau logger injecté dans `AgentRuntime`) puisqu'il ne s'agit pas d'un échec typé attendu.
+
+### Vendor du module désynchronisé — MYO-384
+
+- `vendor/thelia/modules/CommerceAgents` était une seconde copie git indépendante (branche `main`, plusieurs commits en retard sur `local/modules/CommerceAgents`), jamais resynchronisée. `ModuleManagement::updateModules()` scanne les deux répertoires : le `module.xml` vendor périmé pouvait donc réécrire `module.version` avec une valeur obsolète juste après un `module:refresh` pourtant réussi côté local.
+- Corrigé en remplaçant `vendor/thelia/modules/CommerceAgents` par un symlink vers `local/modules/CommerceAgents` — une seule copie du code, de `module.xml` et de `Config/update/*.sql` sur le disque, donc plus aucun désaccord possible entre les deux scans. Vérifié en réel dans un projet DDEV isolé : `module:refresh` depuis `module.version = 0.3.1` converge vers `0.3.8`, et deux `module:refresh` consécutifs supplémentaires laissent `module.version` stable à `0.3.8` (voir `README.md` pour la procédure si ce répertoire redevient un jour une copie physique).
 
 ### Rotation de `kernel.secret` et audit d'entropie — MYO-406, MYO-407
 
