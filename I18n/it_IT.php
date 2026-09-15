@@ -44,6 +44,7 @@ return [
     'Rating: %rating%/5' => 'Voto: %rating%/5',
     'This review no longer exists.' => 'Questa recensione non esiste più.',
     'Proposed reply' => 'Risposta proposta',
+    'Edit the draft before approving' => 'Modifica la bozza prima di approvare',
     'Showing proposals from one agent only.' => 'Mostra solo le proposte di un agente.',
     'Show all agents' => 'Mostra tutti gli agenti',
     'Commerce Agents configuration' => 'Configurazione Commerce Agents',

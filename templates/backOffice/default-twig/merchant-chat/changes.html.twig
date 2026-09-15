@@ -80,17 +80,19 @@
                                 {% elseif change.targetType == 'pse_stock' %}
                                     {{ change.payloadBefore.quantity|default('?') }}
                                 {% elseif change.targetType == 'review_reply' %}
-                                    {% if change.review %}
-                                        <div class="mb-1" aria-label="{{ 'Rating: %rating%/5'|trans({'%rating%': change.review.rating|default('?')}, 'commerceagents') }}">
-                                            {% for i in 1..5 %}<i class="bi {{ i <= change.review.rating|default(0) ? 'bi-star-fill text-warning' : 'bi-star text-muted' }}" aria-hidden="true"></i>{% endfor %}
-                                            <span class="text-muted">({{ change.review.rating|default('?') }}/5)</span>
-                                        </div>
-                                        {% if change.review.createdAt|default(null) %}<div class="small text-muted mb-1">{{ change.review.createdAt }}</div>{% endif %}
-                                        <p class="mb-0">{{ change.review.content|default('') }}</p>
-                                    {% else %}
-                                        <span class="text-muted fst-italic">{{ 'This review no longer exists.'|trans({}, 'commerceagents') }}</span>
-                                        {% if change.payloadBefore.content is defined %}<p class="mb-0 mt-1">{{ change.payloadBefore.content }}</p>{% endif %}
-                                    {% endif %}
+                                    <div class="p-2 bg-light rounded">
+                                        {% if change.review %}
+                                            <div class="mb-1" aria-label="{{ 'Rating: %rating%/5'|trans({'%rating%': change.review.rating|default('?')}, 'commerceagents') }}">
+                                                {% for i in 1..5 %}<i class="bi {{ i <= change.review.rating|default(0) ? 'bi-star-fill text-warning' : 'bi-star text-muted' }}" aria-hidden="true"></i>{% endfor %}
+                                                <span class="text-muted">({{ change.review.rating|default('?') }}/5)</span>
+                                            </div>
+                                            {% if change.review.createdAt|default(null) %}<div class="small text-muted mb-1">{{ change.review.createdAt }}</div>{% endif %}
+                                            <p class="mb-0">{{ change.review.content|default('') }}</p>
+                                        {% else %}
+                                            <span class="text-muted fst-italic">{{ 'This review no longer exists.'|trans({}, 'commerceagents') }}</span>
+                                            {% if change.payloadBefore.content is defined %}<p class="mb-0 mt-1">{{ change.payloadBefore.content }}</p>{% endif %}
+                                        {% endif %}
+                                    </div>
                                 {% else %}
                                     <code>{{ change.payloadBefore|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code>
                                 {% endif %}
@@ -102,12 +104,15 @@
                                 {% elseif change.targetType == 'pse_stock' %}
                                     {{ change.payloadAfter.quantity|default('?') }}
                                 {% elseif change.targetType == 'review_reply' %}
-                                    <label class="visually-hidden" for="reply-content-{{ change.id }}">{{ 'Proposed reply'|trans({}, 'commerceagents') }}</label>
-                                    {% if canEditThisChange %}
-                                        <textarea id="reply-content-{{ change.id }}" name="reply_content" form="approve-form-{{ change.id }}" class="form-control form-control-sm" rows="4">{{ change.payloadAfter.reply|default('') }}</textarea>
-                                    {% else %}
-                                        <p class="mb-0">{{ change.payloadAfter.reply|default('') }}</p>
-                                    {% endif %}
+                                    <div class="p-2 bg-light rounded">
+                                        {% if canEditThisChange %}
+                                            <div class="form-text mb-1" id="reply-content-{{ change.id }}-label">{{ 'Edit the draft before approving'|trans({}, 'commerceagents') }}</div>
+                                            <label class="visually-hidden" for="reply-content-{{ change.id }}">{{ 'Proposed reply'|trans({}, 'commerceagents') }}</label>
+                                            <textarea id="reply-content-{{ change.id }}" name="reply_content" form="approve-form-{{ change.id }}" class="form-control form-control-sm" rows="4" aria-describedby="reply-content-{{ change.id }}-label">{{ change.payloadAfter.reply|default('') }}</textarea>
+                                        {% else %}
+                                            <p class="mb-0">{{ change.payloadAfter.reply|default('') }}</p>
+                                        {% endif %}
+                                    </div>
                                 {% else %}
                                     <code>{{ change.payloadAfter|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</code>
                                 {% endif %}
