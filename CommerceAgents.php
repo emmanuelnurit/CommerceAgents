@@ -114,6 +114,7 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Agent\Llm\LlmClientFactoryInterface::class, Agent\Llm\LlmClientFactory::class);
         $servicesConfigurator->alias(Tool\Channel\Gateway\ChannelGatewayInterface::class, Service\Channel\TheliaChannelGateway::class);
         $servicesConfigurator->alias(Service\Locale\SiteDefaultLocaleProviderInterface::class, Service\Locale\TheliaSiteDefaultLocaleProvider::class);
+        $servicesConfigurator->alias(Service\Security\OutboundUrlValidatorInterface::class, Service\Security\OutboundUrlValidator::class);
 
         $servicesConfigurator->set(Service\Channel\ChannelSettingsEncryptor::class)
             ->autowire(true)->autoconfigure(true)

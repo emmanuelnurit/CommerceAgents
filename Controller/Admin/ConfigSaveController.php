@@ -11,6 +11,7 @@ use CommerceAgents\Hook\Admin\AdminHookManager;
 use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\ConnectionTester;
 use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\Security\OutboundUrlValidatorInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,6 +33,7 @@ final readonly class ConfigSaveController
         private AgentConfigService $configService,
         private ConnectionTester $connectionTester,
         private ModelCatalog $modelCatalog,
+        private OutboundUrlValidatorInterface $urlValidator,
     ) {
     }
 
@@ -116,10 +118,21 @@ final readonly class ConfigSaveController
         $this->configService->setProvider((string) $request->request->get('provider', LlmClientFactory::DEFAULT_PROVIDER));
 
         foreach (LlmClientFactory::PROVIDERS as $provider) {
+            $baseUrl = trim((string) $request->request->get(AgentConfigService::providerKey('base_url', $provider)));
+            // MYO-276: base_url is dialed with the provider API key attached
+            // and its response echoed back to the BO (test-connection, model
+            // refresh) -- an unvalidated value is a live SSRF against the
+            // internal network. Reject anything that isn't https to a public
+            // address; the LLM clients already fall back to the official
+            // provider endpoint when base_url is empty.
+            if ($baseUrl !== '' && !$this->urlValidator->isAllowed($baseUrl)) {
+                $baseUrl = '';
+            }
+
             $this->configService->setProviderSettings(
                 $provider,
                 trim((string) $request->request->get(AgentConfigService::providerKey('api_key', $provider))),
-                (string) $request->request->get(AgentConfigService::providerKey('base_url', $provider)),
+                $baseUrl,
                 (string) $request->request->get(AgentConfigService::providerKey('model', $provider)),
             );
         }

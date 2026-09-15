@@ -8,6 +8,7 @@ use CommerceAgents\Channel\ChannelConnectorInterface;
 use CommerceAgents\Channel\ChannelException;
 use CommerceAgents\Channel\ChannelMessage;
 use CommerceAgents\Channel\ConnectorTestResult;
+use CommerceAgents\Service\Security\OutboundUrlValidatorInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -23,6 +24,7 @@ final readonly class WebhookChannelConnector implements ChannelConnectorInterfac
 
     public function __construct(
         private HttpClientInterface $httpClient,
+        private OutboundUrlValidatorInterface $urlValidator,
     ) {
     }
 
@@ -68,6 +70,12 @@ final readonly class WebhookChannelConnector implements ChannelConnectorInterfac
         if ($url === '' || filter_var($url, \FILTER_VALIDATE_URL) === false) {
             throw new ChannelException('Le paramètre "url" doit être une URL valide');
         }
+        // MYO-276: a webhook URL is an SSRF vector (internal services, cloud
+        // metadata endpoint) -- https only, no private/loopback/link-local
+        // target.
+        if (!$this->urlValidator->isAllowed($url)) {
+            throw new ChannelException('Le paramètre "url" doit être une URL HTTPS publique (pas d\'adresse privée/locale)');
+        }
 
         $text = $message->subject !== null
             ? \sprintf('**%s**\n\n%s', $message->subject, $message->body)
@@ -77,6 +85,7 @@ final readonly class WebhookChannelConnector implements ChannelConnectorInterfac
             $response = $this->httpClient->request('POST', $url, [
                 'json' => ['text' => $text],
                 'timeout' => self::TIMEOUT_SECONDS,
+                'max_redirects' => 0,
             ]);
             $status = $response->getStatusCode();
         } catch (HttpClientExceptionInterface $exception) {
