@@ -10,6 +10,10 @@
         <column name="admin_id" type="INTEGER"/>
         <column name="session_ref" size="255" type="VARCHAR"/>
         <column defaultValue="fr_FR" name="locale" size="10" type="VARCHAR"/>
+        <column defaultValue="0" name="proactive_prompt_count" required="true" type="INTEGER"/>
+        <column name="proactive_last_prompted_at" type="TIMESTAMP"/>
+        <column defaultValue="0" name="proactive_dismissed" required="true" type="TINYINT"/>
+        <column name="proactive_scenarios" type="CLOB"/>
         <index name="idx_agent_conversation_session_ref">
             <index-column name="session_ref"/>
         </index>

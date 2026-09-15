@@ -324,6 +324,11 @@
                                 <input class="form-control" id="ca-policy-ids" name="policy_content_ids" type="text" value="{{ policyContentIds }}" placeholder="4,5" form="ca-settings-form">
                                 <div class="form-text">{{ 'Contents holding terms, shipping and return policies.'|trans({}, 'commerceagents') }}</div>
                             </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="ca-max-proactive-prompts">{{ 'Max proactive prompts per session'|trans({}, 'commerceagents') }}</label>
+                                <input class="form-control" id="ca-max-proactive-prompts" name="max_proactive_prompts" type="number" min="0" value="{{ maxProactivePrompts }}" form="ca-settings-form">
+                                <div class="form-text">{{ 'Maximum unsolicited proactive messages the widget may send per visitor session.'|trans({}, 'commerceagents') }}</div>
+                            </div>
 
                             <div class="col-12">
                                 <div class="fw-semibold mb-2">{{ 'Shopping assistant capabilities'|trans({}, 'commerceagents') }}</div>

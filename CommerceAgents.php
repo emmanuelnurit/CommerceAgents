@@ -85,6 +85,9 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->instanceof(Channel\ChannelConnectorInterface::class)
             ->tag('commerce_agents.channel_connector');
 
+        $servicesConfigurator->instanceof(Agent\Proactive\ProactiveScenarioResolverInterface::class)
+            ->tag('commerce_agents.proactive_scenario_resolver');
+
         $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
             ->exclude([__DIR__.'/I18n/*', __DIR__.'/Config/*', __DIR__.'/Model/*', __DIR__.'/Tests/*'])
             ->autowire(true)

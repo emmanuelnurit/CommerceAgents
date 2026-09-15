@@ -195,6 +195,19 @@ final readonly class AgentConfigService
     }
 
     /**
+     * Max proactive solicitations per widget session (plan MYO-236, ProactiveGuard).
+     */
+    public function getMaxProactivePrompts(): int
+    {
+        return max(0, (int) CommerceAgents::getConfigValue('max_proactive_prompts', 3));
+    }
+
+    public function setMaxProactivePrompts(int $maxProactivePrompts): void
+    {
+        CommerceAgents::setConfigValue('max_proactive_prompts', (string) max(0, $maxProactivePrompts));
+    }
+
+    /**
      * @return int[] content ids holding the store policies (terms, shipping, returns)
      */
     public function getPolicyContentIds(): array

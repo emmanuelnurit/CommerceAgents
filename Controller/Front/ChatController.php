@@ -6,6 +6,7 @@ namespace CommerceAgents\Controller\Front;
 
 use CommerceAgents\Agent\AgentRuntime;
 use CommerceAgents\Agent\Llm\LlmClientFactory;
+use CommerceAgents\Agent\Proactive\ProactiveSignal;
 use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Agent\Tool\ToolRegistry;
 use CommerceAgents\Service\AgentConfigService;
@@ -13,7 +14,11 @@ use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
 use CommerceAgents\Service\LanguageReminder;
+use CommerceAgents\Service\ProactiveGuard;
+use CommerceAgents\Service\ProactiveScenarioRegistry;
+use CommerceAgents\Service\ProactiveSessionRepository;
 use CommerceAgents\Service\SystemPromptFactory;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -25,6 +30,7 @@ use Thelia\Domain\Cart\CartFacade;
 final class ChatController extends BaseFrontController
 {
     private const MAX_MESSAGE_LENGTH = 2000;
+    private const MAX_SIGNAL_TYPE_LENGTH = 60;
 
     public function __construct(
         private readonly AgentConfigService $configService,
@@ -35,6 +41,10 @@ final class ChatController extends BaseFrontController
         private readonly ChatStreamer $chatStreamer,
         private readonly SystemPromptFactory $systemPromptFactory,
         private readonly CartFacade $cartFacade,
+        private readonly ProactiveGuard $proactiveGuard,
+        private readonly ProactiveSessionRepository $proactiveSessionRepository,
+        private readonly ProactiveScenarioRegistry $proactiveScenarioRegistry,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -94,5 +104,104 @@ final class ChatController extends BaseFrontController
         $system = $this->systemPromptFactory->shopping($this->configService->getAssistantName(), $locale);
 
         return $this->chatStreamer->stream($runtime, $history, $system, $toolContext, $llmConfig, $conversation);
+    }
+
+    /**
+     * Distinct from chat(): a lightweight endpoint the widget polls on
+     * client-side signals (cart idle, low stock viewed, ...). The
+     * ProactiveGuard gate (dismissed > frequency > repetition > budget) runs
+     * before any data resolution or LLM call, so it never returns a message
+     * once the visitor has refused/closed the widget for this session.
+     */
+    #[Route('/agent/chat/proactive-check', name: 'commerceagents_chat_proactive_check', methods: ['POST'])]
+    public function proactiveCheck(Request $request): Response
+    {
+        if (!$this->configService->isFrontChatEnabled()) {
+            throw new NotFoundHttpException();
+        }
+
+        $payload = json_decode((string) $request->getContent(), true);
+        $signalType = trim((string) ($payload['signal_type'] ?? ''));
+        $signalContext = \is_array($payload['context'] ?? null) ? $payload['context'] : [];
+
+        if ($signalType === '' || mb_strlen($signalType) > self::MAX_SIGNAL_TYPE_LENGTH) {
+            return new JsonResponse(['error' => 'signal_type is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $session = $request->getSession();
+        $customerId = $session->getCustomerUser()?->getId();
+        $locale = $session->getLang()->getLocale();
+
+        $conversation = $this->conversationService->getOrCreate('shopping', $session->getId(), $customerId, $locale);
+        $now = new \DateTimeImmutable();
+        $verdict = $this->proactiveGuard->evaluate(
+            $this->proactiveSessionRepository->stateOf($conversation),
+            $signalType,
+            $now,
+            $this->configService->getMaxProactivePrompts(),
+            $this->budgetGuard->status($now)->isBlocked(),
+        );
+
+        if (!$verdict->eligible) {
+            $this->logger->info('[commerce-agents] proactive check blocked', [
+                'conversation_id' => $conversation->getId(),
+                'signal_type' => $signalType,
+                'reason' => $verdict->reason,
+            ]);
+
+            return new Response(null, Response::HTTP_NO_CONTENT);
+        }
+
+        $toolContext = new ToolContext(
+            isAdmin: false,
+            customerId: $customerId,
+            conversationId: $conversation->getId(),
+            sessionId: $session->getId(),
+            locale: $locale,
+            currencyCode: $session->getCurrency()->getCode(),
+        );
+
+        $message = $this->proactiveScenarioRegistry->resolve(new ProactiveSignal($signalType, $signalContext), $toolContext);
+
+        if ($message === null) {
+            $this->logger->info('[commerce-agents] proactive check passed the gate, no scenario resolved', [
+                'conversation_id' => $conversation->getId(),
+                'signal_type' => $signalType,
+            ]);
+
+            return new Response(null, Response::HTTP_NO_CONTENT);
+        }
+
+        $this->proactiveSessionRepository->recordPrompt($conversation, $signalType, $now);
+
+        $this->logger->info('[commerce-agents] proactive message sent', [
+            'conversation_id' => $conversation->getId(),
+            'signal_type' => $signalType,
+        ]);
+
+        return new JsonResponse(['message' => $message->message]);
+    }
+
+    /**
+     * The widget calls this as soon as the visitor closes or refuses a
+     * proactive message, so the flag persists on the session and every
+     * later proactive-check for it short-circuits on ProactiveGuard's first
+     * gate, with no exception.
+     */
+    #[Route('/agent/chat/proactive-dismiss', name: 'commerceagents_chat_proactive_dismiss', methods: ['POST'])]
+    public function proactiveDismiss(Request $request): Response
+    {
+        $session = $request->getSession();
+        $customerId = $session->getCustomerUser()?->getId();
+        $locale = $session->getLang()->getLocale();
+
+        $conversation = $this->conversationService->getOrCreate('shopping', $session->getId(), $customerId, $locale);
+        $this->proactiveSessionRepository->recordDismissal($conversation);
+
+        $this->logger->info('[commerce-agents] proactive widget dismissed', [
+            'conversation_id' => $conversation->getId(),
+        ]);
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
     }
 }
