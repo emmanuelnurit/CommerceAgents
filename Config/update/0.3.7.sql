@@ -1,6 +1,6 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE TABLE `agent_outbound_message`
+CREATE TABLE IF NOT EXISTS `agent_outbound_message`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `agent_run_id` INTEGER NOT NULL,

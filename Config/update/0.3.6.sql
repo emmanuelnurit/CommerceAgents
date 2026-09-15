@@ -1,6 +1,6 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE TABLE `agent_review_reply`
+CREATE TABLE IF NOT EXISTS `agent_review_reply`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `comment_id` INTEGER NOT NULL,

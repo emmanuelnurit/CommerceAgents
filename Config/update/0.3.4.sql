@@ -1,9 +1,9 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 ALTER TABLE `agent_definition`
-    ADD COLUMN `preset_code` VARCHAR(60) NULL AFTER `consecutive_failures`;
+    ADD COLUMN IF NOT EXISTS `preset_code` VARCHAR(60) NULL AFTER `consecutive_failures`;
 
-CREATE TABLE `agent_memory`
+CREATE TABLE IF NOT EXISTS `agent_memory`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `agent_definition_id` INTEGER NOT NULL,

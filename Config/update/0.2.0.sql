@@ -1,8 +1,8 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 ALTER TABLE `agent_message`
-    ADD COLUMN `model` VARCHAR(120) NULL AFTER `tokens_out`,
-    ADD COLUMN `cost` DECIMAL(14,8) NULL AFTER `model`;
+    ADD COLUMN IF NOT EXISTS `model` VARCHAR(120) NULL AFTER `tokens_out`,
+    ADD COLUMN IF NOT EXISTS `cost` DECIMAL(14,8) NULL AFTER `model`;
 
 CREATE TABLE IF NOT EXISTS `agent_model`
 (

@@ -1,6 +1,6 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE TABLE `agent_action_log`
+CREATE TABLE IF NOT EXISTS `agent_action_log`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `tool_name` VARCHAR(120) NOT NULL,
