@@ -22,7 +22,7 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
 {
     public function stagePriceUpdate(int $pseId, float $newPrice, ?float $newPromoPrice, ToolContext $ctx): array
     {
-        if ($ctx->conversationId === null || $ctx->adminId === null) {
+        if ($ctx->conversationId === null) {
             return ['error' => 'No conversation context'];
         }
 
@@ -61,7 +61,7 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
 
     public function stageStockUpdate(int $pseId, float $newQuantity, ToolContext $ctx): array
     {
-        if ($ctx->conversationId === null || $ctx->adminId === null) {
+        if ($ctx->conversationId === null) {
             return ['error' => 'No conversation context'];
         }
 
@@ -78,7 +78,7 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
 
     public function stageCouponApplication(int $orderId, string $couponCode, ToolContext $ctx): array
     {
-        if ($ctx->conversationId === null || $ctx->adminId === null) {
+        if ($ctx->conversationId === null) {
             return ['error' => 'No conversation context'];
         }
 
@@ -133,7 +133,7 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
 
     public function stageReviewReply(int $commentId, string $replyContent, ToolContext $ctx): array
     {
-        if ($ctx->conversationId === null || $ctx->adminId === null) {
+        if ($ctx->conversationId === null) {
             return ['error' => 'No conversation context'];
         }
 
