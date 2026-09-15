@@ -97,6 +97,44 @@ final class AgentsControllerTest extends WebIntegrationTestCase
         self::assertFalse((bool) $this->getService(AgentMemoryManager::class)->listForAgent($agent->getId())[0]->getEnabled());
     }
 
+    /**
+     * MYO-284 B4: the "apply automatically, without review" checkbox was
+     * persisted but never read by StagedChangeManager/AgentRunner -- a
+     * security-looking control that did nothing. Removed rather than wired
+     * up, since auto-applying agent proposals would contradict the
+     * maker-checker model MYO-276 (H2/H3) just put in place. Posting the old
+     * field name must have no effect any more.
+     */
+    public function testSavingWithAutoApplyPostedHasNoEffect(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $token = $this->csrfToken($agent->getId());
+
+        $this->client->request('POST', '/admin/module/CommerceAgents/agents/save', [
+            '_token' => $token,
+            'agent_id' => (string) $agent->getId(),
+            'title' => 'Test agent',
+            'role_prompt' => 'Watch stock levels.',
+            'auto_apply' => '1',
+        ]);
+
+        self::assertSame(302, $this->client->getResponse()->getStatusCode());
+
+        $reloaded = AgentDefinitionQuery::create()->findPk($agent->getId());
+        self::assertFalse((bool) $reloaded->getAutoApply(), 'auto_apply must never be settable from the form any more');
+    }
+
+    public function testEditFormNoLongerRendersTheAutoApplyCheckbox(): void
+    {
+        $agent = $this->createAgentDefinition();
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d/edit', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('auto_apply', $html);
+        self::assertStringNotContainsString('agent-auto-apply', $html);
+    }
+
     public function testDeletingAMemoryEntryRemovesIt(): void
     {
         $agent = $this->createAgentDefinition();

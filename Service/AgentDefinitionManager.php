@@ -137,7 +137,7 @@ final readonly class AgentDefinitionManager
      *
      * @param array{
      *     title: string, description: string, rolePrompt: string, model: string,
-     *     monthlyBudgetUsd: ?float, autoApply: bool, enabled: bool,
+     *     monthlyBudgetUsd: ?float, enabled: bool,
      *     capabilities: list<string>,
      *     triggers: list<array{type: string, cronExpression?: ?string, eventName?: ?string, conditions?: ?array<string, mixed>}>,
      *     channels: list<array{connectorCode: string, enabled: bool}>,
@@ -168,7 +168,6 @@ final readonly class AgentDefinitionManager
             ->setModel($data['model'] !== '' ? $data['model'] : null)
             ->setProvider($data['model'] !== '' ? 'mistral' : null)
             ->setMonthlyBudgetUsd($data['monthlyBudgetUsd'] !== null ? (string) $data['monthlyBudgetUsd'] : null)
-            ->setAutoApply($data['autoApply'] ? 1 : 0)
             ->setEnabled($data['enabled'] ? 1 : 0);
         $definition->save();
 

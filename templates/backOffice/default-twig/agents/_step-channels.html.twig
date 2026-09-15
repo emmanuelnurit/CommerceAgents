@@ -48,12 +48,3 @@
         {% endfor %}
     </div>
 </div>
-
-<details class="mb-2">
-    <summary class="text-muted small">{{ 'Advanced options (automatic approval)'|trans({}, 'commerceagents') }}</summary>
-    <div class="form-check form-switch mt-2">
-        <input class="form-check-input" type="checkbox" id="agent-auto-apply" name="auto_apply" value="1" {{ values.autoApply ? 'checked' : '' }}>
-        <label class="form-check-label" for="agent-auto-apply">{{ 'Apply this agent\'s proposed changes automatically, without review'|trans({}, 'commerceagents') }}</label>
-    </div>
-    <div class="form-text">{{ 'Off by default: every write goes to Proposed changes for your approval first.'|trans({}, 'commerceagents') }}</div>
-</details>
