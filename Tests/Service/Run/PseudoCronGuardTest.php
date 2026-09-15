@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tests\Service\Run;
 
+use CommerceAgents\CommerceAgents;
 use CommerceAgents\Service\Run\PseudoCronGuard;
 use Thelia\Test\IntegrationTestCase;
 
@@ -14,6 +15,20 @@ use Thelia\Test\IntegrationTestCase;
  */
 class PseudoCronGuardTest extends IntegrationTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The two ticks are CommerceAgents module config, not fixture rows the
+        // transaction rollback alone resets: phpunit's APP_ENV=test still runs
+        // against the shared "db" database here (DDEV injects real DATABASE_*
+        // env vars that Dotenv never overrides), and real BO page loads tick
+        // these same keys via PseudoCronFallbackSubscriber (MYO-303). Force a
+        // clean baseline so "no tick ever recorded" is actually true.
+        CommerceAgents::setConfigValue('run_due_last_system_tick_at', '');
+        CommerceAgents::setConfigValue('run_due_last_pseudo_tick_at', '');
+    }
+
     public function testRunsWhenNeitherTickWasEverRecorded(): void
     {
         $guard = new PseudoCronGuard();
