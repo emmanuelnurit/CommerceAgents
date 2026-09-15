@@ -7,10 +7,12 @@ namespace CommerceAgents\Tests\Service\Run;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Model\AgentTrigger;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\Run\AbandonedCartFinder;
 use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\Run\AgentTriggerType;
 use CommerceAgents\Service\Run\LowStockFinder;
+use CommerceAgents\Tests\Service\Locale\FakeSiteDefaultLocaleProvider;
 use Psr\Log\NullLogger;
 use Thelia\Test\FixtureFactory;
 use Thelia\Test\IntegrationTestCase;
@@ -31,7 +33,12 @@ class AgentRunQueueTest extends IntegrationTestCase
     {
         parent::setUp();
 
-        $this->queue = new AgentRunQueue(new NullLogger(), new AbandonedCartFinder(), new LowStockFinder());
+        $this->queue = new AgentRunQueue(
+            new NullLogger(),
+            new AbandonedCartFinder(),
+            new LowStockFinder(),
+            new AssistantLocaleResolver(new FakeSiteDefaultLocaleProvider('en_US')),
+        );
         $this->factory = $this->createFixtureFactory();
     }
 
@@ -88,6 +95,60 @@ class AgentRunQueueTest extends IntegrationTestCase
         $runs = $this->queue->enqueueDueAbandonedCartRuns($now);
 
         self::assertContains($cart->getId(), $this->cartIdsFrom($runs));
+    }
+
+    /**
+     * MYO-363: the queued context must carry the real customer_id and the
+     * real cart contents, resolved server-side -- not just the cart_id --
+     * so the agent never has to guess a customer_id from the cart_id or
+     * invent placeholder items.
+     */
+    public function testEnqueueDueAbandonedCartRunsResolvesCustomerAndCartItems(): void
+    {
+        $now = new \DateTimeImmutable('2026-09-15 10:00:00');
+        $agent = $this->createAgentDefinition();
+        $this->createTrigger($agent, AgentTriggerType::ABANDONED_CART, conditions: '{"delay_hours": 2}', nextRunAt: $now);
+
+        $customer = $this->factory->customer($this->factory->customerTitle());
+        $cart = $this->factory->cart($customer);
+        $product = $this->factory->product(
+            $this->factory->category(),
+            $this->factory->taxRule(),
+            $this->factory->currency(),
+            ['title' => 'Blue mug'],
+        );
+        $this->factory->cartItem($cart, $product, overrides: ['quantity' => 3.0]);
+        $cart->setUpdatedAt(\DateTime::createFromImmutable($now->modify('-3 hours')))->save($this->getPropelConnection());
+
+        $runs = $this->queue->enqueueDueAbandonedCartRuns($now);
+
+        $context = $this->contextFor($runs, $cart->getId());
+        self::assertSame($customer->getId(), $context['customer_id'], 'the real customer behind the cart, never guessed from the cart_id');
+        self::assertSame(
+            [['product_id' => $product->getId(), 'title' => 'Blue mug', 'quantity' => 3]],
+            $context['cart_items'],
+            'the real cart contents, so the agent has no reason to invent placeholder items',
+        );
+    }
+
+    /**
+     * MYO-363: a guest cart has no customer to relaunch and no tool can ever
+     * resolve one — enqueuing it would only invite a guess.
+     */
+    public function testEnqueueDueAbandonedCartRunsSkipsGuestCart(): void
+    {
+        $now = new \DateTimeImmutable('2026-09-15 10:00:00');
+        $agent = $this->createAgentDefinition();
+        $this->createTrigger($agent, AgentTriggerType::ABANDONED_CART, conditions: '{"delay_hours": 2}', nextRunAt: $now);
+
+        $cart = $this->factory->cart(null);
+        $product = $this->factory->product($this->factory->category(), $this->factory->taxRule(), $this->factory->currency());
+        $this->factory->cartItem($cart, $product);
+        $cart->setUpdatedAt(\DateTime::createFromImmutable($now->modify('-3 hours')))->save($this->getPropelConnection());
+
+        $runs = $this->queue->enqueueDueAbandonedCartRuns($now);
+
+        self::assertNotContains($cart->getId(), $this->cartIdsFrom($runs), 'a cart with no customer attached cannot be relaunched by email');
     }
 
     public function testEnqueueDueAbandonedCartRunsSkipsCartConvertedToOrder(): void
@@ -174,6 +235,21 @@ class AgentRunQueueTest extends IntegrationTestCase
             static fn ($run) => json_decode($run->getContext(), true, flags: \JSON_THROW_ON_ERROR)['cart_id'],
             $runs,
         );
+    }
+
+    /**
+     * @param \CommerceAgents\Model\AgentRun[] $runs
+     */
+    private function contextFor(array $runs, int $cartId): array
+    {
+        foreach ($runs as $run) {
+            $context = json_decode($run->getContext(), true, flags: \JSON_THROW_ON_ERROR);
+            if ($context['cart_id'] === $cartId) {
+                return $context;
+            }
+        }
+
+        self::fail(\sprintf('No queued run found for cart_id %d', $cartId));
     }
 
     /**

@@ -7,11 +7,13 @@ namespace CommerceAgents\Tests\Service;
 use CommerceAgents\Agent\Llm\ModelDiscovery;
 use CommerceAgents\Model\AgentTriggerQuery;
 use CommerceAgents\Service\AgentDefinitionManager;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\Run\AbandonedCartFinder;
 use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\Run\LowStockFinder;
 use CommerceAgents\Service\TriggerCatalog;
+use CommerceAgents\Tests\Service\Locale\FakeSiteDefaultLocaleProvider;
 use Psr\Log\NullLogger;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -36,7 +38,12 @@ class AgentDefinitionManagerTest extends IntegrationTestCase
         $this->manager = new AgentDefinitionManager(
             new ModelCatalog(new ModelDiscovery(new MockHttpClient()), new Translator(new RequestStack())),
             new TriggerCatalog(new Translator(new RequestStack())),
-            new AgentRunQueue(new NullLogger(), new AbandonedCartFinder(), new LowStockFinder()),
+            new AgentRunQueue(
+                new NullLogger(),
+                new AbandonedCartFinder(),
+                new LowStockFinder(),
+                new AssistantLocaleResolver(new FakeSiteDefaultLocaleProvider('en_US')),
+            ),
             new NullLogger(),
         );
     }

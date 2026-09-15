@@ -8,10 +8,12 @@ use CommerceAgents\EventListener\AgentTriggerSubscriber;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Model\AgentTrigger;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\Run\AbandonedCartFinder;
 use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\Run\AgentTriggerType;
 use CommerceAgents\Service\Run\LowStockFinder;
+use CommerceAgents\Tests\Service\Locale\FakeSiteDefaultLocaleProvider;
 use Psr\Log\NullLogger;
 use Thelia\Core\Event\Customer\CustomerCreateOrUpdateEvent;
 use Thelia\Core\Event\Customer\CustomerCreateOrUpdateMinimalEvent;
@@ -35,7 +37,12 @@ class AgentTriggerSubscriberTest extends ActionIntegrationTestCase
     {
         parent::setUp();
 
-        $queue = new AgentRunQueue(new NullLogger(), new AbandonedCartFinder(), new LowStockFinder());
+        $queue = new AgentRunQueue(
+            new NullLogger(),
+            new AbandonedCartFinder(),
+            new LowStockFinder(),
+            new AssistantLocaleResolver(new FakeSiteDefaultLocaleProvider('en_US')),
+        );
         $this->subscriber = new AgentTriggerSubscriber($queue);
     }
 

@@ -9,9 +9,11 @@ use CommerceAgents\Model\AgentRun;
 use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Model\AgentTrigger;
 use CommerceAgents\Model\AgentTriggerQuery;
+use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\Exception\PropelException;
 use Psr\Log\LoggerInterface;
+use Thelia\Model\Cart;
 
 /**
  * Inserts and lists the pending agent_run rows. Execution never happens here:
@@ -29,6 +31,7 @@ final readonly class AgentRunQueue
         private LoggerInterface $logger,
         private AbandonedCartFinder $abandonedCartFinder,
         private LowStockFinder $lowStockFinder,
+        private AssistantLocaleResolver $localeResolver,
     ) {
     }
 
@@ -155,6 +158,14 @@ final readonly class AgentRunQueue
      * deduplicated per day so a cart that stays abandoned is not spammed at
      * every drain.
      *
+     * The queued context carries the real `customer_id` and `cart_items`
+     * resolved from the cart right here (MYO-363): the catalogue has no tool
+     * that turns a bare `cart_id` into a customer, so leaving that to the LLM
+     * meant it either guessed (the numeric cart id used as a customer id) or
+     * invented cart contents outright. Handing over the already-known,
+     * server-resolved facts removes the guess entirely instead of adding a
+     * tool the model could still skip.
+     *
      * @return AgentRun[] the newly queued runs
      */
     public function enqueueDueAbandonedCartRuns(\DateTimeImmutable $now = new \DateTimeImmutable()): array
@@ -166,7 +177,7 @@ final readonly class AgentRunQueue
             foreach ($this->abandonedCartFinder->find($delayHours, $now) as $cart) {
                 $run = $this->enqueue(
                     $trigger->getAgentDefinition(),
-                    ['trigger' => AgentTriggerType::ABANDONED_CART, 'cart_id' => $cart->getId()],
+                    ['trigger' => AgentTriggerType::ABANDONED_CART] + $this->abandonedCartContext($cart),
                     $trigger,
                     \sprintf('abandoned_cart:%d:%d:%s', $trigger->getId(), $cart->getId(), $now->format('Ymd')),
                 );
@@ -239,6 +250,31 @@ final readonly class AgentRunQueue
             ->endUse()
             ->find()
             ->getData();
+    }
+
+    /**
+     * @return array{cart_id: int, customer_id: int, cart_items: list<array{product_id: int, title: string, quantity: int}>}
+     */
+    private function abandonedCartContext(Cart $cart): array
+    {
+        $locale = $this->localeResolver->forAgentRun();
+
+        $items = [];
+        foreach ($cart->getCartItems() as $cartItem) {
+            $items[] = [
+                'product_id' => (int) $cartItem->getProductId(),
+                'title' => $cartItem->getProduct()->setLocale($locale)->getTitle(),
+                'quantity' => (int) $cartItem->getQuantity(),
+            ];
+        }
+
+        return [
+            'cart_id' => $cart->getId(),
+            // AbandonedCartFinder::find() only ever returns carts with a
+            // customer attached (MYO-363): this is never null here.
+            'customer_id' => (int) $cart->getCustomerId(),
+            'cart_items' => $items,
+        ];
     }
 
     private function advanceSchedule(AgentTrigger $trigger, \DateTimeImmutable $now): void
