@@ -63,6 +63,7 @@ CREATE TABLE `agent_staged_change`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `conversation_id` INTEGER NOT NULL,
+    `agent_definition_id` INTEGER,
     `admin_id` INTEGER NOT NULL,
     `target_type` VARCHAR(20) NOT NULL,
     `target_id` INTEGER NOT NULL,
@@ -77,11 +78,16 @@ CREATE TABLE `agent_staged_change`
     `updated_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`),
     INDEX `idx_agent_staged_change_status` (`status`),
+    INDEX `idx_agent_staged_change_definition` (`agent_definition_id`),
     INDEX `fi_agent_staged_change_conversation` (`conversation_id`),
     CONSTRAINT `fk_agent_staged_change_conversation`
         FOREIGN KEY (`conversation_id`)
         REFERENCES `agent_conversation` (`id`)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT `fk_agent_staged_change_definition`
+        FOREIGN KEY (`agent_definition_id`)
+        REFERENCES `agent_definition` (`id`)
+        ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------

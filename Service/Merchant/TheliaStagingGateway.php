@@ -74,6 +74,7 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
     {
         $change = (new AgentStagedChange())
             ->setConversationId($ctx->conversationId)
+            ->setAgentDefinitionId($ctx->agentDefinitionId)
             ->setAdminId($ctx->adminId)
             ->setTargetType($targetType)
             ->setTargetId($targetId)

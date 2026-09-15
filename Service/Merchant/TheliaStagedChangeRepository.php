@@ -43,6 +43,44 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
         return $rows;
     }
 
+    /**
+     * Pending suggestions for one agent's dashboard popup (MYO-237 §5): scoped
+     * to the v1 contract (pending pse_price/pse_stock only), newest first.
+     *
+     * @return array[] raw rows for the suggestions popup
+     */
+    public function findPendingForAgent(int $agentDefinitionId, int $limit = 20): array
+    {
+        $rows = [];
+        foreach (
+            AgentStagedChangeQuery::create()
+                ->filterByAgentDefinitionId($agentDefinitionId)
+                ->filterByStatus(StagedChangeData::STATUS_PENDING)
+                ->orderByCreatedAt(Criteria::DESC)
+                ->limit($limit)
+                ->find() as $model
+        ) {
+            $rows[] = [
+                'id' => $model->getId(),
+                'targetType' => $model->getTargetType(),
+                'targetId' => $model->getTargetId(),
+                'payloadBefore' => json_decode((string) $model->getPayloadBefore(), true) ?? [],
+                'payloadAfter' => json_decode((string) $model->getPayloadAfter(), true) ?? [],
+                'createdAt' => $model->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+            ];
+        }
+
+        return $rows;
+    }
+
+    public function countPendingForAgent(int $agentDefinitionId): int
+    {
+        return AgentStagedChangeQuery::create()
+            ->filterByAgentDefinitionId($agentDefinitionId)
+            ->filterByStatus(StagedChangeData::STATUS_PENDING)
+            ->count();
+    }
+
     public function markApplied(int $id, int $approvedBy): void
     {
         $this->mark($id, StagedChangeData::STATUS_APPLIED, $approvedBy, applied: true);

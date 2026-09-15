@@ -318,4 +318,7 @@ return [
     'recommended' => 'recommended',
     'shop default' => 'shop default',
     'the key stays stored on your server.' => 'the key stays stored on your server.',
+    'Price to adjust: %ref%' => 'Price to adjust: %ref%',
+    'Stock to correct: %ref%' => 'Stock to correct: %ref%',
+    '%before% → %after%' => '%before% → %after%',
 ];

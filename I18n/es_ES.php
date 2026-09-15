@@ -46,4 +46,8 @@ return [
     'Fast' => 'Rápido',
     'Balanced' => 'Equilibrado',
     'Deep thinking' => 'Reflexión profunda',
+    'Price to adjust: %ref%' => 'Precio a ajustar: %ref%',
+    'Stock to correct: %ref%' => 'Stock a corregir: %ref%',
+    '%before% → %after%' => '%before% → %after%',
+    'Approve' => 'Aprobar',
 ];

@@ -41,6 +41,7 @@
     <table name="agent_staged_change" namespace="CommerceAgents\Model">
         <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
         <column name="conversation_id" required="true" type="INTEGER"/>
+        <column name="agent_definition_id" type="INTEGER"/>
         <column name="admin_id" required="true" type="INTEGER"/>
         <column name="target_type" required="true" size="20" type="VARCHAR"/>
         <column name="target_id" required="true" type="INTEGER"/>
@@ -54,8 +55,14 @@
         <index name="idx_agent_staged_change_status">
             <index-column name="status"/>
         </index>
+        <index name="idx_agent_staged_change_definition">
+            <index-column name="agent_definition_id"/>
+        </index>
         <foreign-key foreignTable="agent_conversation" name="fk_agent_staged_change_conversation" onDelete="CASCADE">
             <reference foreign="id" local="conversation_id"/>
+        </foreign-key>
+        <foreign-key foreignTable="agent_definition" name="fk_agent_staged_change_definition" onDelete="SETNULL">
+            <reference foreign="id" local="agent_definition_id"/>
         </foreign-key>
         <behavior name="timestampable"/>
     </table>

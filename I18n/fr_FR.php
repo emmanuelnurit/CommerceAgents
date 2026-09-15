@@ -318,4 +318,7 @@ return [
     'recommended' => 'recommandé',
     'shop default' => 'défaut boutique',
     'the key stays stored on your server.' => 'la clé reste stockée sur votre serveur.',
+    'Price to adjust: %ref%' => 'Prix à ajuster : %ref%',
+    'Stock to correct: %ref%' => 'Stock à corriger : %ref%',
+    '%before% → %after%' => '%before% → %after%',
 ];
