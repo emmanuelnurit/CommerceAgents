@@ -23,7 +23,15 @@ final readonly class ConversationService
             ->orderById(Criteria::DESC)
             ->findOne();
 
-        if ($conversation !== null) {
+        // A session id can outlive the identity that created it (login,
+        // logout, a shared/reused session, or session fixation): reusing a
+        // conversation keyed on sessionRef alone would hand the new visitor
+        // the previous one's history (orders, profile, ...) via the LLM
+        // context. Re-scope on the actual identity every time.
+        if ($conversation !== null
+            && $conversation->getCustomerId() === $customerId
+            && $conversation->getAdminId() === $adminId
+        ) {
             return $conversation;
         }
 
@@ -90,6 +98,20 @@ final readonly class ConversationService
             $message->setCost(number_format((float) ($message->getCost() ?? 0) + $cost, 8, '.', ''));
         }
         $message->save();
+    }
+
+    /**
+     * Count of visitor-authored messages posted to this conversation since
+     * midnight, used to enforce AgentConfigService::getDailyMessageLimit()
+     * (MYO-276: unauthenticated /agent/chat had no throttle at all).
+     */
+    public function countUserMessagesToday(int $conversationId, \DateTimeImmutable $now = new \DateTimeImmutable()): int
+    {
+        return AgentMessageQuery::create()
+            ->filterByConversationId($conversationId)
+            ->filterByRole('user')
+            ->filterByCreatedAt(['min' => $now->setTime(0, 0)])
+            ->count();
     }
 
     /**

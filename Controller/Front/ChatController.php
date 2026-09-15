@@ -98,6 +98,12 @@ final class ChatController extends BaseFrontController
         );
 
         $conversation = $this->conversationService->getOrCreate('shopping', $session->getId(), $customerId, $locale);
+
+        $dailyLimit = $this->configService->getDailyMessageLimit();
+        if ($dailyLimit > 0 && $this->conversationService->countUserMessagesToday($conversation->getId()) >= $dailyLimit) {
+            return new JsonResponse(['error' => 'Daily message limit reached'], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
         $this->conversationService->appendMessage($conversation->getId(), 'user', $userMessage);
         // The system prompt alone loses against the language the visitor writes
         // in; the directive has to ride on the last user turn.
