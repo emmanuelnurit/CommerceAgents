@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CommerceAgents\Tests\Controller\Admin;
 
 use CommerceAgents\Controller\Admin\MerchantChatController;
+use CommerceAgents\Model\AgentDefinition;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Thelia\Test\FixtureFactory;
 use Thelia\Test\WebIntegrationTestCase;
@@ -85,6 +86,77 @@ final class MerchantChatControllerTest extends WebIntegrationTestCase
         // request fails downstream of the CSRF check -- proving it is not
         // the CSRF gate rejecting it this time (that would be a 403).
         self::assertNotSame(403, $this->client->getResponse()->getStatusCode());
+    }
+
+    /**
+     * MYO-325: the per-agent chat route shares the same CSRF gate as the
+     * global merchant chat (dedicated to this controller, not the form
+     * `_token` used by the rest of the module's admin routes).
+     */
+    public function testAgentChatWithoutATokenIsRejected(): void
+    {
+        $agent = $this->createAgentDefinition();
+
+        $this->client->request(
+            'POST',
+            \sprintf('/admin/module/CommerceAgents/agents/%d/chat', $agent->getId()),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode(['message' => 'Bonjour']),
+        );
+
+        self::assertSame(403, $this->client->getResponse()->getStatusCode());
+    }
+
+    public function testAgentChatForAnUnknownAgentReturns404(): void
+    {
+        $token = $this->csrfToken();
+
+        $this->client->request(
+            'POST',
+            '/admin/module/CommerceAgents/agents/999999/chat',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => $token],
+            json_encode(['message' => 'Bonjour']),
+        );
+
+        self::assertSame(404, $this->client->getResponse()->getStatusCode());
+    }
+
+    public function testAgentChatWithAValidTokenPassesTheCsrfGate(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $token = $this->csrfToken();
+
+        $this->client->request(
+            'POST',
+            \sprintf('/admin/module/CommerceAgents/agents/%d/chat', $agent->getId()),
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => $token],
+            json_encode(['message' => 'Bonjour']),
+        );
+
+        // Same reasoning as testChatWithAValidTokenPassesTheCsrfGate(): no LLM
+        // API key in the test environment, so this fails downstream of the
+        // CSRF check and the agent lookup -- neither would be a 403 or 404.
+        self::assertNotSame(403, $this->client->getResponse()->getStatusCode());
+        self::assertNotSame(404, $this->client->getResponse()->getStatusCode());
+    }
+
+    private function createAgentDefinition(): AgentDefinition
+    {
+        $definition = new AgentDefinition();
+        $definition
+            ->setCode('agent-'.uniqid())
+            ->setTitle('Test agent')
+            ->setRolePrompt('Watch stock levels.')
+            ->setEnabled(1)
+            ->save($this->getPropelConnection());
+
+        return $definition;
     }
 
     private function csrfToken(): string

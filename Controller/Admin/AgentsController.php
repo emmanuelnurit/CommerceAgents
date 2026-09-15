@@ -8,6 +8,8 @@ use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
 use CommerceAgents\Hook\Admin\AdminHookManager;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentMemory;
+use CommerceAgents\Model\AgentRun;
+use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Service\AgentConfigService;
 use CommerceAgents\Service\AgentDefinitionManager;
 use CommerceAgents\Service\AgentDefinitionSeeder;
@@ -17,13 +19,17 @@ use CommerceAgents\Service\CapabilityCatalog;
 use CommerceAgents\Service\Locale\AssistantLocaleResolver;
 use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\ModuleAvailabilityInterface;
+use CommerceAgents\Service\Run\AgentRunQueue;
 use CommerceAgents\Service\SystemPromptFactory;
 use CommerceAgents\Service\TriggerCatalog;
+use Propel\Runtime\ActiveQuery\Criteria;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
@@ -75,6 +81,134 @@ final readonly class AgentsController
             'merchantPageUrl' => $this->urlGenerator->generate('commerceagents_merchant_page'),
             'csrfToken' => $this->csrfTokenManager->getToken(AdminHookManager::CSRF_TOKEN_ID)->getValue(),
         ]));
+    }
+
+    /**
+     * Per-agent page (MYO-325): a "Conversation" tab scoped to this agent
+     * (its own role prompt, memory and tools, via MerchantChatController's
+     * generalized chat route) and an "Execution history" tab that links to
+     * the agent_run listing delivered by MYO-321, once that route exists.
+     */
+    #[Route('/admin/module/CommerceAgents/agents/{id}', name: 'commerceagents_agents_show', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function show(int $id): Response
+    {
+        if ($denied = $this->access->check([], 'commerceagents', AccessManager::VIEW)) {
+            return $denied;
+        }
+
+        $definition = $this->agentManager->find($id);
+        if ($definition === null) {
+            throw new NotFoundHttpException();
+        }
+
+        try {
+            $runsUrl = $this->urlGenerator->generate('commerceagents_agents_runs', ['agentId' => $id]);
+        } catch (RouteNotFoundException) {
+            // MYO-321 (Execution history route) has not shipped yet: the tab
+            // degrades to a neutral placeholder instead of a broken link.
+            $runsUrl = null;
+        }
+
+        return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/agents/show.html.twig', [
+            'agent' => [
+                'id' => $definition->getId(),
+                'title' => $definition->getTitle(),
+                'description' => $definition->getDescription(),
+            ],
+            'apiKeyConfigured' => $this->configService->getLlmConfig()->apiKey !== '',
+            'chatEndpoint' => $this->urlGenerator->generate('commerceagents_agents_chat', ['id' => $id]),
+            'csrfToken' => $this->csrfTokenManager->getToken(MerchantChatController::CSRF_TOKEN_ID)->getValue(),
+            'editUrl' => $this->urlGenerator->generate('commerceagents_agents_edit', ['id' => $id]),
+            'listUrl' => $this->urlGenerator->generate('commerceagents_agents_page'),
+            'runsUrl' => $runsUrl,
+            'recentRuns' => $runsUrl !== null ? $this->recentRuns($definition) : [],
+            'proposalsUrl' => $this->proposalsUrlFor($definition),
+        ]));
+    }
+
+    /**
+     * Compact, typed preview of the agent's last runs (MYO-325 §4): a status
+     * label and duration, never the raw agent_run row. "Open run history"
+     * (see show()) is where the full MYO-321 list/detail screen takes over.
+     *
+     * @return list<array{startedAt: ?\DateTimeInterface, statusLabel: string, statusClass: string, durationLabel: ?string, showUrl: ?string}>
+     */
+    private function recentRuns(AgentDefinition $definition, int $limit = 5): array
+    {
+        $runs = AgentRunQuery::create()
+            ->filterByAgentDefinitionId($definition->getId())
+            ->orderByStartedAt(Criteria::DESC)
+            ->orderById(Criteria::DESC)
+            ->limit($limit)
+            ->find();
+
+        try {
+            $showUrlFor = fn (AgentRun $run): ?string => $this->urlGenerator->generate('commerceagents_agents_runs_show', ['id' => $run->getId()]);
+        } catch (RouteNotFoundException) {
+            $showUrlFor = static fn (): ?string => null;
+        }
+
+        return array_map(fn (AgentRun $run): array => [
+            'startedAt' => $run->getStartedAt(),
+            'statusLabel' => $this->translator->trans($this->statusLabel($run->getStatus()), [], 'commerceagents'),
+            'statusClass' => $this->statusClass($run->getStatus()),
+            'durationLabel' => $this->durationLabel($run->getStartedAt(), $run->getFinishedAt()),
+            'showUrl' => $showUrlFor($run),
+        ], $runs->getData());
+    }
+
+    private function statusLabel(string $status): string
+    {
+        return match ($status) {
+            AgentRunQueue::STATUS_DONE => 'Success',
+            AgentRunQueue::STATUS_FAILED, AgentRunQueue::STATUS_SKIPPED_BUDGET => 'Failed',
+            AgentRunQueue::STATUS_RUNNING => 'Running',
+            default => 'Queued',
+        };
+    }
+
+    private function statusClass(string $status): string
+    {
+        return match ($status) {
+            AgentRunQueue::STATUS_DONE => 'text-bg-success',
+            AgentRunQueue::STATUS_FAILED, AgentRunQueue::STATUS_SKIPPED_BUDGET => 'text-bg-danger',
+            default => 'text-bg-secondary',
+        };
+    }
+
+    private function durationLabel(?\DateTimeInterface $startedAt, ?\DateTimeInterface $finishedAt): ?string
+    {
+        if ($startedAt === null) {
+            return null;
+        }
+        if ($finishedAt === null) {
+            return $this->translator->trans('In progress', [], 'commerceagents');
+        }
+
+        $seconds = max(0, $finishedAt->getTimestamp() - $startedAt->getTimestamp());
+        if ($seconds < 60) {
+            return $this->translator->trans('%seconds% s', ['%seconds%' => $seconds], 'commerceagents');
+        }
+
+        return $this->translator->trans('%minutes% min %seconds% s', [
+            '%minutes%' => intdiv($seconds, 60),
+            '%seconds%' => $seconds % 60,
+        ], 'commerceagents');
+    }
+
+    /**
+     * The proposal-review screen (MYO-324) accepts `?agentId=` so the two
+     * presets that stage changes (review drafts, restock proposals) can send
+     * the merchant straight to their own pending items instead of the whole
+     * shop's queue. Every other agent has nothing staged there, so no link.
+     */
+    private function proposalsUrlFor(AgentDefinition $definition): ?string
+    {
+        if (!\in_array($definition->getPresetCode(), [AgentPresets::CUSTOMER_REVIEWS_REPLY, AgentPresets::STOCK_WATCH_RESTOCK], true)) {
+            return null;
+        }
+
+        return $this->urlGenerator->generate('commerceagents_changes', ['agentId' => $definition->getId()]);
     }
 
     #[Route('/admin/module/CommerceAgents/agents/new', name: 'commerceagents_agents_new', methods: ['GET'])]

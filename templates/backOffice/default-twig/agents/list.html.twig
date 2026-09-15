@@ -76,7 +76,7 @@
                                     <div class="agent-icon bg-primary-subtle text-primary-emphasis"><i class="bi bi-robot" aria-hidden="true"></i></div>
                                     <div>
                                         <div class="fw-semibold text-body">
-                                            {{ agent.title }}
+                                            <a class="text-body" href="{{ path('commerceagents_agents_show', {id: agent.id}) }}" data-testid="agent-link-{{ agent.id }}">{{ agent.title }}</a>
                                             {% if not agent.enabled %}<span class="badge text-bg-secondary ms-1">{{ 'Paused'|trans({}, 'commerceagents') }}</span>{% endif %}
                                         </div>
                                         {% if agent.description %}<div class="small text-muted">{{ agent.description }}</div>{% endif %}

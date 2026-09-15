@@ -106,6 +106,11 @@ final readonly class AgentDefinitionManager
         return AgentDefinitionQuery::create()->filterByCode($code)->findOne();
     }
 
+    public function find(int $id): ?AgentDefinition
+    {
+        return AgentDefinitionQuery::create()->findPk($id);
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -1,0 +1,125 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{% block title %}{{ agent.title }}{% endblock %}
+{% block body_testid %}commerceagents-agent-show{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ listUrl }}">{{ 'AI agents'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ agent.title }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/agents.css') }}">
+    <link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/merchant-chat.css') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid" data-testid="commerceagents-agent-show-page">
+        <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
+            <div>
+                <h1 class="h3 mb-0">{{ agent.title }}</h1>
+                {% if agent.description %}<p class="text-muted mb-0">{{ agent.description }}</p>{% endif %}
+            </div>
+            <a class="btn btn-outline-secondary flex-shrink-0" href="{{ editUrl }}"><i class="bi bi-gear me-1" aria-hidden="true"></i>{{ 'Settings'|trans({}, 'commerceagents') }}</a>
+        </div>
+
+        {% if not apiKeyConfigured %}
+            <div class="alert alert-warning">
+                {{ 'No LLM API key configured yet. Set one in the module configuration.'|trans({}, 'commerceagents') }}
+                <a href="{{ path('admin.module.configure', {module_code: 'CommerceAgents'}) }}">{{ 'Configure'|trans({}, 'commerceagents') }}</a>
+            </div>
+        {% endif %}
+
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="agent-tab-conversation" data-bs-toggle="tab" data-bs-target="#agent-pane-conversation" type="button" role="tab" aria-controls="agent-pane-conversation" aria-selected="true">
+                    <i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>{{ 'Conversation'|trans({}, 'commerceagents') }}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="agent-tab-runs" data-bs-toggle="tab" data-bs-target="#agent-pane-runs" type="button" role="tab" aria-controls="agent-pane-runs" aria-selected="false" data-testid="agent-tab-runs">
+                    <i class="bi bi-clock-history me-1" aria-hidden="true"></i>{{ 'Run history'|trans({}, 'commerceagents') }}
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="agent-pane-conversation" role="tabpanel" aria-labelledby="agent-tab-conversation">
+                <div id="merchant-chat" class="card" data-endpoint="{{ chatEndpoint }}"
+                     data-csrf-token="{{ csrfToken }}"
+                     data-i18n-connection-lost="{{ 'Connection lost'|trans({}, 'commerceagents') }}"
+                     data-i18n-service-unavailable="{{ 'Service unavailable'|trans({}, 'commerceagents') }}"
+                     data-i18n-error="{{ 'Something went wrong'|trans({}, 'commerceagents') }}"
+                     data-i18n-hidden="{{ 'Hidden'|trans({}, 'commerceagents') }}"
+                     data-i18n-stock="{{ 'Stock'|trans({}, 'commerceagents') }}">
+                    <div class="card-body mc-messages" id="mc-messages" aria-live="polite"></div>
+                    <div class="card-footer">
+                        <form id="mc-form" class="d-flex gap-2">
+                            <input type="text" id="mc-input" class="form-control" maxlength="2000"
+                                   placeholder="{{ 'Ask %name%…'|trans({'%name%': agent.title}, 'commerceagents') }}" autocomplete="off">
+                            <button type="submit" id="mc-send" class="btn btn-primary">{{ 'Send'|trans({}, 'commerceagents') }}</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="agent-pane-runs" role="tabpanel" aria-labelledby="agent-tab-runs" data-testid="agent-pane-runs">
+                {% if runsUrl %}
+                    {% if proposalsUrl %}
+                        <div class="alert alert-light border d-flex gap-2 align-items-center mb-3" role="note" data-testid="agent-proposals-callout">
+                            <i class="bi bi-shield-check text-success fs-5" aria-hidden="true"></i>
+                            <div class="small">
+                                {{ 'This agent only drafts proposals: review and approve them before anything changes on the shop.'|trans({}, 'commerceagents') }}
+                                <a href="{{ proposalsUrl }}">{{ 'Review its proposals'|trans({}, 'commerceagents') }}</a>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if recentRuns|length > 0 %}
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm align-middle" data-testid="agent-recent-runs">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">{{ 'Started at'|trans({}, 'commerceagents') }}</th>
+                                        <th scope="col">{{ 'Duration'|trans({}, 'commerceagents') }}</th>
+                                        <th scope="col">{{ 'Status'|trans({}, 'commerceagents') }}</th>
+                                        <th scope="col"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for run in recentRuns %}
+                                        <tr>
+                                            <td>{{ run.startedAt ? run.startedAt|relative_time : '—' }}</td>
+                                            <td>{{ run.durationLabel ?? '—' }}</td>
+                                            <td><span class="badge {{ run.statusClass }}">{{ run.statusLabel }}</span></td>
+                                            <td class="text-end">
+                                                {% if run.showUrl %}<a href="{{ run.showUrl }}">{{ 'Details'|trans({}, 'commerceagents') }}</a>{% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">{{ 'Never run yet'|trans({}, 'commerceagents') }}</p>
+                    {% endif %}
+
+                    <a class="btn btn-outline-primary" href="{{ runsUrl }}"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>{{ 'Open run history'|trans({}, 'commerceagents') }}</a>
+                {% else %}
+                    <div class="alert alert-light border mb-0">{{ 'Run history is not available yet for this agent.'|trans({}, 'commerceagents') }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts_extra %}
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/chat-markdown.js') }}"></script>
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/product-cards.js') }}"></script>
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/merchant-chat.js') }}"></script>
+{% endblock %}

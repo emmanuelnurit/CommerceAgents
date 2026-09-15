@@ -7,9 +7,12 @@ namespace CommerceAgents\Tests\Controller\Admin;
 use CommerceAgents\CommerceAgents;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentDefinitionQuery;
+use CommerceAgents\Model\AgentRun;
 use CommerceAgents\Service\AgentDefinitionSeeder;
 use CommerceAgents\Service\AgentMemoryManager;
+use CommerceAgents\Service\AgentPresets;
 use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\Run\AgentRunQueue;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Thelia\Test\FixtureFactory;
 use Thelia\Test\WebIntegrationTestCase;
@@ -190,6 +193,78 @@ final class AgentsControllerTest extends WebIntegrationTestCase
 
         self::assertSame(302, $this->client->getResponse()->getStatusCode());
         self::assertSame([], $this->getService(AgentMemoryManager::class)->listForAgent($agent->getId()));
+    }
+
+    /**
+     * MYO-325: the per-agent page renders a Conversation tab wired to the
+     * agent-scoped chat endpoint (not the global merchant chat one) and a
+     * Run history tab.
+     */
+    public function testShowPageRendersConversationAndRunHistoryTabsForAConfigurableAgent(): void
+    {
+        $agent = $this->createAgentDefinition();
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('data-testid="commerceagents-agent-show-page"', $html);
+        self::assertStringContainsString('id="merchant-chat"', $html);
+        self::assertStringContainsString(\sprintf('/admin/module/CommerceAgents/agents/%d/chat', $agent->getId()), $html);
+        self::assertStringContainsString('data-testid="agent-tab-runs"', $html);
+    }
+
+    /**
+     * MYO-325 §4: a run history that is not a raw log — a typed status per
+     * row, and a callout pointing to MYO-324's proposal review screen for the
+     * two presets that stage changes (review drafts, restock proposals).
+     */
+    public function testShowPageOfACustomerReviewsReplyAgentListsItsRunsAndLinksToProposals(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $agent->setPresetCode(AgentPresets::CUSTOMER_REVIEWS_REPLY)->save($this->getPropelConnection());
+
+        $run = new AgentRun();
+        $run
+            ->setAgentDefinitionId($agent->getId())
+            ->setStatus(AgentRunQueue::STATUS_DONE)
+            ->setStartedAt(new \DateTimeImmutable('-10 minutes'))
+            ->setFinishedAt(new \DateTimeImmutable('-9 minutes'))
+            ->setSummary('Replied to 3 reviews.')
+            ->save($this->getPropelConnection());
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('data-testid="agent-recent-runs"', $html);
+        self::assertStringContainsString('data-testid="agent-proposals-callout"', $html);
+        self::assertStringContainsString(\sprintf('/admin/merchant-agent/changes?agentId=%d', $agent->getId()), $html);
+    }
+
+    public function testShowPageOfAnAgentWithNoStagedChangesPresetHasNoProposalsCallout(): void
+    {
+        $agent = $this->createAgentDefinition();
+
+        $this->assertPageRenders(\sprintf('/admin/module/CommerceAgents/agents/%d', $agent->getId()));
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringNotContainsString('data-testid="agent-proposals-callout"', $html);
+    }
+
+    public function testShowPageOfAnUnknownAgentReturns404(): void
+    {
+        $this->client->request('GET', '/admin/module/CommerceAgents/agents/999999');
+
+        self::assertSame(404, $this->client->getResponse()->getStatusCode());
+    }
+
+    public function testAgentCardOnTheListPageLinksToItsShowPage(): void
+    {
+        $agent = $this->createAgentDefinition();
+
+        $this->assertPageRenders('/admin/module/CommerceAgents/agents');
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString(\sprintf('/admin/module/CommerceAgents/agents/%d"', $agent->getId()), $html);
     }
 
     private function requireAssistant(string $code): AgentDefinition
