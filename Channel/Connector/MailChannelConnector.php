@@ -84,9 +84,14 @@ final readonly class MailChannelConnector implements ChannelConnectorInterface
     }
 
     /**
-     * Swallows any Propel/DB failure: the connector still exercises the mail
-     * transport, only the "From" header is left to the transport's default
-     * when the store configuration is unavailable (e.g. in unit tests).
+     * Two distinct failure modes here, not one:
+     * - Propel/the config table is unreachable (e.g. pure unit tests without
+     *   Propel booted): silently return null, the transport's own default
+     *   "From" applies. This is a technical limitation of the test/runtime
+     *   context, not a merchant-facing problem.
+     * - The config read succeeds but `store_email` is empty/absent: this is
+     *   a real merchant misconfiguration (no store e-mail set up) and must
+     *   fail loudly instead of letting the message go out with no sender.
      */
     private function storeFromAddress(): ?Address
     {
@@ -96,6 +101,10 @@ final readonly class MailChannelConnector implements ChannelConnectorInterface
             return null;
         }
 
-        return \is_string($storeEmail) && $storeEmail !== '' ? new Address($storeEmail) : null;
+        if (!\is_string($storeEmail) || $storeEmail === '') {
+            throw new ChannelException('Le canal e-mail nécessite un expéditeur : renseignez l\'e-mail de la boutique (Configuration > Boutique) avant de l\'utiliser.');
+        }
+
+        return new Address($storeEmail);
     }
 }

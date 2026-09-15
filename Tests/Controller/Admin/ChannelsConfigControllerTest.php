@@ -12,6 +12,7 @@ use CommerceAgents\Service\Channel\TheliaChannelGateway;
 use CommerceAgents\Tool\Channel\SendToChannelTool;
 use Propel\Runtime\Propel;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Thelia\Model\ConfigQuery;
 use Thelia\Model\ModuleConfigQuery;
 use Thelia\Test\FixtureFactory;
 use Thelia\Test\WebIntegrationTestCase;
@@ -36,6 +37,9 @@ final class ChannelsConfigControllerTest extends WebIntegrationTestCase
         // rollback, so a value read/written by a previous test would
         // otherwise leak in here as a false positive.
         ModuleConfigQuery::resetConfigCache();
+        // Same leakage risk for the core `config` table (MYO-332): a test
+        // writing store_email must not bleed into the next one.
+        ConfigQuery::resetCache();
 
         $this->injector = new AdminSessionInjector();
         $this->getService(EventDispatcherInterface::class)->addSubscriber($this->injector);
@@ -129,6 +133,25 @@ final class ChannelsConfigControllerTest extends WebIntegrationTestCase
     }
 
     /**
+     * MYO-332: a merchant with no store e-mail configured must get a clear,
+     * explicit failure from the BO "Tester" button — not a mail silently
+     * sent without a "From" header (rejected by most MTAs as spam).
+     */
+    public function testTestConnectionEndpointFailsExplicitlyWhenStoreEmailIsEmpty(): void
+    {
+        ConfigQuery::write('store_email', '');
+
+        $this->client->request('POST', '/admin/module/commerceagents/channels/mail/test', [
+            '_token' => $this->csrfToken(),
+            'settings' => ['to' => 'merchant@example.com'],
+        ]);
+
+        $payload = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertFalse($payload['success']);
+        self::assertStringContainsString('expéditeur', $payload['message'] ?? '');
+    }
+
+    /**
      * The ticket's hardest acceptance criterion: "Un agent configuré sur un
      * canal envoie réellement un message de bout en bout". This drives the
      * real save endpoint, the real TheliaChannelGateway, and the real
@@ -140,6 +163,12 @@ final class ChannelsConfigControllerTest extends WebIntegrationTestCase
      */
     public function testAnAgentConfiguredOnTheCentralMailChannelSendsEndToEnd(): void
     {
+        // MYO-332: the "From" address comes from the store configuration, not
+        // from this test's DB fixtures — the test DB has no store_email set
+        // (unlike the dev DB this test used to accidentally depend on), so it
+        // must be posed explicitly here.
+        ConfigQuery::write('store_email', 'contact@example.com');
+
         $this->client->request('POST', '/admin/module/commerceagents/channels/mail/save', [
             '_token' => $this->csrfToken(),
             'settings' => ['to' => 'merchant@example.com'],
