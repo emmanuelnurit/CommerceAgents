@@ -30,6 +30,13 @@ class FakeStagingGateway implements StagingGatewayInterface
 
         return $this->result;
     }
+
+    public function stageCouponApplication(int $orderId, string $couponCode, ToolContext $ctx): array
+    {
+        $this->lastCall = ['stageCouponApplication', $orderId, $couponCode];
+
+        return $this->result;
+    }
 }
 
 class UpdatePriceToolTest extends TestCase

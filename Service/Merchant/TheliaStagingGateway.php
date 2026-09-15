@@ -8,7 +8,10 @@ use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Model\AgentStagedChange;
 use CommerceAgents\StagedChange\StagedChangeData;
 use CommerceAgents\Tool\Admin\Gateway\StagingGatewayInterface;
+use Thelia\Model\CouponQuery;
 use Thelia\Model\CurrencyQuery;
+use Thelia\Model\OrderCouponQuery;
+use Thelia\Model\OrderQuery;
 use Thelia\Model\ProductPriceQuery;
 use Thelia\Model\ProductSaleElementsQuery;
 
@@ -68,6 +71,61 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
         $after = ['quantity' => $newQuantity, 'pseRef' => $pse->getRef()];
 
         return $this->createChange('pse_stock', $pseId, $before, $after, $ctx);
+    }
+
+    public function stageCouponApplication(int $orderId, string $couponCode, ToolContext $ctx): array
+    {
+        if ($ctx->conversationId === null || $ctx->adminId === null) {
+            return ['error' => 'No conversation context'];
+        }
+
+        $order = OrderQuery::create()->findPk($orderId);
+        if ($order === null) {
+            return ['error' => 'Order not found'];
+        }
+
+        $coupon = CouponQuery::create()->filterByIsEnabled(true)->findOneByCode($couponCode);
+        if ($coupon === null) {
+            return ['error' => \sprintf('No enabled coupon found for code "%s"', $couponCode)];
+        }
+
+        $expirationDate = $coupon->getExpirationDate();
+        if ($expirationDate !== null && $expirationDate < new \DateTime()) {
+            return ['error' => \sprintf('Coupon "%s" has expired', $couponCode)];
+        }
+
+        $alreadyApplied = OrderCouponQuery::create()
+            ->filterByOrderId($orderId)
+            ->filterByCode($couponCode)
+            ->exists();
+        if ($alreadyApplied) {
+            return ['error' => \sprintf('Coupon "%s" is already applied to order %d', $couponCode, $orderId)];
+        }
+
+        $before = [
+            'orderRef' => $order->getRef(),
+            'existingCouponCodes' => array_values(array_filter(array_map(
+                static fn ($orderCoupon) => $orderCoupon->getCode(),
+                iterator_to_array(OrderCouponQuery::create()->filterByOrderId($orderId)->find()),
+            ))),
+        ];
+        $after = [
+            'code' => $coupon->getCode(),
+            'type' => $coupon->getType(),
+            'amount' => round($coupon->getAmount(), 2),
+            'serializedEffects' => $coupon->getSerializedEffects(),
+            'title' => $coupon->getTitle(),
+            'shortDescription' => $coupon->getShortDescription(),
+            'description' => $coupon->getDescription(),
+            'expirationDate' => $expirationDate?->format(\DateTimeInterface::ATOM),
+            'isCumulative' => (bool) $coupon->getIsCumulative(),
+            'isRemovingPostage' => (bool) $coupon->getIsRemovingPostage(),
+            'isAvailableOnSpecialOffers' => (bool) $coupon->getIsAvailableOnSpecialOffers(),
+            'serializedConditions' => $coupon->getSerializedConditions(),
+            'perCustomerUsageCount' => (bool) $coupon->getPerCustomerUsageCount(),
+        ];
+
+        return $this->createChange('order_coupon', $orderId, $before, $after, $ctx);
     }
 
     private function createChange(string $targetType, int $targetId, array $before, array $after, ToolContext $ctx): array
