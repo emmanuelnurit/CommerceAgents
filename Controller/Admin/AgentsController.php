@@ -371,7 +371,7 @@ final readonly class AgentsController
         if ($tier === null) {
             return '';
         }
-        foreach ($this->modelCatalog->getSelectableModels('mistral') as $choice) {
+        foreach ($this->modelCatalog->getSelectableModels($this->configService->getProvider()) as $choice) {
             if ($choice->tier === $tier) {
                 return $choice->modelId;
             }
@@ -404,7 +404,7 @@ final readonly class AgentsController
         ?string $presetCode = null,
         ?AgentDefinition $definition = null,
     ): array {
-        $modelChoices = array_map(static fn ($c): array => (array) $c, $this->modelCatalog->getSelectableModels('mistral'));
+        $modelChoices = array_map(static fn ($c): array => (array) $c, $this->modelCatalog->getSelectableModels($this->configService->getProvider()));
         $shopDefault = null;
         foreach ($modelChoices as $choice) {
             if ($choice['isDefault']) {

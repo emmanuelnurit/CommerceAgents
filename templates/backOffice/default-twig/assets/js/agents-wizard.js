@@ -13,6 +13,11 @@
     }
     var mode = form.dataset.mode;
 
+    // --- AI model picker: build the options list for this form (create + edit) ---
+    if (window.CommerceAgentsModelPicker) {
+        window.CommerceAgentsModelPicker.init(form);
+    }
+
     // --- Reveal a trigger's detail fields only once it is checked ---
     document.querySelectorAll('.trigger-toggle').forEach(function (checkbox) {
         var detail = document.getElementById(checkbox.dataset.reveals);

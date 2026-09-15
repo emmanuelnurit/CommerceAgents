@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Tests\Controller\Admin;
 
+use CommerceAgents\CommerceAgents;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentDefinitionQuery;
 use CommerceAgents\Service\AgentDefinitionSeeder;
 use CommerceAgents\Service\AgentMemoryManager;
+use CommerceAgents\Service\ModelCatalog;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Thelia\Test\FixtureFactory;
 use Thelia\Test\WebIntegrationTestCase;
@@ -63,6 +65,47 @@ final class AgentsControllerTest extends WebIntegrationTestCase
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('data-testid="agent-effective-prompt"', $html);
         self::assertStringContainsString('data-testid="agent-effective-prompt-text"', $html);
+    }
+
+    /**
+     * MYO-299: `CommerceAgentsModelPicker.init()` was only wired up on the
+     * module config page and never called for the agent form, so the model
+     * list rendered by `components/model-picker.html.twig` was populated in
+     * the DOM but never turned into selectable options. This is the
+     * server-rendered half of that contract: the `data-choices` attribute
+     * must actually carry the selectable models.
+     */
+    public function testCreateWizardModelPickerDataChoicesArePopulated(): void
+    {
+        $this->assertPageRenders('/admin/module/CommerceAgents/agents/new');
+
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('data-testid="agent-model"', $html);
+        self::assertMatchesRegularExpression('/data-choices="(?!\[\]&quot;|&quot;\[\]&quot;)[^"]+"/', $html);
+        self::assertDoesNotMatchRegularExpression('/data-choices="\[\]"/', $html);
+    }
+
+    /**
+     * MYO-299: the controller used to hard-code `getSelectableModels('mistral')`
+     * regardless of the module's configured provider (AgentConfigService::getProvider()).
+     * The picker must follow the active provider instead.
+     */
+    public function testModelPickerFollowsTheConfiguredProviderInsteadOfHardcodedMistral(): void
+    {
+        $originalProvider = CommerceAgents::getConfigValue('provider', 'mistral');
+        CommerceAgents::setConfigValue('provider', 'anthropic');
+
+        try {
+            $anthropicModelId = $this->getService(ModelCatalog::class)->getSelectableModels('anthropic')[0]->modelId ?? null;
+            self::assertNotNull($anthropicModelId, 'test fixtures must seed at least one selectable anthropic model');
+
+            $this->assertPageRenders('/admin/module/CommerceAgents/agents/new');
+            $html = (string) $this->client->getResponse()->getContent();
+
+            self::assertStringContainsString($anthropicModelId, $html);
+        } finally {
+            CommerceAgents::setConfigValue('provider', $originalProvider);
+        }
     }
 
     public function testAddingAMemoryEntryThroughTheFormMakesItAppearInTheList(): void
