@@ -258,4 +258,3 @@ final readonly class AgentConfigService
         return array_values(array_filter(array_map('intval', explode(',', $raw))));
     }
 }
-// MYO-454 CTO re-verif AC2 2026-09-16T06:06:08Z
