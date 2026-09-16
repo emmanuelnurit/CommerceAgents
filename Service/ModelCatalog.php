@@ -229,9 +229,9 @@ final readonly class ModelCatalog
     }
 
     /**
-     * Freshness date shown under the model picker ("Tarifs Mistral (EUR) au
-     * ...", spec MYO-227 §3.6): the most recent priced_at among the enabled,
-     * priced models of the provider.
+     * Freshness date shown under the model picker ("Rates shown in the
+     * currency of each provider, as of ...", spec MYO-227 §3.6): the most
+     * recent priced_at among the enabled, priced models of the provider.
      */
     public function latestPricedAt(string $provider): ?\DateTimeImmutable
     {

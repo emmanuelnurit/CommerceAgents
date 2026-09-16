@@ -10,7 +10,7 @@
         choices       list of ModelChoice arrays: modelId, name, tier, tierLabel,
                        priceInput, priceOutput, currency, contextWindow, isDefault
         selected      currently selected modelId, '' when none/inherit
-        pricedAt      "Tarifs Mistral (EUR) au <date>" footer date
+        pricedAt      "Rates shown in the currency of each provider, as of <date>" footer date
         labelId       id of the external <label> this control is for (aria-labelledby)
         allowInherit  when true, adds a leading "Celui de la boutique" option (agent form)
         inheritModel  the ModelChoice array the shop falls back to (required when allowInherit)
@@ -42,7 +42,7 @@
          }|json_encode|e('html_attr') }}">
         <div class="model-menu-options" data-model-picker-options></div>
         <div class="model-menu-foot">
-            <span>{{ 'Mistral rates (EUR) as of %date%'|trans({'%date%': pricedAt}, 'commerceagents') }}</span>
+            <span>{{ 'Rates shown in the currency of each provider, as of %date%'|trans({'%date%': pricedAt}, 'commerceagents') }}</span>
             <a href="#models" data-open-settings="models">{{ 'Full catalog'|trans({}, 'commerceagents') }}</a>
         </div>
     </div>

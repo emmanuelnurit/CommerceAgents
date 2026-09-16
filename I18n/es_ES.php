@@ -291,7 +291,7 @@ return [
     'Mattermost' => 'Mattermost',
     'Missing key' => 'Clave que falta',
     'Mistral API key' => 'Clave API de Mistral',
-    'Mistral rates (EUR) as of %date%' => 'Tarifas de Mistral (EUR) a fecha de %date%',
+    'Rates shown in the currency of each provider, as of %date%' => 'Tarifas mostradas en la moneda de cada proveedor, a fecha de %date%',
     'Mistral stays the active provider by default. You can set up a fallback provider or switch — keys already entered are kept.' => 'Mistral sigue siendo el proveedor activo por defecto. Puede configurar un proveedor de reserva o cambiar de proveedor — las claves ya introducidas se conservan.',
     'Modify visitor carts' => 'Modificar las cestas de los visitantes',
     'Never run yet' => 'Nunca ejecutado',

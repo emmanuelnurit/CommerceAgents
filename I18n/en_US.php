@@ -293,7 +293,7 @@ return [
     'Mattermost' => 'Mattermost',
     'Missing key' => 'Missing key',
     'Mistral API key' => 'Mistral API key',
-    'Mistral rates (EUR) as of %date%' => 'Mistral rates (EUR) as of %date%',
+    'Rates shown in the currency of each provider, as of %date%' => 'Rates shown in the currency of each provider, as of %date%',
     'Mistral stays the active provider by default. You can set up a fallback provider or switch — keys already entered are kept.' => 'Mistral stays the active provider by default. You can set up a fallback provider or switch — keys already entered are kept.',
     'Modify visitor carts' => 'Modify visitor carts',
     'Never run yet' => 'Never run yet',
