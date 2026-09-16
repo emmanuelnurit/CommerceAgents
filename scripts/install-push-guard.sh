@@ -44,6 +44,17 @@
 # mécanisme d'installation cron que le volet 2 (marqueur dédié, même
 # LOG_DIR, ne duplique pas la ligne existante de check-unpushed-myorg.sh).
 #
+# MYO-463 — ajoute un 5e volet, sans toucher aux quatre premiers : détection
+# de l'écart entre Config/module.xml (code) et module.version (base, cf.
+# check-module-db-drift.sh) — le 2e maillon de la chaîne de version, qui
+# nécessite un accès DDEV/DB vivant contrairement au 4e volet (100% git
+# local). Vérifié réellement depuis crontab (pas seulement en manuel,
+# cf. AC2 MYO-463) : `ddev` résolu par chemin absolu dans le script
+# lui-même, le PATH cron n'a jamais ~/.local/bin (même gotcha que le 4e
+# volet — cf. mémoire cron-path-ddev-introuvable.md, MYO-396/442). Même
+# mécanisme d'installation cron, marqueur/log/état dédiés
+# (.check-module-db-drift.*), ne duplique aucune ligne existante.
+#
 # Idempotent : ré-exécutable sans effet de bord — ne duplique pas la ligne
 # crontab (remplacée par une ligne fraîche à chaque run).
 #
@@ -72,13 +83,15 @@ KNOWN_HOSTS_FILE="${KNOWN_HOSTS_FILE:-$HOME/.ssh/known_hosts}"
 REMOTE_SSH_URL="${REMOTE_SSH_URL:-git@github.com:emmanuelnurit/CommerceAgents.git}"
 CHECK_SCRIPT="${MODULE_REPO}/scripts/check-unpushed-myorg.sh"
 CHECK_VERSION_SCRIPT="${MODULE_REPO}/scripts/check-version-drift.sh"
+CHECK_DB_DRIFT_SCRIPT="${MODULE_REPO}/scripts/check-module-db-drift.sh"
 PUSH_SCRIPT="${MODULE_REPO}/scripts/auto-push-myorg.sh"
 
 echo "── Scripts exécutables ─────────────────────────────────────────"
-chmod +x "$CHECK_SCRIPT" "$CHECK_VERSION_SCRIPT" "$PUSH_SCRIPT" "${MODULE_REPO}/scripts/git-hooks/post-commit"
+chmod +x "$CHECK_SCRIPT" "$CHECK_VERSION_SCRIPT" "$CHECK_DB_DRIFT_SCRIPT" "$PUSH_SCRIPT" "${MODULE_REPO}/scripts/git-hooks/post-commit"
 echo "✓ ${PUSH_SCRIPT}"
 echo "✓ ${CHECK_SCRIPT}"
 echo "✓ ${CHECK_VERSION_SCRIPT}"
+echo "✓ ${CHECK_DB_DRIFT_SCRIPT}"
 
 echo
 echo "── Hook post-commit (core.hooksPath) ───────────────────────────"
@@ -129,18 +142,24 @@ CRON_LINE="*/${CRON_INTERVAL_MIN} * * * * STALE_MINUTES=${STALE_MINUTES} LOG_DIR
 CRON_VERSION_MARKER="# MYO-452/MYO-453 check-version-drift filet cron — géré par CommerceAgents/scripts/install-push-guard.sh, ne pas éditer à la main"
 CRON_VERSION_LINE="*/${CRON_INTERVAL_MIN} * * * * LOG_DIR=${LOG_DIR} ${CHECK_VERSION_SCRIPT} cron >>${LOG_DIR}/auto-push.log 2>&1"
 
+CRON_DB_DRIFT_MARKER="# MYO-463 check-module-db-drift filet cron — géré par CommerceAgents/scripts/install-push-guard.sh, ne pas éditer à la main"
+CRON_DB_DRIFT_LINE="*/${CRON_INTERVAL_MIN} * * * * LOG_DIR=${LOG_DIR} ${CHECK_DB_DRIFT_SCRIPT} cron >>${LOG_DIR}/auto-push.log 2>&1"
+
 existing_cron="$(crontab -l 2>/dev/null || true)"
 filtered_cron="$(printf '%s\n' "$existing_cron" |
   grep -vF "$CHECK_SCRIPT" | grep -vF "$CRON_MARKER" |
-  grep -vF "$CHECK_VERSION_SCRIPT" | grep -vF "$CRON_VERSION_MARKER" || true)"
-new_cron="$(printf '%s\n%s\n%s\n%s\n%s\n' "$filtered_cron" "$CRON_MARKER" "$CRON_LINE" "$CRON_VERSION_MARKER" "$CRON_VERSION_LINE" | sed '/^[[:space:]]*$/d')"
+  grep -vF "$CHECK_VERSION_SCRIPT" | grep -vF "$CRON_VERSION_MARKER" |
+  grep -vF "$CHECK_DB_DRIFT_SCRIPT" | grep -vF "$CRON_DB_DRIFT_MARKER" || true)"
+new_cron="$(printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n' "$filtered_cron" "$CRON_MARKER" "$CRON_LINE" "$CRON_VERSION_MARKER" "$CRON_VERSION_LINE" "$CRON_DB_DRIFT_MARKER" "$CRON_DB_DRIFT_LINE" | sed '/^[[:space:]]*$/d')"
 printf '%s\n' "$new_cron" | crontab -
 
 echo "✓ crontab installé/actualisé pour $(whoami) : toutes les ${CRON_INTERVAL_MIN} min"
 crontab -l | grep -F "$CHECK_SCRIPT" | sed 's/^/  /'
 crontab -l | grep -F "$CHECK_VERSION_SCRIPT" | sed 's/^/  /'
+crontab -l | grep -F "$CHECK_DB_DRIFT_SCRIPT" | sed 's/^/  /'
 
 echo
 echo "✓ MYO-372 : auto-push (hook) + détection non-poussé (cron) installés."
 echo "✓ MYO-452/MYO-453 : détection de l'écart de version/tag (cron) installée."
+echo "✓ MYO-463 : détection de l'écart module.xml/module.version en base (cron) installée."
 echo "  Logs : ${LOG_DIR}/auto-push.log"
