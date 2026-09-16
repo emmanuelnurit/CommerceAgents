@@ -6,7 +6,6 @@ return [
     'Merchant Agent' => 'Agente comercial',
     'Merchant Agent — Proposed changes' => 'Agente comercial — Cambios propuestos',
     'Home' => 'Inicio',
-    'This module isn\'t translated into your language yet (%locale%) — the screens below are shown in English. Available languages: %languages%.' => 'Este módulo aún no está traducido a su idioma (%locale%) — las siguientes pantallas se muestran en inglés. Idiomas disponibles: %languages%.',
     'Configure' => 'Configurar',
     'No LLM API key configured yet. Set one in the module configuration.' => 'Aún no hay ninguna clave API de LLM configurada. Configúrela en los ajustes del módulo.',
     'Ask about sales, inventory, pricing…' => 'Pregunte sobre ventas, inventario, precios…',

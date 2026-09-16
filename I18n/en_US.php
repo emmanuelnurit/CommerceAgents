@@ -6,7 +6,6 @@ return [
     'Merchant Agent' => 'Merchant Agent',
     'Merchant Agent — Proposed changes' => 'Merchant Agent — Proposed changes',
     'Home' => 'Home',
-    'This module isn\'t translated into your language yet (%locale%) — the screens below are shown in English. Available languages: %languages%.' => 'This module isn\'t translated into your language yet (%locale%) — the screens below are shown in English. Available languages: %languages%.',
     'Configure' => 'Configure',
     'No LLM API key configured yet. Set one in the module configuration.' => 'No LLM API key configured yet. Set one in the module configuration.',
     'Ask about sales, inventory, pricing…' => 'Ask about sales, inventory, pricing…',

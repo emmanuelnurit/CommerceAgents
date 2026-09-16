@@ -6,7 +6,7 @@
 {% block breadcrumb %}
     <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans }}</a></li>
             <li class="breadcrumb-item"><a href="{{ listUrl }}">{{ 'AI agents'|trans({}, 'commerceagents') }}</a></li>
             <li class="breadcrumb-item active" aria-current="page">{{ agent.title }}</li>
         </ol>
