@@ -258,3 +258,4 @@ final readonly class AgentConfigService
         return array_values(array_filter(array_map('intval', explode(',', $raw))));
     }
 }
+// MYO-455 test AC2 (a nettoyer)
