@@ -15,6 +15,7 @@ use CommerceAgents\Service\ModelCatalog;
 use CommerceAgents\Service\ModelChoice;
 use CommerceAgents\Service\TokenUsageRepository;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Thelia\Core\Event\Hook\HookRenderEvent;
@@ -40,6 +41,19 @@ class AdminHookManager extends BaseHook
         'openai-compatible' => 'https://api.openai.com',
     ];
 
+    /**
+     * Native-language labels for the locales the module actually ships translations
+     * for (cf. {@see coveredLocales()}). Falls back to the raw locale code for any
+     * covered locale missing from this map, so adding an I18n/*.php file never breaks
+     * the banner — it just shows a less friendly label until this map is updated.
+     */
+    private const LOCALE_LABELS = [
+        'en_US' => 'English',
+        'es_ES' => 'español',
+        'fr_FR' => 'français',
+        'it_IT' => 'italiano',
+    ];
+
     public function __construct(
         private readonly SecurityContext $securityContext,
         private readonly AgentConfigService $configService,
@@ -51,6 +65,7 @@ class AdminHookManager extends BaseHook
         private readonly Environment $twig,
         private readonly ChannelConnectorRegistry $channelRegistry,
         private readonly ChannelConnectorConfigService $channelConfig,
+        private readonly RequestStack $requestStack,
         ?EventDispatcherInterface $dispatcher = null,
         ?ParserResolver $parserResolver = null,
     ) {
@@ -64,7 +79,89 @@ class AdminHookManager extends BaseHook
             'module.configuration' => [['type' => 'back', 'method' => 'onModuleConfiguration']],
             'module.config-js' => [['type' => 'back', 'method' => 'onModuleConfigJs']],
             'main.footer-js' => [['type' => 'back', 'method' => 'onMainFooterJs']],
+            'main.before-content' => [['type' => 'back', 'method' => 'onMainBeforeContent']],
         ];
+    }
+
+    /**
+     * MYO-435: the BO manages 21 locales, CommerceAgents ships translations for 4
+     * (cf. {@see coveredLocales()}). Outside those 4, every module screen silently
+     * falls back to English with no signal — flagged as not acceptable during the
+     * MYO-430 UX review. Fired from the single hook point common to every module
+     * screen (`main.before-content` in base.html.twig) rather than patched into each
+     * template, so new screens inherit the banner for free.
+     */
+    public function onMainBeforeContent(HookRenderEvent $event): void
+    {
+        if (!$this->isCommerceAgentsScreen()) {
+            return;
+        }
+
+        if (!$this->securityContext->isGranted(['ADMIN'], [], ['commerceagents'], [AccessManager::VIEW])) {
+            return;
+        }
+
+        $locale = $this->securityContext->getAdminUser()?->getLocale();
+        $covered = $this->coveredLocales();
+
+        if (null === $locale || \in_array($locale, $covered, true)) {
+            return;
+        }
+
+        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/locale-fallback-banner.html.twig', [
+            'locale' => $locale,
+            'availableLanguages' => implode(', ', array_map(
+                static fn (string $code): string => self::LOCALE_LABELS[$code] ?? $code,
+                $covered,
+            )),
+        ]));
+    }
+
+    /**
+     * True on every full-page CommerceAgents screen: its own routes (all named
+     * `commerceagents_*`) plus the generic Thelia module-configuration page
+     * (`admin.module.configure`) when it targets this module specifically — that
+     * route is shared by every module, so it needs the extra `module_code` check.
+     */
+    private function isCommerceAgentsScreen(): bool
+    {
+        $route = $this->requestStack->getCurrentRequest()?->attributes->get('_route');
+
+        if (!\is_string($route)) {
+            return false;
+        }
+
+        if (str_starts_with($route, 'commerceagents_')) {
+            return true;
+        }
+
+        return 'admin.module.configure' === $route
+            && 'commerceagents' === strtolower((string) $this->requestStack->getCurrentRequest()?->attributes->get('module_code'));
+    }
+
+    /**
+     * Locale codes the module ships a translation catalog for, derived straight from
+     * `I18n/*.php` (the files `BaseModule::initializeCoreI18n()` itself loads) so this
+     * never drifts from what's actually installed.
+     *
+     * @return list<string>
+     */
+    private function coveredLocales(): array
+    {
+        $moduleDir = $this->module?->getModuleDir();
+
+        if (null === $moduleDir) {
+            return [];
+        }
+
+        $locales = array_map(
+            static fn (string $file): string => basename($file, '.php'),
+            glob($moduleDir.'/I18n/*.php') ?: [],
+        );
+
+        sort($locales);
+
+        return $locales;
     }
 
     public function onMainFooterJs(HookRenderEvent $event): void
