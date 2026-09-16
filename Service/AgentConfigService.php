@@ -258,4 +258,3 @@ final readonly class AgentConfigService
         return array_values(array_filter(array_map('intval', explode(',', $raw))));
     }
 }
-// test AC2 MYO-455 - a supprimer
