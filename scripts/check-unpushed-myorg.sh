@@ -30,6 +30,17 @@
 # `git ls-remote --tags` (lecture publique, pas de credentials nécessaires,
 # même raisonnement que le fetch des commits ci-dessus).
 #
+# MYO-426 — compare aussi `origin/main` à `origin/myorg`, INDÉPENDAMMENT de
+# tout commit local en attente ci-dessus : auto-push-myorg.sh fast-forward
+# main juste après avoir poussé myorg, mais ce filet doit aussi détecter le
+# cas où main prend du retard sans nouveau commit côté agent (ex. quelqu'un
+# pousse sur main directement, ou le retard existait déjà avant même
+# l'installation de ce mécanisme). Journalise WARN-MAIN-BEHIND (N commits,
+# depuis quand) sur le même modèle que WARN-UNPUSHED, ou WARN-MAIN-DIVERGED
+# si main n'est plus un ancêtre strict de myorg (fast-forward impossible
+# sans --force — jamais tenté ici ni ailleurs). Lecture seule, comme le reste
+# de ce script.
+#
 # ── Usage ────────────────────────────────────────────────────────────────
 #
 #   ./scripts/check-unpushed-myorg.sh [cron|manual]
@@ -105,6 +116,30 @@ if [[ -n "$local_tags" ]]; then
   if [[ -n "$missing_tags_trimmed" ]]; then
     log "$(now_iso) [${TRIGGER_SOURCE}] WARN-UNPUSHED-TAGS tag(s) absent(s) de ${REMOTE}: ${missing_tags}— auto-push-myorg.sh --follow-tags n'a pas (encore) couvert ce(s) tag(s), pousser manuellement (git push --tags)"
   fi
+fi
+
+# MYO-426 — comparaison main vs myorg, indépendante du bloc "commits non
+# poussés" ci-dessus (peut alerter même quand myorg est entièrement à jour).
+if git fetch "$REMOTE" main >/dev/null 2>&1; then
+  main_ref="${REMOTE}/main"
+  myorg_ref="${REMOTE}/${BRANCH}"
+  main_sha="$(git rev-parse "$main_ref" 2>/dev/null || echo unknown)"
+  myorg_sha="$(git rev-parse "$myorg_ref" 2>/dev/null || echo unknown)"
+
+  if [[ "$main_sha" != "$myorg_sha" ]]; then
+    if git merge-base --is-ancestor "$main_ref" "$myorg_ref" 2>/dev/null; then
+      behind_count="$(git log --oneline "${main_ref}..${myorg_ref}" -- 2>/dev/null | wc -l | tr -d ' ')"
+      oldest_behind="$(git log --reverse --format=%H "${main_ref}..${myorg_ref}" -- 2>/dev/null | head -1)"
+      oldest_epoch="$(git log -1 --format=%ct "$oldest_behind" 2>/dev/null || echo 0)"
+      now_epoch="$(date -u +%s)"
+      behind_minutes=$(( (now_epoch - oldest_epoch) / 60 ))
+      log "$(now_iso) [${TRIGGER_SOURCE}] WARN-MAIN-BEHIND ${behind_count} commit(s) : ${main_ref} (${main_sha:0:12}) en retard sur ${myorg_ref} (${myorg_sha:0:12}) depuis ${behind_minutes}min — auto-push-myorg.sh aurait dû fast-forward, voir RESULT ci-dessus/prochain push"
+    else
+      log "$(now_iso) [${TRIGGER_SOURCE}] WARN-MAIN-DIVERGED ${main_ref} (${main_sha:0:12}) n'est pas un ancêtre de ${myorg_ref} (${myorg_sha:0:12}) — fast-forward impossible sans --force (jamais tenté), intervention humaine requise"
+    fi
+  fi
+else
+  log "$(now_iso) [${TRIGGER_SOURCE}] WARN-CHECK (git fetch ${REMOTE} main a échoué, vérification main reportée)"
 fi
 
 exit 0

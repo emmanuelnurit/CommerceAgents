@@ -16,6 +16,17 @@
 #   2. Détection bruyante des commits non poussés (filet indépendant du
 #      hook, cf. check-unpushed-myorg.sh) — installée ici via crontab.
 #
+# MYO-426 — étend ces deux mêmes volets (aucun 3e mécanisme, aucune ligne
+# crontab ni hook supplémentaire à installer) pour que `origin/main`
+# (branche par défaut publique) ne reste plus jamais en retard sur
+# `origin/myorg` :
+#   - volet 1 (auto-push-myorg.sh) : après un push réussi de myorg, tente un
+#     fast-forward de main avec les mêmes credentials, seulement si main est
+#     un ancêtre strict de myorg (jamais de --force).
+#   - volet 2 (check-unpushed-myorg.sh) : compare aussi main à myorg de façon
+#     indépendante (WARN-MAIN-BEHIND / WARN-MAIN-DIVERGED), même sans nouveau
+#     commit côté agent.
+#
 # Idempotent : ré-exécutable sans effet de bord — ne duplique pas la ligne
 # crontab (remplacée par une ligne fraîche à chaque run).
 #

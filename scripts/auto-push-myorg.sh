@@ -29,6 +29,21 @@
 # absents du remote — exactement le cas des tags de release. Le filet
 # check-unpushed-myorg.sh vérifie séparément qu'aucun tag ne reste local-only.
 #
+# MYO-426 — `origin/myorg` avance et se pousse tout seul, mais rien ne
+# rattrapait `origin/main` (branche par défaut, publique) derrière : 3e
+# occurrence du même trou (MYO-415/420). Après un push réussi de myorg
+# ci-dessus, `try_fast_forward_main` réutilise les MÊMES credentials déjà
+# récupérés (pas de second aller-retour secret) pour fast-forward `main` sur
+# `myorg` si et seulement si `origin/main` est un ancêtre strict de
+# `origin/myorg` (`git merge-base --is-ancestor`). Le push utilisé est un
+# refspec normal (`origin/myorg:refs/heads/main`, sans `--force`) : git
+# refuse déjà tout seul un update non fast-forward, donc aucune protection
+# supplémentaire n'est nécessaire pour interdire l'écrasement de main. Si
+# main a divergé (n'est pas un ancêtre strict — ex. quelqu'un a poussé dessus
+# directement), on ne pousse RIEN et on journalise WARN-MAIN-DIVERGED avec
+# les deux SHA en cause ; check-unpushed-myorg.sh détecte aussi ce cas de
+# façon indépendante (cron, lecture seule).
+#
 # ── Credentials — jamais en clair dans une commande ou un log ─────────────
 #
 # Pattern GIT_ASKPASS éphémère (cf. historique MYO-241) : le token n'est
@@ -83,6 +98,44 @@ mkdir -p "$LOG_DIR"
 
 log() { printf '%s\n' "$1" >>"$LOG_FILE"; }
 now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# MYO-426 — appelée uniquement après un push réussi de myorg ci-dessous.
+# Réutilise le token/askpass déjà en main : ni second appel secret, ni
+# re-demande de credentials.
+try_fast_forward_main() {
+  local token="$1" askpass_file="$2"
+  local main_ref="${REMOTE}/main" myorg_ref="${REMOTE}/${BRANCH}"
+  local main_sha myorg_sha
+
+  git fetch "$REMOTE" main >/dev/null 2>&1
+
+  main_sha="$(git rev-parse "$main_ref" 2>/dev/null || echo unknown)"
+  myorg_sha="$(git rev-parse "$myorg_ref" 2>/dev/null || echo unknown)"
+
+  if [[ "$main_sha" == "$myorg_sha" ]]; then
+    return 0
+  fi
+
+  if ! git merge-base --is-ancestor "$main_ref" "$myorg_ref" 2>/dev/null; then
+    log "$(now_iso) [${TRIGGER_SOURCE}] WARN-MAIN-DIVERGED ${main_ref} (${main_sha:0:12}) n'est pas un ancêtre de ${myorg_ref} (${myorg_sha:0:12}) — fast-forward refusé, AUCUN push tenté (jamais de --force)"
+    return 0
+  fi
+
+  local ff_output ff_status
+  ff_output="$(AUTO_PUSH_TOKEN="$token" GIT_ASKPASS="$askpass_file" GIT_TERMINAL_PROMPT=0 \
+    git push "$REMOTE" "${myorg_ref}:refs/heads/main" 2>&1)"
+  ff_status=$?
+
+  if [[ $ff_status -eq 0 ]]; then
+    log "$(now_iso) [${TRIGGER_SOURCE}] RESULT OK main fast-forward (MYO-426) ${main_sha:0:12} -> ${myorg_sha:0:12}"
+  else
+    local safe_tail
+    safe_tail="$(printf '%s' "$ff_output" |
+      sed -E 's#https://[^@[:space:]]+@#https://***REDACTED***@#g; s/gh[pousr]_[A-Za-z0-9]{20,}/***REDACTED***/g' |
+      tail -5 | tr '\n' ' | ')"
+    log "$(now_iso) [${TRIGGER_SOURCE}] RESULT FAILED main fast-forward exit=${ff_status} (pas de force, pas de retry) ${safe_tail}"
+  fi
+}
 
 cd "$MODULE_REPO" 2>/dev/null || {
   log "$(now_iso) [${TRIGGER_SOURCE}] SKIP (dépôt module introuvable: ${MODULE_REPO})"
@@ -143,15 +196,14 @@ before="$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo unknown)"
 push_output="$(AUTO_PUSH_TOKEN="$token" GIT_ASKPASS="$ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
   git push "$REMOTE" "$BRANCH" --follow-tags 2>&1)"
 status=$?
-token=""
-AUTO_PUSH_TOKEN=""
-
-rm -f "$ASKPASS_FILE"
-ASKPASS_FILE=""
 
 if [[ $status -eq 0 ]]; then
   after="$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo unknown)"
   log "$(now_iso) [${TRIGGER_SOURCE}] RESULT OK (credentials: ${token_source}) ${before} -> ${after}"
+
+  # MYO-426 — même credentials, encore valides à ce stade (nettoyées juste
+  # après ce bloc, cf. plus bas).
+  try_fast_forward_main "$token" "$ASKPASS_FILE"
 else
   # git n'imprime normalement jamais la valeur GIT_ASKPASS dans sa sortie,
   # mais on filtre quand même par défense en profondeur avant de journaliser.
@@ -160,5 +212,10 @@ else
     tail -5 | tr '\n' ' | ')"
   log "$(now_iso) [${TRIGGER_SOURCE}] RESULT FAILED exit=${status} (pas de force, pas de retry) ${safe_tail}"
 fi
+
+token=""
+AUTO_PUSH_TOKEN=""
+rm -f "$ASKPASS_FILE"
+ASKPASS_FILE=""
 
 exit 0
