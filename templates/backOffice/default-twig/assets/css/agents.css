@@ -57,8 +57,14 @@
     padding: .5rem .75rem;
     min-height: 44px;
 }
-.model-option:hover, .model-option:focus { background: #fff7f2; outline: 0; }
+.model-option:hover { background: #fff7f2; }
+.model-option:focus {
+    background: #fff7f2;
+    outline: 2px solid #f26041;
+    outline-offset: -2px;
+}
 .model-option[aria-selected="true"] { background: #fff7f2; box-shadow: inset 3px 0 0 #f26041; }
+.model-option[aria-selected="true"]:focus { box-shadow: inset 3px 0 0 #f26041, inset 0 0 0 2px #f26041; }
 .model-price { font-size: .78rem; color: #6c757d; white-space: nowrap; }
 .model-menu-foot {
     border-top: 1px solid #eee;

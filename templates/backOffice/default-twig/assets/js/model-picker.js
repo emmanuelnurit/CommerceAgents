@@ -176,9 +176,34 @@
             toggle.focus();
         }
 
+        function optionButtons() {
+            return Array.from(optionsHost.querySelectorAll('.model-option'));
+        }
+
+        function focusOption(index) {
+            var buttons = optionButtons();
+            if (buttons.length === 0) {
+                return;
+            }
+            buttons[Math.max(0, Math.min(index, buttons.length - 1))].focus();
+        }
+
+        function focusSelectedOption() {
+            var buttons = optionButtons();
+            var selectedIndex = 0;
+            for (var i = 0; i < buttons.length; i++) {
+                if (buttons[i].getAttribute('aria-selected') === 'true') {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            focusOption(selectedIndex);
+        }
+
         function open() {
             panel.hidden = false;
             toggle.setAttribute('aria-expanded', 'true');
+            focusSelectedOption();
         }
         function close() {
             panel.hidden = true;
@@ -201,6 +226,33 @@
             if (event.key === 'Escape') {
                 close();
                 toggle.focus();
+                return;
+            }
+            if (panel.hidden) {
+                return;
+            }
+            var buttons = optionButtons();
+            if (buttons.length === 0) {
+                return;
+            }
+            var currentIndex = buttons.indexOf(document.activeElement);
+            switch (event.key) {
+                case 'ArrowDown':
+                    event.preventDefault();
+                    focusOption(currentIndex === -1 ? 0 : currentIndex + 1);
+                    break;
+                case 'ArrowUp':
+                    event.preventDefault();
+                    focusOption(currentIndex === -1 ? buttons.length - 1 : currentIndex - 1);
+                    break;
+                case 'Home':
+                    event.preventDefault();
+                    focusOption(0);
+                    break;
+                case 'End':
+                    event.preventDefault();
+                    focusOption(buttons.length - 1);
+                    break;
             }
         });
 
