@@ -167,3 +167,12 @@ Le module passe de **0.4.0** à **0.4.1**. Rappel MYO-408 : chaque ticket ci-des
 ### Migrations
 
 Aucun fichier `Config/update/0.4.1.sql` : `Config/schema.xml` est identique entre `v0.4.0` et ce lot (`git diff --stat v0.4.0..HEAD -- Config/schema.xml` ne retourne rien) — seuls des scripts d'exploitation (fast-forward `main`), des correctifs i18n/BO et de la documentation sont livrés.
+
+## Exploitation — sauvegarde hors-machine du dépôt module par deploy key SSH (MYO-443)
+
+Pas de changement de version : aucun code applicatif ni fichier de schéma n'est touché, uniquement des scripts d'exploitation (`scripts/auto-push-myorg.sh`, `scripts/install-push-guard.sh`).
+
+- Constat (MYO-442) : `scripts/auto-push-myorg.sh` (MYO-372) ne pouvait pousser vers `origin/myorg` que depuis un run agent vivant — seul contexte où `$GITHUB_TOKEN`/`$PAPERCLIP_API_KEY` existent. Le filet cron (`check-unpushed-myorg.sh`) détectait bien un retard, mais ne pouvait jamais le réparer lui-même : exactement la panne déjà fermée pour le dépôt **site** par MYO-428/433 (deploy key SSH).
+- `scripts/auto-push-myorg.sh` essaie désormais en premier une **deploy key SSH dédiée** (`~/.ssh/commerceagents_myorg_deploy_key`, écriture, portée au seul dépôt `emmanuelnurit/CommerceAgents`, enregistrée via `POST /repos/.../keys`) à travers un second remote local `origin-ssh` (même dépôt, URL SSH) — fonctionne aussi bien depuis un hook `post-commit` que depuis un cron sans run agent. Le **PAT reste un repli** (pattern `GIT_ASKPASS` éphémère existant, inchangé), utilisé seulement si la clé est absente ou si le push SSH échoue.
+- `origin` (HTTPS) n'est pas modifié : lecture et repli PAT continuent de passer par lui. `scripts/install-push-guard.sh` (idempotent) installe/vérifie la clé, le `known_hosts` et le remote `origin-ssh` ; il ne génère ni n'enregistre la clé côté GitHub (opération ponctuelle hors script réexécutable).
+- Preuve : push réel déclenché en simulant un contexte cron (variables `GITHUB_TOKEN`/`PAPERCLIP_API_KEY`/`PAPERCLIP_API_URL` absentes de l'environnement), `RESULT OK (credentials: ssh-deploy-key)` journalisé dans `auto-push.log`, SHA distant revérifié après coup par `git ls-remote origin myorg`.

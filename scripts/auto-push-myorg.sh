@@ -32,8 +32,8 @@
 # MYO-426 — `origin/myorg` avance et se pousse tout seul, mais rien ne
 # rattrapait `origin/main` (branche par défaut, publique) derrière : 3e
 # occurrence du même trou (MYO-415/420). Après un push réussi de myorg
-# ci-dessus, `try_fast_forward_main` réutilise les MÊMES credentials déjà
-# récupérés (pas de second aller-retour secret) pour fast-forward `main` sur
+# ci-dessus, `try_fast_forward_main` réutilise le MÊME remote/credentials déjà
+# établis (pas de second aller-retour secret) pour fast-forward `main` sur
 # `myorg` si et seulement si `origin/main` est un ancêtre strict de
 # `origin/myorg` (`git merge-base --is-ancestor`). Le push utilisé est un
 # refspec normal (`origin/myorg:refs/heads/main`, sans `--force`) : git
@@ -44,35 +44,61 @@
 # les deux SHA en cause ; check-unpushed-myorg.sh détecte aussi ce cas de
 # façon indépendante (cron, lecture seule).
 #
-# ── Credentials — jamais en clair dans une commande ou un log ─────────────
+# ── MYO-443 — chemin nominal : deploy key SSH dédiée, PAT en repli ────────
 #
-# Pattern GIT_ASKPASS éphémère (cf. historique MYO-241) : le token n'est
-# jamais interpolé dans la ligne de commande `git push` ni dans l'URL remote,
-# et le fichier askpass est un script temporaire (mode 600/700) supprimé dès
-# usage. Deux sources essayées dans l'ordre :
-#   1. $GITHUB_TOKEN si déjà injecté dans l'environnement du run courant
-#      (secret Paperclip "github_token", delivery=env).
-#   2. Sinon, récupéré à la demande via l'API Paperclip
-#      (POST /agents/me/secrets/github_token/value) avec $PAPERCLIP_API_KEY —
-#      seulement disponible si ce script tourne comme descendant d'un run
-#      agent actif (le hook, appelé en enfant du process `git commit`,
-#      hérite cet environnement au moment du commit).
+# Constat MYO-442 : le cron (check-unpushed-myorg.sh) détecte bien un retard,
+# mais ce script-ci ne pouvait réparer QUE depuis un run agent vivant (seul
+# contexte où $GITHUB_TOKEN/$PAPERCLIP_API_KEY existent) — exactement la
+# panne déjà fermée pour le dépôt SITE par MYO-428/433 (deploy key SSH,
+# `scripts/auto-push-offsite.sh`). Ce dépôt module a son propre `origin`
+# (`emmanuelnurit/CommerceAgents`, pas un upstream public à préserver comme
+# `thelia/thelia`), donc pas besoin d'un second remote nommé "backup" : une
+# deploy key SSH dédiée en écriture est enregistrée sur ce même dépôt
+# (`POST /repos/emmanuelnurit/CommerceAgents/keys`) et un remote SSH séparé
+# (`$REMOTE_SSH`, même URL que `$REMOTE` mais en `git@github.com:...`) sert
+# uniquement de cible de push authentifiée par clé — `$REMOTE` (origin,
+# HTTPS) n'est pas modifié, `git fetch`/`git ls-remote` en lecture seule
+# restent inchangés partout ailleurs (dépôt public en lecture).
 #
-# Si aucune des deux sources n'est disponible (ex. commit fait hors run
-# agent), le script n'échoue pas : il journalise et laisse le filet cron
+# Ordre essayé à CHAQUE push :
+#   1. Deploy key SSH ($DEPLOY_KEY_PATH, clé hors dépôt, jamais commitée,
+#      `StrictHostKeyChecking=yes` avec `known_hosts` pré-rempli) — chemin
+#      nominal, fonctionne aussi bien depuis un hook post-commit que depuis
+#      un cron sans aucun run agent vivant.
+#   2. Repli PAT (pattern GIT_ASKPASS éphémère, cf. historique MYO-241) si la
+#      clé est absente OU si le push SSH échoue : le token n'est jamais
+#      interpolé dans la ligne de commande `git push` ni dans l'URL remote,
+#      et le fichier askpass est un script temporaire (mode 600/700) supprimé
+#      dès usage. Deux sources essayées dans l'ordre :
+#      a. $GITHUB_TOKEN si déjà injecté dans l'environnement du run courant
+#         (secret Paperclip "github_token", delivery=env).
+#      b. Sinon, récupéré à la demande via l'API Paperclip
+#         (POST /agents/me/secrets/github_token/value) avec
+#         $PAPERCLIP_API_KEY — seulement disponible si ce script tourne comme
+#         descendant d'un run agent actif. C'est un repli, pas le chemin
+#         nominal : il reste utile en secours (ex. deploy key révoquée), mais
+#         hérite de la même limite qu'avant MYO-443 (indisponible en cron
+#         pur).
+#
+# Si aucune des deux voies n'est disponible (clé absente ET commit fait hors
+# run agent), le script n'échoue pas : il journalise et laisse le filet cron
 # (check-unpushed-myorg.sh) signaler le retard.
 #
 # ── Usage ────────────────────────────────────────────────────────────────
 #
-#   ./scripts/auto-push-myorg.sh [hook|manual]
+#   ./scripts/auto-push-myorg.sh [hook|manual|cron]
 #
 #   Variables (toutes optionnelles) :
-#     MODULE_REPO   défaut: dossier contenant ce script (résolu par lui-même)
-#     REMOTE        défaut: origin
-#     BRANCH        défaut: myorg
-#     LOG_DIR       défaut: /home/enurit/backups/thelia3-bundles (même
-#                   dossier que le filet de bundles MYO-369 — un seul endroit
-#                   à surveiller pour tous les garde-fous de ce dépôt)
+#     MODULE_REPO       défaut: dossier contenant ce script (résolu par lui-même)
+#     REMOTE            défaut: origin (HTTPS, lecture + repli PAT)
+#     REMOTE_SSH        défaut: origin-ssh (même dépôt, écriture par deploy key)
+#     BRANCH            défaut: myorg
+#     DEPLOY_KEY_PATH   défaut: $HOME/.ssh/commerceagents_myorg_deploy_key
+#     KNOWN_HOSTS_FILE  défaut: $HOME/.ssh/known_hosts
+#     LOG_DIR           défaut: /home/enurit/backups/thelia3-bundles (même
+#                       dossier que le filet de bundles MYO-369 — un seul
+#                       endroit à surveiller pour tous les garde-fous de ce
+#                       dépôt)
 #
 # ── Où regarder en cas d'échec ──────────────────────────────────────────────
 #
@@ -87,7 +113,10 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_REPO="${MODULE_REPO:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 REMOTE="${REMOTE:-origin}"
+REMOTE_SSH="${REMOTE_SSH:-origin-ssh}"
 BRANCH="${BRANCH:-myorg}"
+DEPLOY_KEY_PATH="${DEPLOY_KEY_PATH:-$HOME/.ssh/commerceagents_myorg_deploy_key}"
+KNOWN_HOSTS_FILE="${KNOWN_HOSTS_FILE:-$HOME/.ssh/known_hosts}"
 LOG_DIR="${LOG_DIR:-/home/enurit/backups/thelia3-bundles}"
 TRIGGER_SOURCE="${1:-manual}"
 
@@ -98,12 +127,16 @@ mkdir -p "$LOG_DIR"
 
 log() { printf '%s\n' "$1" >>"$LOG_FILE"; }
 now_iso() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+redact() {
+  sed -E 's#https://[^@[:space:]]+@#https://***REDACTED***@#g; s/gh[pousr]_[A-Za-z0-9]{20,}/***REDACTED***/g'
+}
 
 # MYO-426 — appelée uniquement après un push réussi de myorg ci-dessous.
-# Réutilise le token/askpass déjà en main : ni second appel secret, ni
-# re-demande de credentials.
+# $1 = remote à travers lequel pousser le fast-forward de main ; l'appelant a
+# déjà exporté l'auth adéquate (GIT_SSH_COMMAND ou AUTO_PUSH_TOKEN/GIT_ASKPASS)
+# avant l'appel — ni second appel secret, ni re-demande de credentials.
 try_fast_forward_main() {
-  local token="$1" askpass_file="$2"
+  local push_remote="$1"
   local main_ref="${REMOTE}/main" myorg_ref="${REMOTE}/${BRANCH}"
   local main_sha myorg_sha
 
@@ -122,17 +155,14 @@ try_fast_forward_main() {
   fi
 
   local ff_output ff_status
-  ff_output="$(AUTO_PUSH_TOKEN="$token" GIT_ASKPASS="$askpass_file" GIT_TERMINAL_PROMPT=0 \
-    git push "$REMOTE" "${myorg_ref}:refs/heads/main" 2>&1)"
+  ff_output="$(git push "$push_remote" "${myorg_ref}:refs/heads/main" 2>&1)"
   ff_status=$?
 
   if [[ $ff_status -eq 0 ]]; then
     log "$(now_iso) [${TRIGGER_SOURCE}] RESULT OK main fast-forward (MYO-426) ${main_sha:0:12} -> ${myorg_sha:0:12}"
   else
     local safe_tail
-    safe_tail="$(printf '%s' "$ff_output" |
-      sed -E 's#https://[^@[:space:]]+@#https://***REDACTED***@#g; s/gh[pousr]_[A-Za-z0-9]{20,}/***REDACTED***/g' |
-      tail -5 | tr '\n' ' | ')"
+    safe_tail="$(printf '%s' "$ff_output" | redact | tail -5 | tr '\n' ' | ')"
     log "$(now_iso) [${TRIGGER_SOURCE}] RESULT FAILED main fast-forward exit=${ff_status} (pas de force, pas de retry) ${safe_tail}"
   fi
 }
@@ -160,62 +190,88 @@ ASKPASS_FILE=""
 cleanup() { [[ -n "$ASKPASS_FILE" && -f "$ASKPASS_FILE" ]] && rm -f "$ASKPASS_FILE"; }
 trap cleanup EXIT
 
-token=""
-token_source=""
-if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-  token="$GITHUB_TOKEN"
-  token_source="env"
-elif [[ -n "${PAPERCLIP_API_KEY:-}" && -n "${PAPERCLIP_API_URL:-}" ]]; then
-  api_base="${PAPERCLIP_API_URL%/}"
-  api_base="${api_base%/api}"
-  token="$(curl -s -X POST -H "Authorization: Bearer ${PAPERCLIP_API_KEY}" \
-    "${api_base}/api/agents/me/secrets/github_token/value" 2>/dev/null |
-    python3 -c 'import sys,json
+before="$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo unknown)"
+pushed=0
+
+# ── MYO-443 : chemin nominal — deploy key SSH dédiée ──────────────────────
+if [[ -r "$DEPLOY_KEY_PATH" ]] && git remote get-url "$REMOTE_SSH" >/dev/null 2>&1; then
+  GIT_SSH_COMMAND="ssh -i ${DEPLOY_KEY_PATH} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${KNOWN_HOSTS_FILE} -o BatchMode=yes"
+  export GIT_SSH_COMMAND
+
+  push_output="$(git push "$REMOTE_SSH" "${BRANCH}:refs/heads/${BRANCH}" --follow-tags 2>&1)"
+  status=$?
+
+  if [[ $status -eq 0 ]]; then
+    after="$(git rev-parse "${REMOTE_SSH}/${BRANCH}" 2>/dev/null || echo unknown)"
+    log "$(now_iso) [${TRIGGER_SOURCE}] RESULT OK (credentials: ssh-deploy-key) ${before} -> ${after}"
+    try_fast_forward_main "$REMOTE_SSH"
+    pushed=1
+  else
+    safe_tail="$(printf '%s' "$push_output" | redact | tail -5 | tr '\n' ' | ')"
+    log "$(now_iso) [${TRIGGER_SOURCE}] RESULT FAILED (credentials: ssh-deploy-key) exit=${status} (pas de force, pas de retry — repli PAT ci-dessous) ${safe_tail}"
+  fi
+
+  unset GIT_SSH_COMMAND
+else
+  log "$(now_iso) [${TRIGGER_SOURCE}] SKIP-SSH (deploy key ou remote '${REMOTE_SSH}' absent — voir scripts/install-push-guard.sh — repli PAT)"
+fi
+
+# ── Repli PAT — seulement si la voie SSH n'a pas abouti ───────────────────
+if [[ "$pushed" -eq 0 ]]; then
+  token=""
+  token_source=""
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    token="$GITHUB_TOKEN"
+    token_source="env"
+  elif [[ -n "${PAPERCLIP_API_KEY:-}" && -n "${PAPERCLIP_API_URL:-}" ]]; then
+    api_base="${PAPERCLIP_API_URL%/}"
+    api_base="${api_base%/api}"
+    token="$(curl -s -X POST -H "Authorization: Bearer ${PAPERCLIP_API_KEY}" \
+      "${api_base}/api/agents/me/secrets/github_token/value" 2>/dev/null |
+      python3 -c 'import sys,json
 try:
     print(json.load(sys.stdin).get("value") or "")
 except Exception:
     print("")' 2>/dev/null || true)"
-  [[ -n "$token" ]] && token_source="paperclip-secret-api"
+    [[ -n "$token" ]] && token_source="paperclip-secret-api"
+  fi
+
+  if [[ -z "$token" ]]; then
+    log "$(now_iso) [${TRIGGER_SOURCE}] SKIP (aucun credential github_token disponible dans ce contexte — filet: check-unpushed-myorg.sh)"
+    exit 0
+  fi
+
+  ASKPASS_FILE="$(mktemp)"
+  chmod 600 "$ASKPASS_FILE"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'printf %%s "$AUTO_PUSH_TOKEN"\n'
+  } >"$ASKPASS_FILE"
+  chmod 700 "$ASKPASS_FILE"
+
+  push_output="$(AUTO_PUSH_TOKEN="$token" GIT_ASKPASS="$ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
+    git push "$REMOTE" "$BRANCH" --follow-tags 2>&1)"
+  status=$?
+
+  if [[ $status -eq 0 ]]; then
+    after="$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo unknown)"
+    log "$(now_iso) [${TRIGGER_SOURCE}] RESULT OK (credentials: ${token_source}, repli PAT) ${before} -> ${after}"
+
+    # MYO-426 — même credentials, encore valides à ce stade (nettoyées juste
+    # après ce bloc, cf. plus bas).
+    AUTO_PUSH_TOKEN="$token" GIT_ASKPASS="$ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
+      try_fast_forward_main "$REMOTE"
+  else
+    # git n'imprime normalement jamais la valeur GIT_ASKPASS dans sa sortie,
+    # mais on filtre quand même par défense en profondeur avant de journaliser.
+    safe_tail="$(printf '%s' "$push_output" | redact | tail -5 | tr '\n' ' | ')"
+    log "$(now_iso) [${TRIGGER_SOURCE}] RESULT FAILED exit=${status} (pas de force, pas de retry) ${safe_tail}"
+  fi
+
+  token=""
+  AUTO_PUSH_TOKEN=""
+  rm -f "$ASKPASS_FILE"
+  ASKPASS_FILE=""
 fi
-
-if [[ -z "$token" ]]; then
-  log "$(now_iso) [${TRIGGER_SOURCE}] SKIP (aucun credential github_token disponible dans ce contexte — filet: check-unpushed-myorg.sh)"
-  exit 0
-fi
-
-ASKPASS_FILE="$(mktemp)"
-chmod 600 "$ASKPASS_FILE"
-{
-  printf '#!/usr/bin/env bash\n'
-  printf 'printf %%s "$AUTO_PUSH_TOKEN"\n'
-} >"$ASKPASS_FILE"
-chmod 700 "$ASKPASS_FILE"
-
-before="$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo unknown)"
-
-push_output="$(AUTO_PUSH_TOKEN="$token" GIT_ASKPASS="$ASKPASS_FILE" GIT_TERMINAL_PROMPT=0 \
-  git push "$REMOTE" "$BRANCH" --follow-tags 2>&1)"
-status=$?
-
-if [[ $status -eq 0 ]]; then
-  after="$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo unknown)"
-  log "$(now_iso) [${TRIGGER_SOURCE}] RESULT OK (credentials: ${token_source}) ${before} -> ${after}"
-
-  # MYO-426 — même credentials, encore valides à ce stade (nettoyées juste
-  # après ce bloc, cf. plus bas).
-  try_fast_forward_main "$token" "$ASKPASS_FILE"
-else
-  # git n'imprime normalement jamais la valeur GIT_ASKPASS dans sa sortie,
-  # mais on filtre quand même par défense en profondeur avant de journaliser.
-  safe_tail="$(printf '%s' "$push_output" |
-    sed -E 's#https://[^@[:space:]]+@#https://***REDACTED***@#g; s/gh[pousr]_[A-Za-z0-9]{20,}/***REDACTED***/g' |
-    tail -5 | tr '\n' ' | ')"
-  log "$(now_iso) [${TRIGGER_SOURCE}] RESULT FAILED exit=${status} (pas de force, pas de retry) ${safe_tail}"
-fi
-
-token=""
-AUTO_PUSH_TOKEN=""
-rm -f "$ASKPASS_FILE"
-ASKPASS_FILE=""
 
 exit 0

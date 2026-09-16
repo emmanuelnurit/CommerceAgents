@@ -27,6 +27,18 @@
 #     indépendante (WARN-MAIN-BEHIND / WARN-MAIN-DIVERGED), même sans nouveau
 #     commit côté agent.
 #
+# MYO-443 — ajoute un 3e volet, sans toucher aux deux premiers : le remote
+# SSH authentifié par deploy key dédiée qu'auto-push-myorg.sh essaie en
+# premier (repli PAT inchangé si absent). Modèle direct de
+# thelia3/scripts/install-offsite-backup.sh (MYO-428/433), à une différence
+# près : `origin` de CE dépôt est déjà la cible d'écriture voulue (pas un
+# upstream public à préserver comme `thelia/thelia`), donc pas besoin de le
+# laisser intact — on ajoute juste un second remote (`origin-ssh`, même URL
+# en SSH) dédié à l'auth par clé, `origin` (HTTPS) restant la voie de lecture
+# et le repli PAT. Ce script ne génère PAS la clé ni ne l'enregistre côté
+# GitHub (opérations ponctuelles, hors de ce script réexécutable) : il
+# vérifie juste sa présence et normalise le remote de façon idempotente.
+#
 # Idempotent : ré-exécutable sans effet de bord — ne duplique pas la ligne
 # crontab (remplacée par une ligne fraîche à chaque run).
 #
@@ -39,6 +51,9 @@
 #     CRON_INTERVAL_MIN   défaut: 15 (minutes entre deux vérifications cron)
 #     STALE_MINUTES       défaut: 30 (transmis à check-unpushed-myorg.sh)
 #     LOG_DIR             défaut: /home/enurit/backups/thelia3-bundles
+#     DEPLOY_KEY_PATH     défaut: $HOME/.ssh/commerceagents_myorg_deploy_key
+#     KNOWN_HOSTS_FILE    défaut: $HOME/.ssh/known_hosts
+#     REMOTE_SSH_URL      défaut: git@github.com:emmanuelnurit/CommerceAgents.git
 #
 set -euo pipefail
 
@@ -47,6 +62,9 @@ MODULE_REPO="${MODULE_REPO:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 CRON_INTERVAL_MIN="${CRON_INTERVAL_MIN:-15}"
 STALE_MINUTES="${STALE_MINUTES:-30}"
 LOG_DIR="${LOG_DIR:-/home/enurit/backups/thelia3-bundles}"
+DEPLOY_KEY_PATH="${DEPLOY_KEY_PATH:-$HOME/.ssh/commerceagents_myorg_deploy_key}"
+KNOWN_HOSTS_FILE="${KNOWN_HOSTS_FILE:-$HOME/.ssh/known_hosts}"
+REMOTE_SSH_URL="${REMOTE_SSH_URL:-git@github.com:emmanuelnurit/CommerceAgents.git}"
 CHECK_SCRIPT="${MODULE_REPO}/scripts/check-unpushed-myorg.sh"
 PUSH_SCRIPT="${MODULE_REPO}/scripts/auto-push-myorg.sh"
 
@@ -60,6 +78,39 @@ echo "── Hook post-commit (core.hooksPath) ───────────
 hooks_dir="${MODULE_REPO}/scripts/git-hooks"
 git -C "$MODULE_REPO" config core.hooksPath "$hooks_dir"
 echo "✓ ${MODULE_REPO} : core.hooksPath = ${hooks_dir} (push + bundles, même hook)"
+
+echo
+echo "── MYO-443 : deploy key SSH + remote 'origin-ssh' ────────────────"
+if [[ ! -r "$DEPLOY_KEY_PATH" ]]; then
+  echo "✗ deploy key introuvable (${DEPLOY_KEY_PATH}) — la générer et l'enregistrer côté GitHub (POST /repos/emmanuelnurit/CommerceAgents/keys) avant de relancer ; en son absence auto-push-myorg.sh utilise le repli PAT (SKIP-SSH journalisé, pas bloquant)" >&2
+else
+  key_perms="$(stat -c %a "$DEPLOY_KEY_PATH")"
+  if [[ "$key_perms" != "600" ]]; then
+    chmod 600 "$DEPLOY_KEY_PATH"
+    echo "✓ permissions corrigées : ${DEPLOY_KEY_PATH} (${key_perms} -> 600)"
+  else
+    echo "✓ ${DEPLOY_KEY_PATH} (permissions 600)"
+  fi
+
+  if ! ssh-keygen -F github.com -f "$KNOWN_HOSTS_FILE" >/dev/null 2>&1; then
+    echo "✗ clé d'hôte github.com absente de ${KNOWN_HOSTS_FILE} — StrictHostKeyChecking échouera. Pré-remplir avec : ssh-keyscan -t ed25519,rsa github.com >> ${KNOWN_HOSTS_FILE}" >&2
+  else
+    echo "✓ clé d'hôte github.com présente dans ${KNOWN_HOSTS_FILE}"
+  fi
+
+  if git -C "$MODULE_REPO" remote get-url origin-ssh >/dev/null 2>&1; then
+    current_url="$(git -C "$MODULE_REPO" remote get-url origin-ssh)"
+    if [[ "$current_url" != "$REMOTE_SSH_URL" ]]; then
+      git -C "$MODULE_REPO" remote set-url origin-ssh "$REMOTE_SSH_URL"
+      echo "✓ remote 'origin-ssh' réécrit : ${current_url} -> ${REMOTE_SSH_URL}"
+    else
+      echo "✓ remote 'origin-ssh' déjà présent : ${current_url}"
+    fi
+  else
+    git -C "$MODULE_REPO" remote add origin-ssh "$REMOTE_SSH_URL"
+    echo "✓ remote 'origin-ssh' créé : ${REMOTE_SSH_URL} ('origin' HTTPS inchangé — lecture + repli PAT)"
+  fi
+fi
 
 echo
 echo "── Cron utilisateur (détection bruyante) ───────────────────────"
