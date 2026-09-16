@@ -144,6 +144,23 @@ while IFS= read -r commit_sha; do
   fi
 done < <(git log --format='%H' "${latest_tag}..HEAD" -- 2>/dev/null)
 
+# Garde-fou post-livraison (incident constaté sur ce dépôt : commit de test
+# AC2 5c88693 touchant Service/, nettoyé par `git revert` a3c79dd au lieu
+# de `git reset`/amend — les deux restent dans l'historique public). Un
+# commit qui touche un chemin fonctionnel peut être intégralement annulé
+# par un commit postérieur dans la même plage ; le compte par-commit
+# ci-dessus les compterait alors POUR TOUJOURS (jusqu'au prochain tag),
+# recréant exactement le faux positif permanent que AC1 corrige. On ne
+# retient la dérive que si le diff NET entre le tag et HEAD touche
+# réellement au moins un chemin fonctionnel — sinon on retombe à 0 et à
+# l'état nominal silencieux (branche functional_commits_ahead -eq 0
+# ci-dessous), même si des commits individuels matchaient en cours de
+# route.
+if [[ "$functional_commits_ahead" -gt 0 ]] &&
+  ! git diff --name-only "${latest_tag}" HEAD 2>/dev/null | grep -Eq "$FUNCTIONAL_PATH_REGEX"; then
+  functional_commits_ahead=0
+fi
+
 # État persisté entre passages (clé=valeur, valeurs sous notre contrôle donc
 # `source` est sûr ici — pas d'entrée utilisateur non maîtrisée).
 last_warned_head_sha=""
