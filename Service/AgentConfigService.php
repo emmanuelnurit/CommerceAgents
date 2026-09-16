@@ -258,3 +258,4 @@ final readonly class AgentConfigService
         return array_values(array_filter(array_map('intval', explode(',', $raw))));
     }
 }
+// test AC4 MYO-465 - commit jetable 1/3, a nettoyer via revert
