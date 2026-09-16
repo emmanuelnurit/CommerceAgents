@@ -39,6 +39,11 @@
 # GitHub (opérations ponctuelles, hors de ce script réexécutable) : il
 # vérifie juste sa présence et normalise le remote de façon idempotente.
 #
+# MYO-452/MYO-453 — ajoute un 4e volet, sans toucher aux trois premiers :
+# détection de l'écart de version/tag (cf. check-version-drift.sh), même
+# mécanisme d'installation cron que le volet 2 (marqueur dédié, même
+# LOG_DIR, ne duplique pas la ligne existante de check-unpushed-myorg.sh).
+#
 # Idempotent : ré-exécutable sans effet de bord — ne duplique pas la ligne
 # crontab (remplacée par une ligne fraîche à chaque run).
 #
@@ -66,12 +71,14 @@ DEPLOY_KEY_PATH="${DEPLOY_KEY_PATH:-$HOME/.ssh/commerceagents_myorg_deploy_key}"
 KNOWN_HOSTS_FILE="${KNOWN_HOSTS_FILE:-$HOME/.ssh/known_hosts}"
 REMOTE_SSH_URL="${REMOTE_SSH_URL:-git@github.com:emmanuelnurit/CommerceAgents.git}"
 CHECK_SCRIPT="${MODULE_REPO}/scripts/check-unpushed-myorg.sh"
+CHECK_VERSION_SCRIPT="${MODULE_REPO}/scripts/check-version-drift.sh"
 PUSH_SCRIPT="${MODULE_REPO}/scripts/auto-push-myorg.sh"
 
 echo "── Scripts exécutables ─────────────────────────────────────────"
-chmod +x "$CHECK_SCRIPT" "$PUSH_SCRIPT" "${MODULE_REPO}/scripts/git-hooks/post-commit"
+chmod +x "$CHECK_SCRIPT" "$CHECK_VERSION_SCRIPT" "$PUSH_SCRIPT" "${MODULE_REPO}/scripts/git-hooks/post-commit"
 echo "✓ ${PUSH_SCRIPT}"
 echo "✓ ${CHECK_SCRIPT}"
+echo "✓ ${CHECK_VERSION_SCRIPT}"
 
 echo
 echo "── Hook post-commit (core.hooksPath) ───────────────────────────"
@@ -119,14 +126,21 @@ mkdir -p "$LOG_DIR"
 CRON_MARKER="# MYO-372 check-unpushed-myorg filet cron — géré par CommerceAgents/scripts/install-push-guard.sh, ne pas éditer à la main"
 CRON_LINE="*/${CRON_INTERVAL_MIN} * * * * STALE_MINUTES=${STALE_MINUTES} LOG_DIR=${LOG_DIR} ${CHECK_SCRIPT} cron >>${LOG_DIR}/auto-push.log 2>&1"
 
+CRON_VERSION_MARKER="# MYO-452/MYO-453 check-version-drift filet cron — géré par CommerceAgents/scripts/install-push-guard.sh, ne pas éditer à la main"
+CRON_VERSION_LINE="*/${CRON_INTERVAL_MIN} * * * * LOG_DIR=${LOG_DIR} ${CHECK_VERSION_SCRIPT} cron >>${LOG_DIR}/auto-push.log 2>&1"
+
 existing_cron="$(crontab -l 2>/dev/null || true)"
-filtered_cron="$(printf '%s\n' "$existing_cron" | grep -vF "$CHECK_SCRIPT" | grep -vF "$CRON_MARKER" || true)"
-new_cron="$(printf '%s\n%s\n%s\n' "$filtered_cron" "$CRON_MARKER" "$CRON_LINE" | sed '/^[[:space:]]*$/d')"
+filtered_cron="$(printf '%s\n' "$existing_cron" |
+  grep -vF "$CHECK_SCRIPT" | grep -vF "$CRON_MARKER" |
+  grep -vF "$CHECK_VERSION_SCRIPT" | grep -vF "$CRON_VERSION_MARKER" || true)"
+new_cron="$(printf '%s\n%s\n%s\n%s\n%s\n' "$filtered_cron" "$CRON_MARKER" "$CRON_LINE" "$CRON_VERSION_MARKER" "$CRON_VERSION_LINE" | sed '/^[[:space:]]*$/d')"
 printf '%s\n' "$new_cron" | crontab -
 
 echo "✓ crontab installé/actualisé pour $(whoami) : toutes les ${CRON_INTERVAL_MIN} min"
 crontab -l | grep -F "$CHECK_SCRIPT" | sed 's/^/  /'
+crontab -l | grep -F "$CHECK_VERSION_SCRIPT" | sed 's/^/  /'
 
 echo
 echo "✓ MYO-372 : auto-push (hook) + détection non-poussé (cron) installés."
+echo "✓ MYO-452/MYO-453 : détection de l'écart de version/tag (cron) installée."
 echo "  Logs : ${LOG_DIR}/auto-push.log"
