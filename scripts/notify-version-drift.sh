@@ -148,7 +148,8 @@ print(json.dumps(payload))
 CODE_ALERT_FILE="${LOG_DIR}/.check-version-drift.alert"
 if [[ -f "$CODE_ALERT_FILE" ]]; then
   CODE_SEARCH_MARKER="WARN-VERSION-DRIFT-PERSISTANT"
-  read -r latest_tag head_sha functional_commits_ahead first_functional_iso <<<"$(python3 - "$CODE_ALERT_FILE" <<'PY'
+  code_marker_file="$(mktemp)"
+  python3 - "$CODE_ALERT_FILE" <<'PY' >"$code_marker_file"
 import json
 import sys
 from datetime import datetime, timezone
@@ -160,14 +161,26 @@ first_functional_iso = datetime.fromtimestamp(
     int(data["first_functional_at"]), tz=timezone.utc
 ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-print(data["latest_tag"], data["head_sha"], data["functional_commits_ahead"], first_functional_iso)
+# Champs séparés par \x1f (unit separator) plutôt que des espaces : le
+# diffstat (dernier champ) contient lui-même des espaces/retours ligne.
+print(
+    data["latest_tag"],
+    data["head_sha"],
+    data["functional_commits_ahead"],
+    first_functional_iso,
+    data.get("diffstat", ""),
+    sep="\x1f",
+    end="",
+)
 PY
-  )"
+  IFS=$'\x1f' read -r -d '' latest_tag head_sha functional_commits_ahead first_functional_iso diffstat <"$code_marker_file" || true
+  rm -f "$code_marker_file"
 
-  code_body="$(python3 - "$CODE_SEARCH_MARKER" "$latest_tag" "$head_sha" "$functional_commits_ahead" "$first_functional_iso" <<'PY'
+  code_body="$(python3 - "$CODE_SEARCH_MARKER" "$latest_tag" "$head_sha" "$functional_commits_ahead" "$first_functional_iso" "$diffstat" <<'PY'
 import sys
 
-marker, latest_tag, head_sha, functional_commits_ahead, first_functional_iso = sys.argv[1:6]
+marker, latest_tag, head_sha, functional_commits_ahead, first_functional_iso, diffstat = sys.argv[1:7]
+diffstat_block = diffstat.strip() or "(diffstat indisponible — marqueur généré par une version du filet antérieure à MYO-465)"
 print(f"""{marker}
 
 - Dernier tag : `{latest_tag}`
@@ -175,8 +188,15 @@ print(f"""{marker}
 - Commits fonctionnels cumulés au-dessus du tag : {functional_commits_ahead}
 - Dérive fonctionnelle détectée depuis : {first_functional_iso}
 
-Filet automatique `check-version-drift.sh` (MYO-452/453/455), déclenché par
-la routine Paperclip de notification. Contexte complet du mécanisme :
+Diff net `{latest_tag}..HEAD` (MYO-464/465 — garde-fou contre l'arbitrage
+« artefact de test » sans preuve, cf. MYO-456/457/458/460/462) :
+
+```
+{diffstat_block}
+```
+
+Filet automatique `check-version-drift.sh` (MYO-452/453/455/465), déclenché
+par la routine Paperclip de notification. Contexte complet du mécanisme :
 [MYO-454](/MYO/issues/MYO-454).
 
 Arbitrage demandé : une release (Config/module.xml + CHANGELOG.md + tag

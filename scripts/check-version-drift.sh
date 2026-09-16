@@ -217,11 +217,19 @@ fi
 # fois écrite).
 drift_age=$((now_epoch - first_functional_at))
 if [[ "$drift_age" -ge "$ALERT_AGE_THRESHOLD_SEC" || "$functional_commits_ahead" -ge "$ALERT_COMMITS_THRESHOLD" ]]; then
-  python3 - "$ALERT_FILE" "$latest_tag" "$head_sha" "$functional_commits_ahead" "$first_functional_at" <<'PY'
+  # MYO-464/465 — garde-fou diffstat : le marqueur (et donc le ticket produit
+  # par notify-version-drift.sh) doit porter le diff NET entre le tag et HEAD,
+  # pas seulement un compte de commits. 5 arbitrages successifs
+  # (MYO-456/457/458/460/462) ont clos la dérive « artefact de test » sans
+  # voir que des lignes réelles montaient dessous, faute de ce diffstat dans
+  # le ticket.
+  diffstat="$(git diff --stat "${latest_tag}" HEAD -- 2>/dev/null || true)"
+
+  python3 - "$ALERT_FILE" "$latest_tag" "$head_sha" "$functional_commits_ahead" "$first_functional_at" "$diffstat" <<'PY'
 import json
 import sys
 
-path, latest_tag, head_sha, functional_commits_ahead, first_functional_at = sys.argv[1:6]
+path, latest_tag, head_sha, functional_commits_ahead, first_functional_at, diffstat = sys.argv[1:7]
 with open(path, "w") as f:
     json.dump(
         {
@@ -229,6 +237,7 @@ with open(path, "w") as f:
             "head_sha": head_sha,
             "functional_commits_ahead": int(functional_commits_ahead),
             "first_functional_at": int(first_functional_at),
+            "diffstat": diffstat,
         },
         f,
     )
