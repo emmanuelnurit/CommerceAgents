@@ -19,6 +19,12 @@
 # → 200) + log. Aucun credential nécessaire ici, contrairement à
 # auto-push-myorg.sh qui pousse et a donc besoin d'un token.
 #
+# MYO-443 — ce script n'avait donc PAS le trou que MYO-433 a fermé pour la
+# détection côté site (`check-unpushed-offsite.sh` a besoin d'une deploy key
+# rien que pour lire, dépôt privé) : rien à changer ici côté auth. Le trou
+# réel était uniquement côté écriture (auto-push-myorg.sh, corrigé dans le
+# même ticket par une deploy key SSH dédiée + repli PAT).
+#
 # Idempotent et non bloquant : verrou dédié (n'entre jamais en conflit avec
 # le verrou de auto-push-myorg.sh, fichiers séparés), sortie silencieuse
 # quand tout est à jour.
