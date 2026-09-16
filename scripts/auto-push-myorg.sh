@@ -137,25 +137,32 @@ redact() {
 # avant l'appel — ni second appel secret, ni re-demande de credentials.
 try_fast_forward_main() {
   local push_remote="$1"
-  local main_ref="${REMOTE}/main" myorg_ref="${REMOTE}/${BRANCH}"
+  # MYO-443 — le SHA de myorg vient du HEAD local ($BRANCH), pas de la ref de
+  # suivi "${REMOTE}/${BRANCH}" : un push réussi via $REMOTE_SSH ne met à
+  # jour QUE "refs/remotes/${REMOTE_SSH}/${BRANCH}" côté git (remote-tracking
+  # opportuniste scopé au remote effectivement poussé), donc
+  # "refs/remotes/${REMOTE}/${BRANCH}" resterait périmée après un push SSH et
+  # ce garde-fou croirait main déjà à jour sans rien faire. Sans risque : un
+  # push non-force qui vient de réussir garantit remote == HEAD local.
+  local main_ref="${REMOTE}/main"
   local main_sha myorg_sha
 
   git fetch "$REMOTE" main >/dev/null 2>&1
 
   main_sha="$(git rev-parse "$main_ref" 2>/dev/null || echo unknown)"
-  myorg_sha="$(git rev-parse "$myorg_ref" 2>/dev/null || echo unknown)"
+  myorg_sha="$(git rev-parse "$BRANCH" 2>/dev/null || echo unknown)"
 
   if [[ "$main_sha" == "$myorg_sha" ]]; then
     return 0
   fi
 
-  if ! git merge-base --is-ancestor "$main_ref" "$myorg_ref" 2>/dev/null; then
-    log "$(now_iso) [${TRIGGER_SOURCE}] WARN-MAIN-DIVERGED ${main_ref} (${main_sha:0:12}) n'est pas un ancêtre de ${myorg_ref} (${myorg_sha:0:12}) — fast-forward refusé, AUCUN push tenté (jamais de --force)"
+  if ! git merge-base --is-ancestor "$main_ref" "$BRANCH" 2>/dev/null; then
+    log "$(now_iso) [${TRIGGER_SOURCE}] WARN-MAIN-DIVERGED ${main_ref} (${main_sha:0:12}) n'est pas un ancêtre de ${BRANCH} local (${myorg_sha:0:12}) — fast-forward refusé, AUCUN push tenté (jamais de --force)"
     return 0
   fi
 
   local ff_output ff_status
-  ff_output="$(git push "$push_remote" "${myorg_ref}:refs/heads/main" 2>&1)"
+  ff_output="$(git push "$push_remote" "${BRANCH}:refs/heads/main" 2>&1)"
   ff_status=$?
 
   if [[ $ff_status -eq 0 ]]; then
