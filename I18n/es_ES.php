@@ -351,6 +351,7 @@ return [
     'Stock to correct: %ref%' => 'Stock a corregir: %ref%',
     '%before% → %after%' => '%before% → %after%',
     'Assistant suggestion' => 'Sugerencia del asistente',
+    'New suggestion available' => 'Nueva sugerencia disponible',
     'Suggestion' => 'Sugerencia',
     'Dismiss suggestion' => 'Descartar la sugerencia',
     'Tell me more' => 'Cuénteme más',

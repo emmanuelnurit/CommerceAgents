@@ -353,6 +353,7 @@ return [
     'Stock to correct: %ref%' => 'Stock to correct: %ref%',
     '%before% → %after%' => '%before% → %after%',
     'Assistant suggestion' => 'Assistant suggestion',
+    'New suggestion available' => 'New suggestion available',
     'Suggestion' => 'Suggestion',
     'Dismiss suggestion' => 'Dismiss suggestion',
     'Tell me more' => 'Tell me more',
