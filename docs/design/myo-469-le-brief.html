@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="fr" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MYO-469 — Maquette « Le Brief »</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    /* --- Reprise des tokens réels de assets/styles/_variables.scss (pas d'invention) --- */
+    :root {
+        --bs-primary: #f26041;
+        --bs-primary-rgb: 242, 96, 65;
+        --bs-border-radius: .5rem;
+        --bs-border-radius-lg: .625rem;
+        --bs-body-bg: #f4f7fa;
+        --bs-body-color: #4f4f4f;
+        --bs-card-border-radius: .75rem;
+    }
+    body { background: var(--bs-body-bg); color: var(--bs-body-color); font-size: .9rem; padding-bottom: 6rem; }
+    .card { border-radius: .75rem; border-color: #e6e8eb; }
+    .btn { border-radius: .5rem; font-weight: 500; }
+    .btn-primary { background: #f26041; border-color: #f26041; }
+    .btn-primary:hover { background: #be5a1c; border-color: #be5a1c; }
+    .intro-banner { background: #1f2937; color: #fff; }
+    .intro-banner code { color: #ffd8cc; }
+    .intro-banner .bi { color: #ffd8cc; }
+
+    /* --- En-tête de compteurs (AC5) --- */
+    .brief-header { background: #fff; border-radius: .75rem; }
+    .brief-metric { min-width: 0; }
+    .brief-metric__value { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+    .brief-metric__label { font-size: .78rem; color: #6c757d; }
+    .brief-metric__budget-bar { height: 6px; border-radius: 3px; background: #e9ecef; overflow: hidden; }
+    .brief-metric__budget-fill { height: 100%; background: #198754; }
+
+    /* --- Groupes de cartes (AC1) --- */
+    .brief-group__title { font-size: .95rem; font-weight: 600; }
+    .brief-group__count { font-size: .75rem; }
+    .brief-group--now .brief-group__title { color: #b02a02; }
+    .brief-group--now .brief-group__dot { background: #f26041; }
+    .brief-group--watch .brief-group__dot { background: #ffc107; }
+    .brief-group--info .brief-group__dot { background: #6c757d; }
+    .brief-group__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    /* --- Anatomie d'une carte de proposition (AC2) --- */
+    .brief-card { transition: opacity .15s ease, transform .15s ease; }
+    .brief-card.is-leaving { opacity: 0; transform: translateY(-6px); }
+    @media (prefers-reduced-motion: reduce) {
+        /* Reprise exacte de la règle main.scss:1272-1280 : en mode réduit, aucune transition */
+        .brief-card { transition: none !important; }
+        .brief-card.is-leaving { transform: none; }
+    }
+    .brief-card__icon { width: 40px; height: 40px; flex: 0 0 40px; }
+    .brief-card__trigger { font-size: .8rem; color: #6c757d; }
+    .brief-card__proposal { background: #f4f7fa; border-radius: .625rem; padding: .75rem 1rem; }
+    .brief-card__proposal--editing { background: #fff; border: 1px dashed #f26041; padding: 0; }
+    .brief-card__why-link { font-size: .82rem; }
+    .brief-card--applied { opacity: .55; }
+    .brief-card--info .brief-card__proposal { background: #f8f9fa; }
+
+    /* --- Panneau « Pourquoi ? » (AC3) --- */
+    .why-offcanvas { width: 420px; }
+    .why-offcanvas dt { font-size: .78rem; text-transform: uppercase; letter-spacing: .02em; color: #6c757d; margin-top: 1rem; }
+    .why-offcanvas dt:first-child { margin-top: 0; }
+    .why-tool-badge { font-family: var(--bs-font-monospace, monospace); font-size: .75rem; }
+
+    /* --- Bibliothèque de skills (AC6) --- */
+    .skill-tile { height: 100%; }
+    .skill-tile__icon { width: 44px; height: 44px; flex: 0 0 44px; }
+    .skill-tile--soon { opacity: .6; }
+    .skill-tile__accept { font-size: 1.1rem; font-weight: 600; }
+
+    /* --- Chat copilote en second rideau (AC7) : reprend cabw-toggle réel (assets/css/bo-chat-widget.css) --- */
+    .cabw-toggle-demo {
+        position: fixed; bottom: 1.5rem; right: 1.5rem; width: 56px; height: 56px; border-radius: 50%;
+        background: #f26041; color: #fff; border: none; box-shadow: 0 4px 12px rgba(0,0,0,.18);
+        display: flex; align-items: center; justify-content: center; font-size: 1.4rem; z-index: 1030;
+    }
+    .placeholder-row .placeholder { border-radius: .375rem; }
+</style>
+</head>
+<body>
+
+<div class="intro-banner py-3 px-3 mb-4">
+    <div class="container-fluid">
+        <strong>Maquette statique — MYO-469</strong>
+        <span class="ms-2">Fichier HTML autonome et interactif (Bootstrap 5.3 réel chargé en CDN) : les boutons <kbd>Modifier</kbd> et <kbd>Pourquoi&nbsp;?</kbd> fonctionnent pour de vrai. Aucun endpoint réel n'est appelé — c'est une évolution de <code>/admin/merchant-agent/changes</code> et de la carte « Agents IA » du tableau de bord, pas une nouvelle page indépendante.</span>
+        <div class="mt-2 small">
+            <i class="bi bi-translate me-1" aria-hidden="true"></i>
+            Chaque libellé d'interface porte un attribut <code>data-i18n-key</code> = la clé <code>trans()</code> à créer dans les 21 catalogues (même convention que <code>changes.html.twig</code> : la clé est le texte source anglais). Le déclencheur et le texte de proposition sont du <strong>contenu généré par l'agent</strong> dans la langue de la boutique — ce n'est pas un libellé de catalogue, donc pas de <code>data-i18n-key</code> dessus (voir le commentaire de synthèse en bas de fichier).
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid" style="max-width: 1100px;">
+
+    <!-- ==================== NAVIGATION NIVEAU 1 : onglets Le Brief / Bibliothèque de skills (état, pas une page) ==================== -->
+    <ul class="nav nav-pills mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-brief" type="button" role="tab" aria-selected="true" data-i18n-key="The Brief">Le Brief</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-skills" type="button" role="tab" aria-selected="false" data-i18n-key="Skills library">Bibliothèque de skills</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+    <div class="tab-pane fade show active" id="tab-brief" role="tabpanel">
+
+        <!-- ==================== AC5 : en-tête de compteurs ==================== -->
+        <div class="brief-header shadow-sm p-3 mb-4 d-flex flex-wrap align-items-center gap-4" data-testid="brief-header">
+            <div class="brief-metric">
+                <div class="brief-metric__value" data-testid="brief-header-count">6</div>
+                <div class="brief-metric__label" data-i18n-key="Proposals waiting">propositions en attente</div>
+            </div>
+            <div class="vr d-none d-md-block"></div>
+            <div class="brief-metric">
+                <div class="brief-metric__value text-success">~22 min</div>
+                <div class="brief-metric__label" data-i18n-key="Estimated time saved">temps économisé estimé</div>
+            </div>
+            <div class="vr d-none d-md-block"></div>
+            <div class="brief-metric" style="min-width: 180px;">
+                <div class="d-flex align-items-baseline justify-content-between">
+                    <span class="brief-metric__value" style="font-size:1.1rem;">3,40&nbsp;€</span>
+                    <span class="brief-metric__label" data-i18n-key="of monthly AI budget">/ 20&nbsp;€ ce mois</span>
+                </div>
+                <div class="brief-metric__budget-bar mt-1">
+                    <div class="brief-metric__budget-fill" style="width: 17%;"></div>
+                </div>
+            </div>
+            <div class="ms-md-auto">
+                <span class="badge text-bg-success-subtle text-success-emphasis" data-i18n-key="94% acceptance rate">Taux d'acceptation global : 94&nbsp;%</span>
+            </div>
+        </div>
+
+        <!-- ==================== AC1 : groupe « À décider maintenant » ==================== -->
+        <div class="brief-group brief-group--now mb-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="brief-group__dot" aria-hidden="true"></span>
+                <span class="brief-group__title" data-i18n-key="To decide now">À décider maintenant</span>
+                <span class="badge text-bg-light brief-group__count" data-testid="group-now-count">2</span>
+            </div>
+
+            <!-- Carte 1 — A1 : avis client 2★ -->
+            <div class="card shadow-sm border-0 mb-3 brief-card" data-testid="brief-card" data-card-id="card-review">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="brief-card__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi bi-star-half fs-5" aria-hidden="true"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <!-- Déclencheur en clair — contenu dynamique, pas une clé de catalogue -->
+                            <div class="brief-card__trigger mb-1">
+                                <i class="bi bi-lightning-charge-fill text-warning me-1" aria-hidden="true"></i>
+                                Avis 2★ déposé hier sur <strong>Chaise Lina</strong> — commande #10 228 rattachée, retard de livraison confirmé
+                            </div>
+                            <!-- Proposition rédigée -->
+                            <div class="brief-card__proposal js-proposal-view">
+                                « Bonjour, nous sommes sincèrement désolés pour ce retard de livraison sur votre Chaise Lina. Nous avons identifié la cause auprès de notre transporteur et vous proposons un bon de réduction de 10&nbsp;% sur votre prochaine commande en guise d'excuse. »
+                            </div>
+                            <textarea class="form-control d-none js-proposal-edit" rows="4">« Bonjour, nous sommes sincèrement désolés pour ce retard de livraison sur votre Chaise Lina. Nous avons identifié la cause auprès de notre transporteur et vous proposons un bon de réduction de 10 % sur votre prochaine commande en guise d'excuse. »</textarea>
+
+                            <!-- Vue décision (AC2) -->
+                            <div class="d-flex align-items-center gap-2 mt-3 js-decision-actions">
+                                <button type="button" class="btn btn-sm btn-primary js-approve" data-i18n-key="Approve">
+                                    <i class="bi bi-check2 me-1" aria-hidden="true"></i>Approuver
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary js-edit" data-i18n-key="Edit">
+                                    <i class="bi bi-pencil me-1" aria-hidden="true"></i>Modifier
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-reject" data-i18n-key="Reject">
+                                    <i class="bi bi-x-lg me-1" aria-hidden="true"></i>Rejeter
+                                </button>
+                                <a href="#" class="brief-card__why-link ms-auto text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas" data-why="review" data-i18n-key="Why?">
+                                    <i class="bi bi-question-circle me-1" aria-hidden="true"></i>Pourquoi&nbsp;?
+                                </a>
+                            </div>
+
+                            <!-- Vue édition (AC4), masquée par défaut -->
+                            <div class="d-flex align-items-center gap-2 mt-3 js-edit-actions d-none">
+                                <button type="button" class="btn btn-sm btn-primary js-confirm-edit" data-i18n-key="Confirm and approve">
+                                    <i class="bi bi-check2 me-1" aria-hidden="true"></i>Confirmer et approuver
+                                </button>
+                                <button type="button" class="btn btn-sm btn-link text-muted js-cancel-edit" data-i18n-key="Cancel">Annuler</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carte 2 — B1+B2 : rupture imminente sur produit en promo -->
+            <div class="card shadow-sm border-0 mb-3 brief-card" data-testid="brief-card" data-card-id="card-restock">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="brief-card__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi bi-box-seam fs-5" aria-hidden="true"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="brief-card__trigger mb-1">
+                                <i class="bi bi-lightning-charge-fill text-warning me-1" aria-hidden="true"></i>
+                                Rupture prévue <strong>jeudi</strong> sur <strong>Bureau Oslo</strong> — 4 unités restantes, 6 ventes/semaine, campagne « Rentrée » active jusqu'au 30/09
+                            </div>
+                            <div class="brief-card__proposal js-proposal-view">
+                                Commander <strong>40 unités</strong> auprès du fournisseur habituel et envoyer l'alerte de réassort suivante : « Bonjour, le Bureau Oslo (réf. BUR-OSLO-01) est en rupture imminente en pleine campagne promotionnelle. Merci de confirmer un réassort de 40 unités sous 5 jours. »
+                            </div>
+                            <textarea class="form-control d-none js-proposal-edit" rows="4">Commander 40 unités auprès du fournisseur habituel et envoyer l'alerte de réassort suivante : « Bonjour, le Bureau Oslo (réf. BUR-OSLO-01) est en rupture imminente en pleine campagne promotionnelle. Merci de confirmer un réassort de 40 unités sous 5 jours. »</textarea>
+
+                            <div class="d-flex align-items-center gap-2 mt-3 js-decision-actions">
+                                <button type="button" class="btn btn-sm btn-primary js-approve" data-i18n-key="Approve"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Approuver</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary js-edit" data-i18n-key="Edit"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Modifier</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-reject" data-i18n-key="Reject"><i class="bi bi-x-lg me-1" aria-hidden="true"></i>Rejeter</button>
+                                <a href="#" class="brief-card__why-link ms-auto text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas" data-why="restock" data-i18n-key="Why?"><i class="bi bi-question-circle me-1" aria-hidden="true"></i>Pourquoi&nbsp;?</a>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-3 js-edit-actions d-none">
+                                <button type="button" class="btn btn-sm btn-primary js-confirm-edit" data-i18n-key="Confirm and approve"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Confirmer et approuver</button>
+                                <button type="button" class="btn btn-sm btn-link text-muted js-cancel-edit" data-i18n-key="Cancel">Annuler</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== AC1 : groupe « À regarder » ==================== -->
+        <div class="brief-group brief-group--watch mb-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="brief-group__dot" aria-hidden="true"></span>
+                <span class="brief-group__title" data-i18n-key="To review">À regarder</span>
+                <span class="badge text-bg-light brief-group__count" data-testid="group-watch-count">2</span>
+            </div>
+
+            <!-- Carte 3 — C2 : commande bloquée -->
+            <div class="card shadow-sm border-0 mb-3 brief-card" data-testid="brief-card" data-card-id="card-order">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="brief-card__icon rounded-circle bg-warning-subtle text-warning-emphasis d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi bi-hourglass-split fs-5" aria-hidden="true"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="brief-card__trigger mb-1">
+                                <i class="bi bi-lightning-charge-fill text-warning me-1" aria-hidden="true"></i>
+                                Commande <strong>#10 231</strong> en attente de paiement depuis 26&nbsp;h
+                            </div>
+                            <div class="brief-card__proposal js-proposal-view">
+                                « Bonjour, nous n'avons pas encore reçu la confirmation de paiement de votre commande #10231. Elle reste réservée 24&nbsp;h supplémentaires — n'hésitez pas à nous contacter en cas de difficulté. »
+                            </div>
+                            <textarea class="form-control d-none js-proposal-edit" rows="3">« Bonjour, nous n'avons pas encore reçu la confirmation de paiement de votre commande #10231. Elle reste réservée 24 h supplémentaires — n'hésitez pas à nous contacter en cas de difficulté. »</textarea>
+                            <div class="d-flex align-items-center gap-2 mt-3 js-decision-actions">
+                                <button type="button" class="btn btn-sm btn-primary js-approve" data-i18n-key="Approve"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Approuver</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary js-edit" data-i18n-key="Edit"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Modifier</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-reject" data-i18n-key="Reject"><i class="bi bi-x-lg me-1" aria-hidden="true"></i>Rejeter</button>
+                                <a href="#" class="brief-card__why-link ms-auto text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas" data-why="order" data-i18n-key="Why?"><i class="bi bi-question-circle me-1" aria-hidden="true"></i>Pourquoi&nbsp;?</a>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-3 js-edit-actions d-none">
+                                <button type="button" class="btn btn-sm btn-primary js-confirm-edit" data-i18n-key="Confirm and approve"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Confirmer et approuver</button>
+                                <button type="button" class="btn btn-sm btn-link text-muted js-cancel-edit" data-i18n-key="Cancel">Annuler</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carte 4 — A1 (avis positif, non urgent) -->
+            <div class="card shadow-sm border-0 mb-3 brief-card" data-testid="brief-card" data-card-id="card-review-2">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="brief-card__icon rounded-circle bg-info-subtle text-info-emphasis d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi bi-chat-quote fs-5" aria-hidden="true"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="brief-card__trigger mb-1">
+                                <i class="bi bi-lightning-charge-fill text-warning me-1" aria-hidden="true"></i>
+                                Avis 4★ sur <strong>Étagère Kyoto</strong> avec une question sur le montage
+                            </div>
+                            <div class="brief-card__proposal js-proposal-view">
+                                « Merci pour votre retour&nbsp;! Le montage se fait en 15 minutes avec la clé fournie ; une notice vidéo est aussi disponible sur la fiche produit. »
+                            </div>
+                            <textarea class="form-control d-none js-proposal-edit" rows="3">« Merci pour votre retour ! Le montage se fait en 15 minutes avec la clé fournie ; une notice vidéo est aussi disponible sur la fiche produit. »</textarea>
+                            <div class="d-flex align-items-center gap-2 mt-3 js-decision-actions">
+                                <button type="button" class="btn btn-sm btn-primary js-approve" data-i18n-key="Approve"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Approuver</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary js-edit" data-i18n-key="Edit"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Modifier</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger js-reject" data-i18n-key="Reject"><i class="bi bi-x-lg me-1" aria-hidden="true"></i>Rejeter</button>
+                                <a href="#" class="brief-card__why-link ms-auto text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas" data-why="review2" data-i18n-key="Why?"><i class="bi bi-question-circle me-1" aria-hidden="true"></i>Pourquoi&nbsp;?</a>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-3 js-edit-actions d-none">
+                                <button type="button" class="btn btn-sm btn-primary js-confirm-edit" data-i18n-key="Confirm and approve"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Confirmer et approuver</button>
+                                <button type="button" class="btn btn-sm btn-link text-muted js-cancel-edit" data-i18n-key="Cancel">Annuler</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== AC1 : groupe « Pour information » (zéro décision) ==================== -->
+        <div class="brief-group brief-group--info mb-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="brief-group__dot" aria-hidden="true"></span>
+                <span class="brief-group__title" data-i18n-key="For your information">Pour information</span>
+                <span class="badge text-bg-light brief-group__count" data-testid="group-info-count">2</span>
+            </div>
+
+            <!-- Carte 5 — skill passée en automatique : illustre la trajectoire de confiance du §2 du plan -->
+            <div class="card shadow-sm border-0 mb-3 brief-card brief-card--info brief-card--applied" data-testid="brief-card" data-card-id="card-auto">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="brief-card__icon rounded-circle bg-success-subtle text-success-emphasis d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi bi-check2-circle fs-5" aria-hidden="true"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="brief-card__trigger mb-1">
+                                <i class="bi bi-robot text-muted me-1" aria-hidden="true"></i>
+                                Skill <strong>« Relance panier abandonné »</strong> — passée en automatique (96&nbsp;% d'acceptation)
+                            </div>
+                            <div class="brief-card__proposal js-proposal-view">
+                                3 relances envoyées cette nuit à des clients ayant abandonné un panier depuis plus de 4&nbsp;h. Aucune action requise.
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-3">
+                                <a href="#" class="brief-card__why-link text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas" data-why="auto" data-i18n-key="Why?"><i class="bi bi-question-circle me-1" aria-hidden="true"></i>Pourquoi&nbsp;?</a>
+                                <span class="text-muted small ms-auto" data-i18n-key="Applied automatically"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Appliqué automatiquement</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carte 6 — information pure, aucune proposition -->
+            <div class="card shadow-sm border-0 mb-3 brief-card brief-card--info" data-testid="brief-card" data-card-id="card-info">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="brief-card__icon rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi bi-graph-up fs-5" aria-hidden="true"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="brief-card__trigger mb-1">
+                                <i class="bi bi-robot text-muted me-1" aria-hidden="true"></i>
+                                Brief du matin (cas C1)
+                            </div>
+                            <div class="brief-card__proposal js-proposal-view">
+                                CA hier : 1 840&nbsp;€ (+12&nbsp;% vs semaine dernière) · 14 commandes · aucune anomalie détectée sur le trafic.
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-3">
+                                <a href="#" class="brief-card__why-link text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas" data-why="brief" data-i18n-key="Why?"><i class="bi bi-question-circle me-1" aria-hidden="true"></i>Pourquoi&nbsp;?</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==================== AC6 : bibliothèque de skills ==================== -->
+    <div class="tab-pane fade" id="tab-skills" role="tabpanel">
+        <p class="text-muted mb-3" data-i18n-key="Activate a skill in one click. Adjust it later without touching any prompt.">Activez une compétence en un clic. Vous pourrez l'ajuster ensuite (ton, seuils) sans jamais toucher au prompt.</p>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+
+            <div class="col">
+                <div class="card skill-tile shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-star-half fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Review replies">Réponses aux avis</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" checked aria-label="Activer la compétence Réponses aux avis">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3">
+                            <span class="badge text-bg-success-subtle text-success-emphasis" data-i18n-key="Active">Active</span>
+                            <span class="skill-tile__accept text-success">94&nbsp;%</span>
+                        </div>
+                        <div class="text-muted small mt-1" data-i18n-key="Cost per proposal">0,80&nbsp;€ / proposition · <span data-i18n-key="acceptance rate">taux d'acceptation</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card skill-tile shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-box-seam fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Low stock and restock">Stock bas &amp; réassort</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" checked aria-label="Activer la compétence Stock bas et réassort">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3">
+                            <span class="badge text-bg-success-subtle text-success-emphasis" data-i18n-key="Active">Active</span>
+                            <span class="skill-tile__accept text-success">88&nbsp;%</span>
+                        </div>
+                        <div class="text-muted small mt-1">1,20&nbsp;€ / proposition</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card skill-tile shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-primary-subtle text-primary-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-chat-dots fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Conversational copilot">Copilote conversationnel</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" checked aria-label="Activer le copilote conversationnel">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3">
+                            <span class="badge text-bg-success-subtle text-success-emphasis" data-i18n-key="Active">Active</span>
+                            <span class="text-muted small" data-i18n-key="Always available">toujours disponible</span>
+                        </div>
+                        <div class="text-muted small mt-1">0,05&nbsp;€ / question</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card skill-tile shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-success-subtle text-success-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-cart-x fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Abandoned cart relaunch">Relance panier abandonné</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" checked aria-label="Activer la relance de panier abandonné">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3">
+                            <span class="badge text-bg-primary-subtle text-primary-emphasis" data-i18n-key="Automatic">Automatique</span>
+                            <span class="skill-tile__accept text-success">96&nbsp;%</span>
+                        </div>
+                        <div class="text-muted small mt-1">0,10&nbsp;€ / relance</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card skill-tile shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-warning-subtle text-warning-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-hourglass-split fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Stuck orders">Commandes bloquées</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" checked aria-label="Activer la détection de commandes bloquées">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3">
+                            <span class="badge text-bg-success-subtle text-success-emphasis" data-i18n-key="Active">Active</span>
+                            <span class="skill-tile__accept text-success">91&nbsp;%</span>
+                        </div>
+                        <div class="text-muted small mt-1">0,60&nbsp;€ / relance</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col">
+                <div class="card skill-tile shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-info-subtle text-info-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-card-checklist fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Product sheet audit">Audit de fiches produits</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" aria-label="Activer l'audit de fiches produits">
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between mt-3">
+                            <span class="badge text-bg-secondary-subtle text-secondary-emphasis" data-i18n-key="Not activated yet">Pas encore activée</span>
+                            <span class="text-muted small">—</span>
+                        </div>
+                        <div class="text-muted small mt-1" data-i18n-key="Not activated yet, no cost history">Pas d'historique — jamais activée</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6 compétences "Bientôt" — grisées, un clic ouvre la fiche mais aucun switch actionnable.
+                 Illustrent le §6 du plan (« la trajectoire, pas seulement la démo ») :
+                 A2, A4, B3, B4, C3, D1 — outils non écrits, volontairement non activables pour la démo du 22/09. -->
+            <div class="col">
+                <div class="card skill-tile skill-tile--soon shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-inbox fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Support message triage">Tri des messages SAV</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" disabled aria-label="Tri des messages SAV — bientôt disponible">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge text-bg-light" data-i18n-key="Coming soon">Bientôt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card skill-tile skill-tile--soon shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-emoji-frown fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Unhappy customer detection">Client mécontent</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" disabled aria-label="Détection de client mécontent — bientôt disponible">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge text-bg-light" data-i18n-key="Coming soon">Bientôt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card skill-tile skill-tile--soon shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-card-heading fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Dormant stock">Dormants &amp; surstock</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" disabled aria-label="Dormants et surstock — bientôt disponible">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge text-bg-light" data-i18n-key="Coming soon">Bientôt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card skill-tile skill-tile--soon shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-tags fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Price consistency">Cohérence des prix</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" disabled aria-label="Cohérence des prix — bientôt disponible">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge text-bg-light" data-i18n-key="Coming soon">Bientôt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card skill-tile skill-tile--soon shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-graph-down fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Anomaly detection">Détection d'anomalies</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" disabled aria-label="Détection d'anomalies — bientôt disponible">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge text-bg-light" data-i18n-key="Coming soon">Bientôt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card skill-tile skill-tile--soon shadow-sm border-0">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="skill-tile__icon rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center">
+                                    <i class="bi bi-megaphone fs-5" aria-hidden="true"></i>
+                                </div>
+                                <span class="fw-semibold" data-i18n-key="Skill: Campaign proposal">Proposition de campagne</span>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" disabled aria-label="Proposition de campagne — bientôt disponible">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge text-bg-light" data-i18n-key="Coming soon">Bientôt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    </div>
+
+</div>
+
+<!-- ==================== AC3 : panneau latéral « Pourquoi ? » (offcanvas partagé, contenu rempli par JS) ==================== -->
+<div class="offcanvas offcanvas-end why-offcanvas" tabindex="-1" id="why-offcanvas" aria-labelledby="why-offcanvas-title">
+    <div class="offcanvas-header border-bottom">
+        <h2 class="offcanvas-title h6" id="why-offcanvas-title" data-i18n-key="Why this proposal?">Pourquoi cette proposition&nbsp;?</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Fermer"></button>
+    </div>
+    <div class="offcanvas-body small">
+        <dl class="mb-0">
+            <dt data-i18n-key="Data read">Données lues</dt>
+            <dd class="js-why-data mb-0"></dd>
+
+            <dt data-i18n-key="Tools called">Outils appelés</dt>
+            <dd class="js-why-tools mb-0"></dd>
+
+            <dt data-i18n-key="Full run">Run complet</dt>
+            <dd class="mb-0">
+                <a href="#" class="js-why-run-link" data-i18n-key="Open the run detail">
+                    <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Ouvrir le détail du run
+                </a>
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<!-- ==================== AC7 : chat copilote en second rideau (reprend le composant réel bo-chat-widget, ici visuel seul) ==================== -->
+<button type="button" class="cabw-toggle-demo" title="Assistant marchand" aria-label="Ouvrir l'assistant marchand">
+    <i class="bi bi-robot" aria-hidden="true"></i>
+</button>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Convenance de démo uniquement : illustre Approuver/Rejeter (retrait de la carte, §5 du plan)
+    // et le va-et-vient Modifier ⇄ Confirmer (AC4). En production ceci part vers les endpoints réels
+    // (commerceagents_change_approve / commerceagents_change_reject) via fetch, pas ce script.
+    function leaveCard(card) {
+        card.classList.add('is-leaving');
+        setTimeout(function () { card.remove(); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 150);
+    }
+    document.querySelectorAll('.js-approve, .js-reject').forEach(function (btn) {
+        btn.addEventListener('click', function () { leaveCard(btn.closest('.brief-card')); });
+    });
+    document.querySelectorAll('.js-edit').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var card = btn.closest('.brief-card');
+            card.querySelector('.js-proposal-view').classList.add('d-none');
+            card.querySelector('.js-proposal-edit').classList.remove('d-none');
+            card.querySelector('.js-proposal-edit').classList.add('brief-card__proposal', 'brief-card__proposal--editing');
+            card.querySelector('.js-decision-actions').classList.add('d-none');
+            card.querySelector('.js-edit-actions').classList.remove('d-none');
+        });
+    });
+    document.querySelectorAll('.js-cancel-edit').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var card = btn.closest('.brief-card');
+            card.querySelector('.js-proposal-view').classList.remove('d-none');
+            card.querySelector('.js-proposal-edit').classList.add('d-none');
+            card.querySelector('.js-decision-actions').classList.remove('d-none');
+            card.querySelector('.js-edit-actions').classList.add('d-none');
+        });
+    });
+    document.querySelectorAll('.js-confirm-edit').forEach(function (btn) {
+        btn.addEventListener('click', function () { leaveCard(btn.closest('.brief-card')); });
+    });
+
+    // Contenu du panneau « Pourquoi ? » par carte — en production, ces données viennent du run réel (action_log).
+    var WHY_CONTENT = {
+        review: {
+            data: ['Avis client #482 (2★, « Chaise Lina »)', 'Commande #10228 (livrée avec retard)', 'Historique client : 3 commandes, aucun litige antérieur'],
+            tools: ['get_product_reviews', 'get_customer_orders', 'draft_review_reply']
+        },
+        restock: {
+            data: ['Stock PSE Bureau Oslo (réf. BUR-OSLO-01) : 4 unités', 'Ventes des 4 dernières semaines (vélocité)', 'Campagne active « Rentrée » (jusqu\'au 30/09)'],
+            tools: ['get_inventory', 'get_sales_velocity', 'get_campaigns', 'propose_restock']
+        },
+        order: {
+            data: ['Commande #10231 (statut : paiement en attente)', 'Historique de paiement du client'],
+            tools: ['get_customer_orders', 'draft_customer_reply']
+        },
+        review2: {
+            data: ['Avis client #479 (4★, « Étagère Kyoto »)', 'Fiche produit : notice de montage'],
+            tools: ['get_product_reviews', 'draft_review_reply']
+        },
+        auto: {
+            data: ['3 paniers abandonnés depuis plus de 4 h', 'Historique d\'acceptation de la skill (96 %, 40 dernières propositions)'],
+            tools: ['get_abandoned_carts', 'send_customer_email']
+        },
+        brief: {
+            data: ['Commandes des dernières 24 h', 'Comparaison semaine précédente'],
+            tools: ['get_analytics']
+        }
+    };
+    document.getElementById('why-offcanvas').addEventListener('show.bs.offcanvas', function (event) {
+        var key = event.relatedTarget ? event.relatedTarget.dataset.why : null;
+        var content = WHY_CONTENT[key] || { data: [], tools: [] };
+        var dataEl = document.querySelector('.js-why-data');
+        var toolsEl = document.querySelector('.js-why-tools');
+        dataEl.innerHTML = '<ul class="mb-0 ps-3">' + content.data.map(function (d) { return '<li>' + d + '</li>'; }).join('') + '</ul>';
+        toolsEl.innerHTML = content.tools.map(function (t) { return '<span class="badge text-bg-light why-tool-badge me-1 mb-1">' + t + '</span>'; }).join('');
+    });
+</script>
+</body>
+</html>
