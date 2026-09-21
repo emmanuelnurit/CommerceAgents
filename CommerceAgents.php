@@ -132,6 +132,7 @@ class CommerceAgents extends BaseModule
         $servicesConfigurator->alias(Tool\Admin\Gateway\CustomerOrdersGatewayInterface::class, Service\Merchant\TheliaCustomerOrdersGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\CouponGatewayInterface::class, Service\Shopping\TheliaCouponGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\NewsletterGatewayInterface::class, Service\Shopping\TheliaNewsletterGateway::class);
+        $servicesConfigurator->alias(Tool\Shopping\Gateway\ScenarioToggleGatewayInterface::class, Service\Shopping\TheliaScenarioToggleGateway::class);
         $servicesConfigurator->alias(Tool\Shopping\Gateway\SiteUrlValidatorInterface::class, Service\Shopping\TheliaSiteUrlValidator::class);
         $servicesConfigurator->alias(Tool\Admin\Gateway\AdminPagesGatewayInterface::class, Service\Merchant\TheliaAdminPagesGateway::class);
         $servicesConfigurator->alias(Tool\Admin\Gateway\AnalyticsGatewayInterface::class, Service\Merchant\TheliaAnalyticsGateway::class);

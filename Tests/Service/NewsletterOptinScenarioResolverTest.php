@@ -11,6 +11,7 @@ use CommerceAgents\Service\NewsletterOptinScenarioResolver;
 use CommerceAgents\Tests\Tool\Shopping\FakeCouponGateway;
 use CommerceAgents\Tests\Tool\Shopping\FakeCustomerGateway;
 use CommerceAgents\Tool\Shopping\Gateway\NewsletterGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\ScenarioToggleGatewayInterface;
 use PHPUnit\Framework\TestCase;
 use Thelia\Core\Translation\Translator;
 
@@ -23,6 +24,18 @@ final class FakeNewsletterGateway implements NewsletterGatewayInterface
     public function isSubscribed(string $email): bool
     {
         return $this->subscribed;
+    }
+}
+
+final class FakeScenarioToggleGateway implements ScenarioToggleGatewayInterface
+{
+    public function __construct(private readonly bool $newsletterOptinEnabled = true)
+    {
+    }
+
+    public function isNewsletterOptinScenarioEnabled(): bool
+    {
+        return $this->newsletterOptinEnabled;
     }
 }
 
@@ -45,12 +58,14 @@ class NewsletterOptinScenarioResolverTest extends TestCase
         array $applicableCoupons = [],
         ?array $customerProfile = null,
         bool $alreadySubscribed = false,
+        bool $scenarioEnabled = true,
     ): NewsletterOptinScenarioResolver {
         return new NewsletterOptinScenarioResolver(
             new FakeCouponGateway(applicable: $applicableCoupons),
             new FakeCustomerGateway($customerProfile),
             new FakeNewsletterGateway($alreadySubscribed),
             $this->translator(),
+            new FakeScenarioToggleGateway($scenarioEnabled),
         );
     }
 
@@ -103,5 +118,19 @@ class NewsletterOptinScenarioResolverTest extends TestCase
 
         $this->assertNotNull($message);
         $this->assertTrue($message->newsletterOptin);
+    }
+
+    /**
+     * MYO-475: the démo repli decision (MYO-471) requires this scenario to
+     * stay silent until explicitly turned on, even when every other
+     * condition (coupon, subscription state) would otherwise offer it — it
+     * must fall through cleanly so CartCouponScenarioResolver (F2/F3) gets
+     * its normal turn in the registry.
+     */
+    public function testNoOfferWhenScenarioDisabled(): void
+    {
+        $resolver = $this->resolver([self::WELCOME_COUPON], scenarioEnabled: false);
+
+        $this->assertNull($resolver->resolve(new ProactiveSignal(CartCouponScenarioResolver::SIGNAL_ADD_TO_CART), new ToolContext(customerId: null)));
     }
 }

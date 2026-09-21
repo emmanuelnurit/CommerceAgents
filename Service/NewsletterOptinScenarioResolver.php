@@ -12,6 +12,7 @@ use CommerceAgents\CommerceAgents;
 use CommerceAgents\Tool\Shopping\Gateway\CouponGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\CustomerGatewayInterface;
 use CommerceAgents\Tool\Shopping\Gateway\NewsletterGatewayInterface;
+use CommerceAgents\Tool\Shopping\Gateway\ScenarioToggleGatewayInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Thelia\Core\Translation\Translator;
 
@@ -34,6 +35,12 @@ use Thelia\Core\Translation\Translator;
  *
  * The coupon code itself is never put on the message: it only ever reaches
  * the visitor by e-mail, once they actually opt in (NewsletterOptinService).
+ *
+ * Off by default (AgentConfigService::isNewsletterOptinScenarioEnabled()):
+ * the démo repli decision on MYO-471 (2026-09-21 21:40) is firm that this
+ * scenario must not fire during démo prep, and its higher tag priority
+ * would otherwise preempt F2/F3 the instant this module version deploys to
+ * a shared environment. Flip the config flag on once it is safe to ship.
  */
 #[AsTaggedItem(priority: 10)]
 final readonly class NewsletterOptinScenarioResolver implements ProactiveScenarioResolverInterface
@@ -43,12 +50,17 @@ final readonly class NewsletterOptinScenarioResolver implements ProactiveScenari
         private CustomerGatewayInterface $customerGateway,
         private NewsletterGatewayInterface $newsletterGateway,
         private Translator $translator,
+        private ScenarioToggleGatewayInterface $scenarioToggle,
     ) {
     }
 
     public function resolve(ProactiveSignal $signal, ToolContext $context): ?ProactiveMessage
     {
         if ($signal->type !== CartCouponScenarioResolver::SIGNAL_ADD_TO_CART) {
+            return null;
+        }
+
+        if (!$this->scenarioToggle->isNewsletterOptinScenarioEnabled()) {
             return null;
         }
 

@@ -236,6 +236,28 @@ final readonly class AgentConfigService
     }
 
     /**
+     * MYO-475/MYO-471 T7: the resolver itself ships in the same commit as
+     * the rest of the backend, but the scenario stays off by default. The
+     * démo decision (2026-09-21 21:40, comment on MYO-471) is a firm repli:
+     * this scenario must NOT fire during démo prep or the 22/09 démo itself.
+     * Because it is registered with a higher tag priority than
+     * CartCouponScenarioResolver (F2/F3), an enabled-by-default resolver
+     * would have silently preempted F2/F3 (and the F1 repli's add_to_cart
+     * traffic) on any shared environment the moment this module version is
+     * deployed — which is exactly what must not happen tonight. Flip this on
+     * once the démo has happened and T7 is scheduled for real delivery.
+     */
+    public function isNewsletterOptinScenarioEnabled(): bool
+    {
+        return (bool) CommerceAgents::getConfigValue('enable_newsletter_optin_scenario', false);
+    }
+
+    public function setNewsletterOptinScenarioEnabled(bool $enabled): void
+    {
+        CommerceAgents::setConfigValue('enable_newsletter_optin_scenario', $enabled ? '1' : '0');
+    }
+
+    /**
      * MYO-475: the getMaxProactivePrompts() fallback moved from 3 to 2, but
      * an already-initialized install may have that old default persisted as
      * a real config row (any save of the config page writes whatever value
