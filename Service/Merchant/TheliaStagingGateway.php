@@ -76,6 +76,23 @@ final readonly class TheliaStagingGateway implements StagingGatewayInterface
         return $this->createChange('pse_stock', $pseId, $before, $after, $ctx);
     }
 
+    public function stageRestockProposal(int $pseId, float $newQuantity, array $metrics, ToolContext $ctx): array
+    {
+        if ($ctx->conversationId === null) {
+            return ['error' => 'No conversation context'];
+        }
+
+        $pse = ProductSaleElementsQuery::create()->findPk($pseId);
+        if ($pse === null) {
+            return ['error' => 'Variant not found'];
+        }
+
+        $before = ['quantity' => (float) $pse->getQuantity(), 'pseRef' => $pse->getRef()];
+        $after = array_merge(['quantity' => $newQuantity, 'pseRef' => $pse->getRef()], $metrics);
+
+        return $this->createChange('pse_stock', $pseId, $before, $after, $ctx);
+    }
+
     public function stageCouponApplication(int $orderId, string $couponCode, ToolContext $ctx): array
     {
         if ($ctx->conversationId === null) {

@@ -45,6 +45,13 @@ class FakeStagingGateway implements StagingGatewayInterface
         return $this->result;
     }
 
+    public function stageRestockProposal(int $pseId, float $newQuantity, array $metrics, ToolContext $ctx): array
+    {
+        $this->lastCall = ['stageRestockProposal', $pseId, $newQuantity, $metrics];
+
+        return $this->result;
+    }
+
     public function stageCustomerEmail(int $customerId, string $recipient, ?string $subject, string $body, ToolContext $ctx): array
     {
         $this->lastCall = ['stageCustomerEmail', $customerId, $recipient, $subject, $body];

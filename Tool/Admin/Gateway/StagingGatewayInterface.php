@@ -19,6 +19,19 @@ interface StagingGatewayInterface
     public function stageStockUpdate(int $pseId, float $newQuantity, ToolContext $ctx): array;
 
     /**
+     * Same 'pse_stock' target type and approval flow as stageStockUpdate()
+     * (same PseStockApplier, same approval console entry) but with the
+     * sales-velocity metrics folded into the `after` payload (MYO-473) so the
+     * restock proposal card can render stock, velocity, estimated stockout
+     * date and campaign status without a second round-trip.
+     *
+     * @param array{velocityPerWeek: float, estimatedStockoutDate: ?string, onActiveCampaign: bool, proposedQuantity: int} $metrics
+     *
+     * @return array {changeId, targetType, targetId, before, after, status} or {error} when the variant is unknown
+     */
+    public function stageRestockProposal(int $pseId, float $newQuantity, array $metrics, ToolContext $ctx): array;
+
+    /**
      * @return array {changeId, targetType, targetId, before, after, status} or {error}
      *                                                                       when the order/coupon is unknown or the coupon is already applied
      */

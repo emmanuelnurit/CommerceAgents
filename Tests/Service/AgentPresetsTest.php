@@ -44,7 +44,7 @@ class AgentPresetsTest extends TestCase
 
         $this->assertNotNull($preset);
         $this->assertNull($preset['requiresModule']);
-        $this->assertSame(['catalog.read', 'inventory.write'], $preset['capabilities']);
+        $this->assertSame(['catalog.read', 'inventory.write', 'analytics.read'], $preset['capabilities']);
         $this->assertSame(TriggerCatalog::LOW_STOCK, $preset['triggers'][0]['type']);
     }
 

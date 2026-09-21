@@ -8,6 +8,7 @@ use CommerceAgents\Agent\Tool\ToolContext;
 use CommerceAgents\Tool\Admin\Gateway\CampaignGatewayInterface;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Thelia\Model\CouponQuery;
+use Thelia\Model\SaleProductQuery;
 use Thelia\Model\SaleQuery;
 
 final readonly class TheliaCampaignGateway implements CampaignGatewayInterface
@@ -48,5 +49,15 @@ final readonly class TheliaCampaignGateway implements CampaignGatewayInterface
         }
 
         return ['coupons' => $coupons, 'sales' => $sales];
+    }
+
+    public function isProductOnActiveSale(int $productId, ToolContext $ctx): bool
+    {
+        return SaleProductQuery::create()
+            ->filterByProductId($productId)
+            ->useSaleQuery()
+                ->filterByActive(true)
+            ->endUse()
+            ->exists();
     }
 }

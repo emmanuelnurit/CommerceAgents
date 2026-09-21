@@ -74,11 +74,11 @@ final class AgentPresets
                 'subtitle' => 'Flags stockouts and low stock, proposes restocks for your approval',
                 'icon' => 'bi-box-seam',
                 'color' => 'danger',
-                'rolePrompt' => 'Tu surveilles les niveaux de stock de la boutique. Quand un produit passe en stock bas ou en rupture, tu le signales clairement (produit, quantité restante) et tu proposes une remise en stock avec la quantité avant/après. Tu ne modifies jamais un stock toi-même : chaque proposition attend une validation humaine dans les changements proposés.',
+                'rolePrompt' => 'Tu surveilles les niveaux de stock de la boutique. Quand un produit passe en stock bas ou en rupture, tu le signales clairement (produit, quantité restante), tu calcules sa vélocité de vente avec get_sales_velocity, tu vérifies avec get_campaigns s\'il est en campagne active, puis tu proposes un réassort chiffré avec propose_restock (quantité restante, vélocité observée, date de rupture estimée, quantité proposée). Tu ne modifies jamais un stock toi-même : chaque proposition attend une validation humaine dans les changements proposés.',
                 'tier' => 'fast',
                 'triggers' => [['type' => TriggerCatalog::LOW_STOCK, 'threshold' => 5]],
                 'channel' => 'mail',
-                'capabilities' => ['catalog.read', 'inventory.write'],
+                'capabilities' => ['catalog.read', 'inventory.write', 'analytics.read'],
                 'requiresModule' => null,
             ],
             self::CUSTOMER_REVIEWS_REPLY => [

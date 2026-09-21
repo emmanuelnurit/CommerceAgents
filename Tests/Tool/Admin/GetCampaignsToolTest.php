@@ -13,8 +13,10 @@ class FakeCampaignGateway implements CampaignGatewayInterface
 {
     public array $lastCall = [];
 
-    public function __construct(private readonly array $campaigns = ['coupons' => [], 'sales' => []])
-    {
+    public function __construct(
+        private readonly array $campaigns = ['coupons' => [], 'sales' => []],
+        private readonly array $activeSaleProductIds = [],
+    ) {
     }
 
     public function getCampaigns(bool $activeOnly, ToolContext $ctx): array
@@ -22,6 +24,11 @@ class FakeCampaignGateway implements CampaignGatewayInterface
         $this->lastCall = ['activeOnly' => $activeOnly];
 
         return $this->campaigns;
+    }
+
+    public function isProductOnActiveSale(int $productId, ToolContext $ctx): bool
+    {
+        return \in_array($productId, $this->activeSaleProductIds, true);
     }
 }
 
