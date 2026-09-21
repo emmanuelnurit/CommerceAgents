@@ -688,6 +688,13 @@ function commerceAgentsChat() {
                 this.updateCartFromResult(result.cart);
                 if (payload.name === 'add_to_cart') {
                     this.recordCartActivity();
+                    // MYO-470: mirrors the shop-button signal below for an add
+                    // made in the conversation instead — CartCouponScenarioResolver
+                    // reacts the same way regardless of where 'add_to_cart' comes
+                    // from. No double emission risk with observeNativeAddToCart():
+                    // a chat-driven add never dispatches the DOM 'addToCart' event
+                    // that MutationObserver reacts to, and vice versa.
+                    this.sendProactiveSignal('add_to_cart', {});
                 }
             } else if (payload.name === 'open_page' && result.navigation && result.navigation.url) {
                 this.pendingNavigationUrl = result.navigation.url;
@@ -724,7 +731,7 @@ function commerceAgentsChat() {
         // visitor did.
 
         readSignals() {
-            const defaults = { cartOpens: 0, hesitationSent: false, cartAbandonedSent: false, dismissed: false, lastCartActivityAt: null };
+            const defaults = { cartOpens: 0, hesitationSent: false, cartAbandonedSent: false, firstVisitSent: false, dismissed: false, lastCartActivityAt: null };
             try {
                 const saved = JSON.parse(sessionStorage.getItem(COMMERCE_AGENTS_SIGNALS_KEY) || 'null');
                 return Object.assign({}, defaults, saved || {});
@@ -753,9 +760,30 @@ function commerceAgentsChat() {
         },
 
         initInstrumentation() {
+            this.triggerFirstVisit();
             this.trackCartOpen();
             this.armHesitationTimerForProductPage();
             this.watchCartActivity();
+        },
+
+        // ---------- Scenario F1: first visit of the session (welcome coupon) ----------
+
+        /**
+         * MYO-470: the only client-side condition for "first visit" is that
+         * this browser session (sessionStorage, same lifetime as every other
+         * signal flag here) has not already sent it — WelcomeCouponScenarioResolver
+         * itself re-checks server-side that a logged-in visitor has no prior
+         * order, and ProactiveGuard's per-scenario dedupe backs this up even
+         * across tabs sharing the same Thelia session.
+         */
+        triggerFirstVisit() {
+            const signals = this.readSignals();
+            if (signals.firstVisitSent) {
+                return;
+            }
+            signals.firstVisitSent = true;
+            this.writeSignals(signals);
+            return this.sendProactiveSignal('first_visit', {});
         },
 
         proactiveRefused() {
@@ -958,6 +986,11 @@ function commerceAgentsChat() {
                     // falsely-empty cart on this same page.
                     this.cart = Object.assign({}, this.cart, { itemCount: this.cart.itemCount + 1 });
                     this.recordCartActivity();
+                    // MYO-470: the actual shop-button bridge — until now, a real
+                    // "Ajouter au panier" click never told the proactive engine
+                    // anything, so CartCouponScenarioResolver (F2 cart coupon,
+                    // F3 next amount tier) was only ever reachable in theory.
+                    this.sendProactiveSignal('add_to_cart', {});
                 }
             });
             observer.observe(toast, { attributes: true, attributeFilter: ['class'] });

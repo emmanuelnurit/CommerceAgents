@@ -749,7 +749,7 @@ test('signals read back what was written, and default when nothing was stored', 
     const widget = component({ locale: 'fr_FR' });
 
     assert.deepEqual(widget.readSignals(), {
-        cartOpens: 0, hesitationSent: false, cartAbandonedSent: false, dismissed: false, lastCartActivityAt: null,
+        cartOpens: 0, hesitationSent: false, cartAbandonedSent: false, firstVisitSent: false, dismissed: false, lastCartActivityAt: null,
     });
 
     widget.writeSignals(Object.assign(widget.readSignals(), { cartOpens: 2 }));
@@ -785,6 +785,35 @@ test('the server response ({scenario, text, card}, not {message}) is what actual
     await widget.triggerHesitation(42);
 
     assert.deepEqual(widget.proactive, { scenario: 'hesitation', text: 'Il reste 5 en stock.', card: null });
+});
+
+test('triggerFirstVisit sends the first_visit signal once per session (MYO-470, F1 welcome coupon)', async () => {
+    const calls = stubFetch();
+    const widget = component({ locale: 'fr_FR' });
+
+    await widget.triggerFirstVisit();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/agent/chat/proactive-check');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { signal_type: 'first_visit', context: {} });
+    assert.equal(widget.readSignals().firstVisitSent, true);
+
+    await widget.triggerFirstVisit();
+    assert.equal(calls.length, 1, 'a later call within the same session must not call the server again');
+});
+
+test('a chat-driven add_to_cart also emits the add_to_cart proactive signal (MYO-470, F2/F3)', () => {
+    const calls = stubFetch();
+    const widget = component({ cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 } });
+
+    widget.pushToolBlock({
+        name: 'add_to_cart',
+        result: { cart: { items: [{ productId: 3, title: 'Stacy', quantity: 1, totalTaxedPrice: 732 }], totalTaxedAmount: 732, currency: 'EUR', itemCount: 1 } },
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/agent/chat/proactive-check');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { signal_type: 'add_to_cart', context: {} });
 });
 
 test('triggerHesitation without a product id sends an empty context, never a made-up one', async () => {
@@ -870,6 +899,7 @@ test('checkCartAbandoned does nothing once the cart is empty again', async () =>
 test('a native add-to-cart bumps the local item count so an idle check right after does not see a falsely-empty cart', () => {
     const widget = component({ locale: 'fr_FR', cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 } });
     widget.recordCartActivity = () => {};
+    stubFetch();
     const toast = { classList: { contains: () => false } };
     global.document.querySelector = () => toast;
 
@@ -888,6 +918,29 @@ test('a native add-to-cart bumps the local item count so an idle check right aft
     }
 
     assert.equal(widget.cart.itemCount, 1);
+});
+
+test('a native add-to-cart (real shop button) emits the add_to_cart proactive signal (MYO-470)', () => {
+    const calls = stubFetch();
+    const widget = component({ locale: 'fr_FR', cart: { items: [], totalTaxedAmount: 0, currency: 'EUR', itemCount: 0 } });
+    widget.recordCartActivity = () => {};
+    const toast = { classList: { contains: () => false } };
+    global.document.querySelector = () => toast;
+
+    const originalMutationObserver = global.MutationObserver;
+    global.MutationObserver = class {
+        constructor(callback) { this.callback = callback; }
+        observe() { toast.classList.contains = () => false; this.callback(); }
+    };
+    try {
+        widget.observeNativeAddToCart();
+    } finally {
+        global.MutationObserver = originalMutationObserver;
+    }
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/agent/chat/proactive-check');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { signal_type: 'add_to_cart', context: {} });
 });
 
 test('dismissProactive notifies the server once and blocks further proactive signals', async () => {
