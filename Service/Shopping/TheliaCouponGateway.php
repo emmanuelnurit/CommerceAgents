@@ -38,6 +38,17 @@ final readonly class TheliaCouponGateway implements CouponGatewayInterface
         return $coupons;
     }
 
+    public function findConfiguredCoupons(ToolContext $ctx): array
+    {
+        $coupons = [];
+
+        foreach ($this->usableCoupons($ctx) as [$model, $coupon]) {
+            $coupons[] = $this->describe($model, $ctx);
+        }
+
+        return $coupons;
+    }
+
     public function findAmountTierLadder(ToolContext $ctx): array
     {
         $tiers = [];

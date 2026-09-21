@@ -14,6 +14,7 @@ class FakeCouponGateway implements CouponGatewayInterface
     public function __construct(
         private readonly array $applicable = [],
         private readonly array $ladder = [],
+        private readonly ?array $configured = null,
     ) {
     }
 
@@ -25,6 +26,11 @@ class FakeCouponGateway implements CouponGatewayInterface
     public function findAmountTierLadder(ToolContext $ctx): array
     {
         return $this->ladder;
+    }
+
+    public function findConfiguredCoupons(ToolContext $ctx): array
+    {
+        return $this->configured ?? $this->applicable;
     }
 }
 

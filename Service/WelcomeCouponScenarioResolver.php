@@ -13,13 +13,21 @@ use CommerceAgents\Tool\Shopping\Gateway\OrderGatewayInterface;
 
 /**
  * MYO-236/MYO-247 scenario 6: welcome message on a visitor's first visit,
- * only when a real "first order" coupon matches. Thelia has no dedicated
- * "new customer only" coupon field, so a coupon counts as a welcome offer
- * when its title/short description/code names it as one (self::KEYWORDS) —
- * the code, discount and condition text themselves are always read from the
- * real coupon row, only the classification is a keyword match. "Once per
- * session" is enforced by ProactiveGuard's scenario-repetition rule, keyed
- * on the signal type below — no extra bookkeeping needed here.
+ * only when a real "first order" coupon is configured. Thelia has no
+ * dedicated "new customer only" coupon field, so a coupon counts as a
+ * welcome offer when its title/short description/code names it as one
+ * (self::KEYWORDS) — the code, discount and condition text themselves are
+ * always read from the real coupon row, only the classification is a
+ * keyword match. "Once per session" is enforced by ProactiveGuard's
+ * scenario-repetition rule, keyed on the signal type below — no extra
+ * bookkeeping needed here.
+ *
+ * MYO-502 AC-a: classification reads findConfiguredCoupons(), not
+ * findApplicableCoupons() — first_visit fires on an empty cart, so a
+ * welcome coupon carrying its own minimum-amount condition (e.g. WELCOME10
+ * ≥ 25€, MYO-467 demo seed) would never "currently match" and the message
+ * would stay permanently silent. The condition itself is still surfaced to
+ * the visitor via $conditionLabel below, never bypassed.
  */
 final readonly class WelcomeCouponScenarioResolver implements ProactiveScenarioResolverInterface
 {
@@ -48,7 +56,7 @@ final readonly class WelcomeCouponScenarioResolver implements ProactiveScenarioR
             return null;
         }
 
-        foreach ($this->couponGateway->findApplicableCoupons($context) as $coupon) {
+        foreach ($this->couponGateway->findConfiguredCoupons($context) as $coupon) {
             if (!self::looksLikeWelcomeOffer($coupon)) {
                 continue;
             }

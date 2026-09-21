@@ -29,4 +29,17 @@ interface CouponGatewayInterface
      * @return list<array{code: string, title: string, shortDescription: string, discountLabel: string, threshold: float, matching: bool}>
      */
     public function findAmountTierLadder(ToolContext $ctx): array;
+
+    /**
+     * Real, enabled, code-triggered coupons usable by this customer —
+     * same eligibility base as findApplicableCoupons(), but without
+     * requiring the coupon to currently match the cart (MYO-502 AC-a).
+     * Needed for scenarios that classify a coupon as a "welcome offer" by
+     * its title/code before any cart exists (first visit): a welcome
+     * coupon is allowed to carry its own minimum-amount condition, and
+     * that condition being unmet on an empty cart must not hide the offer.
+     *
+     * @return list<array{code: string, title: string, shortDescription: string, discountLabel: string}>
+     */
+    public function findConfiguredCoupons(ToolContext $ctx): array;
 }

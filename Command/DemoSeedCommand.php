@@ -511,12 +511,7 @@ final class DemoSeedCommand extends Command
         $created = 0;
 
         if ($reviewsAgent !== null) {
-            $reviewTargets = CommentQuery::create()
-                ->filterByRef('product')
-                ->filterByStatus(Comment::ACCEPTED)
-                ->orderByCreatedAt(Criteria::DESC)
-                ->limit(3)
-                ->find();
+            $reviewTargets = $this->selectReviewTargets(3);
             $ctx = $this->contextFor($reviewsAgent, $adminId, 'reviews');
             foreach ($reviewTargets as $comment) {
                 if ($this->hasPendingChange('review_reply', $comment->getId())) {
@@ -589,6 +584,46 @@ final class DemoSeedCommand extends Command
         $output->writeln(\sprintf('Staged changes: %d newly created.', $created));
 
         return AgentStagedChangeQuery::create()->filterByStatus(StagedChangeData::STATUS_PENDING)->count();
+    }
+
+    /**
+     * MYO-502 AC-b: a plain "3 most recent" pick can miss the low-rated
+     * review entirely once enough newer 4/5-star reviews exist (exactly
+     * what happened on `myo468_demo` — the only <=2-star review, the one
+     * the demo script narrates, had no proposal in the queue). Negative
+     * reviews are reserved a slot first — that's the one Acte 3 needs a
+     * `review_reply` for — the rest of the quota is filled by recency as
+     * before.
+     *
+     * @return list<Comment>
+     */
+    private function selectReviewTargets(int $limit): array
+    {
+        $negative = iterator_to_array(
+            CommentQuery::create()
+                ->filterByRef('product')
+                ->filterByStatus(Comment::ACCEPTED)
+                ->filterByRating(2, Criteria::LESS_EQUAL)
+                ->orderByCreatedAt(Criteria::DESC)
+                ->find(),
+            false,
+        );
+
+        $remainingSlots = max(0, $limit - \count($negative));
+        if ($remainingSlots === 0) {
+            return $negative;
+        }
+
+        $othersQuery = CommentQuery::create()
+            ->filterByRef('product')
+            ->filterByStatus(Comment::ACCEPTED)
+            ->orderByCreatedAt(Criteria::DESC)
+            ->limit($remainingSlots);
+        if ($negative !== []) {
+            $othersQuery->filterById(array_map(static fn (Comment $c): int => $c->getId(), $negative), Criteria::NOT_IN);
+        }
+
+        return array_merge($negative, iterator_to_array($othersQuery->find(), false));
     }
 
     private function draftReviewReply(Comment $comment): string

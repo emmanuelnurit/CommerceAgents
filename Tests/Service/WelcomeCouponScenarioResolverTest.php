@@ -44,6 +44,27 @@ class WelcomeCouponScenarioResolverTest extends TestCase
         $this->assertStringContainsString('BIENVENUE10', $message->message);
     }
 
+    public function testWelcomeMessageEvenWhenCouponsMinimumAmountIsNotYetMet(): void
+    {
+        // MYO-502 AC-a: first_visit fires on an empty cart, so a welcome
+        // coupon with its own minimum-amount condition (e.g. WELCOME10 >=
+        // 25€) never appears in findApplicableCoupons() at that point —
+        // the resolver must still find it via findConfiguredCoupons().
+        $gateway = new FakeCouponGateway(
+            applicable: [],
+            configured: [
+                ['code' => 'WELCOME10', 'title' => 'Bienvenue', 'shortDescription' => 'Dès 25€ d\'achat', 'discountLabel' => '-10%'],
+            ],
+        );
+        $resolver = new WelcomeCouponScenarioResolver($gateway, new FakeOrderGateway());
+
+        $message = $resolver->resolve(new ProactiveSignal('first_visit'), new ToolContext(customerId: null));
+
+        $this->assertNotNull($message);
+        $this->assertSame('WELCOME10', $message->couponCode);
+        $this->assertSame('Dès 25€ d\'achat', $message->conditionLabel);
+    }
+
     public function testNoMessageForCustomerWhoAlreadyOrdered(): void
     {
         $gateway = new FakeCouponGateway(applicable: [
