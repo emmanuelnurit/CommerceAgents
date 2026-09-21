@@ -20,35 +20,77 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
     }
 
     /**
-     * @return array[] raw rows for the approval console, newest first, optionally
-     *                 scoped to one agent (MYO-324 §4) so an agent-specific page can reuse it
+     * All pending changes, unbounded (MYO-472): these feed the Brief's
+     * "now"/"watch" decision groups, which must never silently truncate --
+     * a merchant has to see every proposal waiting on them, not just the
+     * most recent N.
+     *
+     * @return array[] raw rows, newest first, optionally scoped to one agent
      */
-    public function findRecent(int $limit = 50, ?int $agentDefinitionId = null): array
+    public function findPending(?int $agentDefinitionId = null): array
     {
-        $query = AgentStagedChangeQuery::create()->orderById(Criteria::DESC);
+        $query = AgentStagedChangeQuery::create()
+            ->filterByStatus(StagedChangeData::STATUS_PENDING)
+            ->orderById(Criteria::DESC);
         if ($agentDefinitionId !== null) {
             $query->filterByAgentDefinitionId($agentDefinitionId);
         }
 
-        $rows = [];
-        foreach ($query->limit($limit)->find() as $model) {
-            $rows[] = [
-                'id' => $model->getId(),
-                'targetType' => $model->getTargetType(),
-                'targetId' => $model->getTargetId(),
-                'agentDefinitionId' => $model->getAgentDefinitionId(),
-                'agentTitle' => $model->getAgentDefinition()?->getTitle(),
-                'payloadBefore' => json_decode((string) $model->getPayloadBefore(), true) ?? [],
-                'payloadAfter' => json_decode((string) $model->getPayloadAfter(), true) ?? [],
-                'status' => $model->getStatus(),
-                'adminId' => $model->getAdminId(),
-                'approvedBy' => $model->getApprovedBy(),
-                'error' => $model->getError(),
-                'createdAt' => $model->getCreatedAt()?->format('Y-m-d H:i'),
-            ];
+        return array_map($this->toRow(...), $query->find()->getData());
+    }
+
+    /**
+     * Most recently decided changes (applied/rejected/failed), capped: these
+     * feed the Brief's "Pour information" group, which is read-only recap,
+     * not a decision queue -- a short, recent list is enough (MYO-472).
+     *
+     * @return array[] raw rows, newest first, optionally scoped to one agent
+     */
+    public function findRecentlyResolved(int $limit = 10, ?int $agentDefinitionId = null): array
+    {
+        $query = AgentStagedChangeQuery::create()
+            ->filterByStatus([StagedChangeData::STATUS_APPLIED, StagedChangeData::STATUS_REJECTED, StagedChangeData::STATUS_FAILED], Criteria::IN)
+            ->orderById(Criteria::DESC);
+        if ($agentDefinitionId !== null) {
+            $query->filterByAgentDefinitionId($agentDefinitionId);
         }
 
-        return $rows;
+        return array_map($this->toRow(...), $query->limit($limit)->find()->getData());
+    }
+
+    /**
+     * Feeds the Brief header's "~X min saved" estimate (MYO-472 AC5): a real
+     * count of applied changes multiplied by a documented per-change time
+     * estimate, not a measured value -- see StagedChangesController.
+     */
+    public function countAppliedSince(\DateTimeImmutable $since): int
+    {
+        return AgentStagedChangeQuery::create()
+            ->filterByStatus(StagedChangeData::STATUS_APPLIED)
+            ->filterByApprovedAt(['min' => $since])
+            ->count();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function toRow(AgentStagedChange $model): array
+    {
+        return [
+            'id' => $model->getId(),
+            'targetType' => $model->getTargetType(),
+            'targetId' => $model->getTargetId(),
+            'conversationId' => $model->getConversationId(),
+            'agentDefinitionId' => $model->getAgentDefinitionId(),
+            'agentTitle' => $model->getAgentDefinition()?->getTitle(),
+            'payloadBefore' => json_decode((string) $model->getPayloadBefore(), true) ?? [],
+            'payloadAfter' => json_decode((string) $model->getPayloadAfter(), true) ?? [],
+            'status' => $model->getStatus(),
+            'adminId' => $model->getAdminId(),
+            'approvedBy' => $model->getApprovedBy(),
+            'error' => $model->getError(),
+            'createdAt' => $model->getCreatedAt()?->format('Y-m-d H:i'),
+        ];
     }
 
     /**

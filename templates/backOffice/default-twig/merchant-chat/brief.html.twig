@@ -1,0 +1,237 @@
+{% extends '@BackOfficeDefaultTwig/base.html.twig' %}
+
+{#
+    "Le Brief" (MYO-472, concept MYO-469): evolution of the former "Proposed
+    changes" console on the same route/name (commerceagents_changes) so every
+    existing link into it keeps working. Card anatomy, groups and the "Why?"
+    panel follow the validated mockup at
+    local/modules/CommerceAgents/docs/design/myo-469-le-brief.html.
+
+    Deliberately zero custom JS: the edit toggle uses a native <details>
+    element (progressive disclosure with no script), and the "Why?" panel
+    uses one Bootstrap offcanvas per card (declarative data-bs-toggle),
+    reusing Bootstrap 5.3 components already loaded by the BO shell instead
+    of inventing a shared-offcanvas JS controller.
+#}
+
+{% block title %}{{ 'Merchant Agent — The Brief'|trans({}, 'commerceagents') }}{% endblock %}
+{% block body_testid %}commerceagents-brief{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/brief.css') }}">
+{% endblock %}
+
+{% block breadcrumb %}
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('admin.home') }}">{{ 'Home'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ path('commerceagents_merchant_page') }}">{{ 'Merchant Agent'|trans({}, 'commerceagents') }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ 'The Brief'|trans({}, 'commerceagents') }}</li>
+        </ol>
+    </nav>
+{% endblock %}
+
+{% macro cardActions(change, csrfToken) %}
+    {% if change.canDecide %}
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <form id="approve-form-{{ change.id }}" method="post" action="{{ path('commerceagents_change_approve', {id: change.id}) }}" class="d-inline">
+                <input type="hidden" name="_token" value="{{ csrfToken }}">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="bi bi-check2 me-1" aria-hidden="true"></i>{{ 'Approve'|trans({}, 'commerceagents') }}
+                </button>
+            </form>
+            <form method="post" action="{{ path('commerceagents_change_reject', {id: change.id}) }}" class="d-inline">
+                <input type="hidden" name="_token" value="{{ csrfToken }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-x-lg me-1" aria-hidden="true"></i>{{ 'Reject'|trans({}, 'commerceagents') }}
+                </button>
+            </form>
+            <a href="#" class="brief-card__why-link ms-auto text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas-{{ change.id }}" aria-controls="why-offcanvas-{{ change.id }}">
+                <i class="bi bi-question-circle me-1" aria-hidden="true"></i>{{ 'Why?'|trans({}, 'commerceagents') }}
+            </a>
+        </div>
+    {% else %}
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <a href="#" class="brief-card__why-link text-decoration-none" data-bs-toggle="offcanvas" data-bs-target="#why-offcanvas-{{ change.id }}" aria-controls="why-offcanvas-{{ change.id }}">
+                <i class="bi bi-question-circle me-1" aria-hidden="true"></i>{{ 'Why?'|trans({}, 'commerceagents') }}
+            </a>
+            <span class="text-muted small ms-auto">
+                {% if change.status == 'applied' %}
+                    <i class="bi bi-check2 me-1" aria-hidden="true"></i>{{ 'Applied'|trans({}, 'commerceagents') }}
+                {% elseif change.status == 'rejected' %}
+                    <i class="bi bi-x-lg me-1" aria-hidden="true"></i>{{ 'Rejected'|trans({}, 'commerceagents') }}
+                {% elseif change.status == 'failed' %}
+                    <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>{{ 'Failed'|trans({}, 'commerceagents') }}
+                {% endif %}
+            </span>
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% macro whyOffcanvas(change) %}
+    <div class="offcanvas offcanvas-end why-offcanvas" tabindex="-1" id="why-offcanvas-{{ change.id }}" aria-labelledby="why-offcanvas-{{ change.id }}-title">
+        <div class="offcanvas-header border-bottom">
+            <h2 class="offcanvas-title h6" id="why-offcanvas-{{ change.id }}-title">{{ 'Why this proposal?'|trans({}, 'commerceagents') }}</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="{{ 'Close'|trans }}"></button>
+        </div>
+        <div class="offcanvas-body small">
+            <dl class="mb-0">
+                <dt>{{ 'Data read'|trans({}, 'commerceagents') }}</dt>
+                <dd class="mb-0">
+                    <ul class="mb-0 ps-3">
+                        {% for line in change.why.data %}<li>{{ line }}</li>{% endfor %}
+                    </ul>
+                </dd>
+
+                <dt>{{ 'Tools called'|trans({}, 'commerceagents') }}</dt>
+                <dd class="mb-0">
+                    {% if change.why.tools is empty %}
+                        <span class="text-muted fst-italic">{{ 'No tool call recorded for this proposal.'|trans({}, 'commerceagents') }}</span>
+                    {% else %}
+                        {% for tool in change.why.tools %}<span class="badge text-bg-light why-tool-badge me-1 mb-1">{{ tool }}</span>{% endfor %}
+                    {% endif %}
+                </dd>
+
+                <dt>{{ 'Full run'|trans({}, 'commerceagents') }}</dt>
+                <dd class="mb-0">
+                    {% if change.why.runUrl %}
+                        <a href="{{ change.why.runUrl }}"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>{{ 'Open the run detail'|trans({}, 'commerceagents') }}</a>
+                    {% else %}
+                        <span class="text-muted fst-italic">{{ 'No run linked to this proposal.'|trans({}, 'commerceagents') }}</span>
+                    {% endif %}
+                </dd>
+            </dl>
+        </div>
+    </div>
+{% endmacro %}
+
+{% macro proposalCard(change, csrfToken, style) %}
+    {% import _self as brief %}
+    <div class="card shadow-sm border-0 mb-3 brief-card {{ style == 'info' ? 'brief-card--info' : '' }}" data-testid="brief-card" data-change-id="{{ change.id }}" data-target-type="{{ change.targetType }}">
+        <div class="card-body">
+            <div class="d-flex align-items-start gap-3">
+                <div class="brief-card__icon rounded-circle {{ style == 'now' ? 'bg-danger-subtle text-danger-emphasis' : (style == 'watch' ? 'bg-warning-subtle text-warning-emphasis' : 'bg-secondary-subtle text-secondary-emphasis') }} d-flex align-items-center justify-content-center flex-shrink-0">
+                    {% if change.targetType == 'pse_price' %}<i class="bi bi-tag fs-5" aria-hidden="true"></i>
+                    {% elseif change.targetType == 'pse_stock' %}<i class="bi bi-box-seam fs-5" aria-hidden="true"></i>
+                    {% elseif change.targetType == 'review_reply' %}<i class="bi bi-star-half fs-5" aria-hidden="true"></i>
+                    {% else %}<i class="bi bi-question-circle fs-5" aria-hidden="true"></i>{% endif %}
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="brief-card__trigger mb-1">
+                        <i class="bi bi-lightning-charge-fill text-warning me-1" aria-hidden="true"></i>{{ change.trigger }}
+                    </div>
+
+                    {% if change.context %}
+                        <blockquote class="border-start border-3 ps-2 text-muted small mb-2">{{ change.context }}</blockquote>
+                    {% endif %}
+
+                    {% if change.status == 'failed' and change.error %}
+                        <div class="alert alert-danger py-2 px-3 small mb-2">{{ 'This proposal failed: %error%'|trans({'%error%': change.error}, 'commerceagents') }}</div>
+                    {% endif %}
+
+                    <div class="brief-card__proposal">{{ change.proposal }}</div>
+
+                    {% if change.canDecide and change.editField %}
+                        <details class="brief-card__edit mt-2">
+                            <summary class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil me-1" aria-hidden="true"></i>{{ 'Edit'|trans({}, 'commerceagents') }}
+                            </summary>
+                            <div class="mt-2">
+                                <label class="form-text mb-1" for="edit-field-{{ change.id }}">{{ change.editField.label }}</label>
+                                {% if change.editField.type == 'textarea' %}
+                                    <textarea id="edit-field-{{ change.id }}" name="{{ change.editField.name }}" form="approve-form-{{ change.id }}" class="form-control form-control-sm" rows="4">{{ change.editField.value }}</textarea>
+                                {% else %}
+                                    <input id="edit-field-{{ change.id }}" type="number" step="{{ change.editField.step }}" min="0" name="{{ change.editField.name }}" form="approve-form-{{ change.id }}" class="form-control form-control-sm" value="{{ change.editField.value }}">
+                                {% endif %}
+                                <div class="form-text">{{ 'Editing here changes what gets approved -- submit with Approve above.'|trans({}, 'commerceagents') }}</div>
+                            </div>
+                        </details>
+                    {% endif %}
+
+                    {{ brief.cardActions(change, csrfToken) }}
+                </div>
+            </div>
+        </div>
+    </div>
+    {{ brief.whyOffcanvas(change) }}
+{% endmacro %}
+
+{% block content %}
+    {% import _self as brief %}
+    <div class="container-fluid" data-testid="brief-page">
+        <h1 class="h3 mb-3">{{ 'The Brief'|trans({}, 'commerceagents') }}</h1>
+
+        {% if agentId %}
+            <div class="alert alert-secondary d-flex justify-content-between align-items-center" data-testid="changes-agent-filter">
+                <span>{{ 'Showing proposals from one agent only.'|trans({}, 'commerceagents') }}</span>
+                <a href="{{ path('commerceagents_changes') }}" class="btn btn-sm btn-outline-secondary">{{ 'Show all agents'|trans({}, 'commerceagents') }}</a>
+            </div>
+        {% endif %}
+
+        {# AC5: header counters -- proposals waiting, estimated time saved, monthly AI budget #}
+        <div class="brief-header shadow-sm p-3 mb-4 d-flex flex-wrap align-items-center gap-4" data-testid="brief-header">
+            <div class="brief-metric">
+                <div class="brief-metric__value" data-testid="brief-header-count">{{ header.pendingCount }}</div>
+                <div class="brief-metric__label">{{ 'Proposals waiting'|trans({}, 'commerceagents') }}</div>
+            </div>
+            <div class="vr d-none d-md-block"></div>
+            <div class="brief-metric">
+                <div class="brief-metric__value text-success">{{ header.minutesSavedLabel }}</div>
+                <div class="brief-metric__label">{{ 'Estimated time saved this month'|trans({}, 'commerceagents') }}</div>
+            </div>
+            <div class="vr d-none d-md-block"></div>
+            <div class="brief-metric" style="min-width: 200px;">
+                {% if header.budgetIsLimited %}
+                    <div class="d-flex align-items-baseline justify-content-between">
+                        <span class="brief-metric__value" style="font-size:1.1rem;">{{ header.budgetSpentLabel }}</span>
+                        <span class="brief-metric__label">{{ '/ %limit% this month'|trans({'%limit%': header.budgetLimitLabel}, 'commerceagents') }}</span>
+                    </div>
+                    <div class="brief-metric__budget-bar mt-1">
+                        <div class="brief-metric__budget-fill brief-metric__budget-fill--{{ header.budgetState }}" style="width: {{ min(header.budgetPercentUsed, 100) }}%"></div>
+                    </div>
+                {% else %}
+                    <div class="brief-metric__value" style="font-size:1.1rem;">{{ header.budgetSpentLabel }}</div>
+                    <div class="brief-metric__label">{{ 'AI budget this month (unlimited)'|trans({}, 'commerceagents') }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if groups.now is empty and groups.watch is empty and groups.info is empty %}
+            <div class="alert alert-info">{{ 'No proposal yet. The Merchant Agent records its proposals here.'|trans({}, 'commerceagents') }}</div>
+        {% endif %}
+
+        {% if groups.now is not empty %}
+            <div class="brief-group brief-group--now mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="brief-group__dot" aria-hidden="true"></span>
+                    <span class="brief-group__title">{{ 'To decide now'|trans({}, 'commerceagents') }}</span>
+                    <span class="badge text-bg-light brief-group__count" data-testid="group-now-count">{{ groups.now|length }}</span>
+                </div>
+                {% for change in groups.now %}{{ brief.proposalCard(change, csrfToken, 'now') }}{% endfor %}
+            </div>
+        {% endif %}
+
+        {% if groups.watch is not empty %}
+            <div class="brief-group brief-group--watch mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="brief-group__dot" aria-hidden="true"></span>
+                    <span class="brief-group__title">{{ 'To review'|trans({}, 'commerceagents') }}</span>
+                    <span class="badge text-bg-light brief-group__count" data-testid="group-watch-count">{{ groups.watch|length }}</span>
+                </div>
+                {% for change in groups.watch %}{{ brief.proposalCard(change, csrfToken, 'watch') }}{% endfor %}
+            </div>
+        {% endif %}
+
+        {% if groups.info is not empty %}
+            <div class="brief-group brief-group--info mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="brief-group__dot" aria-hidden="true"></span>
+                    <span class="brief-group__title">{{ 'For your information'|trans({}, 'commerceagents') }}</span>
+                    <span class="badge text-bg-light brief-group__count" data-testid="group-info-count">{{ groups.info|length }}</span>
+                </div>
+                {% for change in groups.info %}{{ brief.proposalCard(change, csrfToken, 'info') }}{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}

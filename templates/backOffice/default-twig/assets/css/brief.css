@@ -1,0 +1,114 @@
+/* "Le Brief" (MYO-472): only what Bootstrap 5.3 utility/theme classes don't
+   already cover -- group urgency dots and the budget bar. Everything else
+   (card, badge, btn, offcanvas) reuses the BO theme's real Bootstrap tokens,
+   not hardcoded values (see MYO-469 mockup note on --bs-* reuse). */
+
+.brief-header {
+    background: var(--bs-body-bg, #fff);
+    border-radius: var(--bs-border-radius-lg, .5rem);
+}
+
+.brief-metric__value {
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+.brief-metric__label {
+    font-size: .78rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.brief-metric__budget-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bs-tertiary-bg, #e9ecef);
+    overflow: hidden;
+}
+
+.brief-metric__budget-fill {
+    height: 100%;
+    background: var(--bs-success, #198754);
+}
+
+.brief-metric__budget-fill--warning {
+    background: var(--bs-warning, #ffc107);
+}
+
+.brief-metric__budget-fill--exceeded {
+    background: var(--bs-danger, #dc3545);
+}
+
+.brief-group__title {
+    font-size: .95rem;
+    font-weight: 600;
+}
+
+.brief-group__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.brief-group--now .brief-group__title {
+    color: var(--bs-danger, #dc3545);
+}
+
+.brief-group--now .brief-group__dot {
+    background: var(--bs-danger, #dc3545);
+}
+
+.brief-group--watch .brief-group__dot {
+    background: var(--bs-warning, #ffc107);
+}
+
+.brief-group--info .brief-group__dot {
+    background: var(--bs-secondary, #6c757d);
+}
+
+.brief-card__trigger {
+    font-size: .8rem;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.brief-card__proposal {
+    background: var(--bs-tertiary-bg, #f4f7fa);
+    border-radius: var(--bs-border-radius, .5rem);
+    padding: .75rem 1rem;
+    white-space: pre-wrap;
+}
+
+.brief-card--info .brief-card__proposal {
+    background: var(--bs-secondary-bg, #f8f9fa);
+}
+
+.brief-card__edit summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.brief-card__edit summary::-webkit-details-marker {
+    display: none;
+}
+
+.why-offcanvas {
+    width: 420px;
+}
+
+.why-offcanvas dt {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    color: var(--bs-secondary-color, #6c757d);
+    margin-top: 1rem;
+}
+
+.why-offcanvas dt:first-child {
+    margin-top: 0;
+}
+
+.why-tool-badge {
+    font-family: var(--bs-font-monospace, monospace);
+    font-size: .75rem;
+}

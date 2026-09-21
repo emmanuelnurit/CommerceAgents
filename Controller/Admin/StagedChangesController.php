@@ -5,10 +5,15 @@ declare(strict_types=1);
 namespace CommerceAgents\Controller\Admin;
 
 use BackOfficeDefaultTwigBundle\Service\Admin\AdminAccessChecker;
+use CommerceAgents\Model\AgentActionLogQuery;
+use CommerceAgents\Model\AgentRunQuery;
+use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\Merchant\TheliaStagedChangeRepository;
+use CommerceAgents\StagedChange\BriefUrgencyClassifier;
 use CommerceAgents\StagedChange\StagedChangeData;
 use CommerceAgents\StagedChange\StagedChangeManager;
 use CommerceAgents\Tool\Admin\Gateway\ReviewsGatewayInterface;
+use Propel\Runtime\ActiveQuery\Criteria;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,9 +28,28 @@ use Thelia\Core\Security\SecurityContext;
 use Thelia\Core\Translation\Translator;
 use Twig\Environment;
 
+/**
+ * "Le Brief" (MYO-472, concept MYO-469): the morning decision screen, an
+ * evolution of the former "Proposed changes" console on the same route --
+ * every existing link into `commerceagents_changes` keeps working unchanged.
+ */
 final readonly class StagedChangesController
 {
     public const CSRF_TOKEN_ID = 'commerceagents_changes';
+
+    /**
+     * Documented estimate, not a measured value (MYO-472 AC5 "~X min
+     * économisées"): average time a merchant would spend researching and
+     * drafting the equivalent action by hand. Multiplied by the real count
+     * of changes applied this month.
+     */
+    private const ESTIMATED_MINUTES_PER_CHANGE = 4;
+
+    /**
+     * Read-only recap group ("Pour information"): a short, recent list is
+     * enough, it is not a decision queue (see repository).
+     */
+    private const RECENTLY_RESOLVED_LIMIT = 10;
 
     /**
      * Approving a staged change must also be gated by the native ACL resource
@@ -40,12 +64,16 @@ final readonly class StagedChangesController
         'pse_stock' => AdminResources::PRODUCT,
     ];
 
+    /** Sentinel: a field was submitted but failed validation (distinct from "no edit submitted" = null). */
+    private const EDIT_INVALID = 'invalid';
+
     public function __construct(
         private AdminAccessChecker $access,
         private SecurityContext $securityContext,
         private TheliaStagedChangeRepository $repository,
         private StagedChangeManager $manager,
         private ReviewsGatewayInterface $reviewsGateway,
+        private BudgetGuard $budgetGuard,
         private CsrfTokenManagerInterface $csrfTokenManager,
         private UrlGeneratorInterface $urlGenerator,
         private Environment $twig,
@@ -62,16 +90,53 @@ final readonly class StagedChangesController
 
         $agentId = $request->query->get('agentId');
         $agentDefinitionId = \is_numeric($agentId) ? (int) $agentId : null;
+        $canApprove = $this->securityContext->isGranted(['ADMIN'], [], ['commerceagents'], [AccessManager::UPDATE]);
 
-        $changes = array_map(
-            fn (array $row): array => $this->decorate($row),
-            $this->repository->findRecent(50, $agentDefinitionId),
+        $pending = $this->repository->findPending($agentDefinitionId);
+        $resolved = $this->repository->findRecentlyResolved(self::RECENTLY_RESOLVED_LIMIT, $agentDefinitionId);
+
+        $whyCache = [];
+        $now = [];
+        $watch = [];
+        foreach ($pending as $row) {
+            $row = $this->decorate($row);
+            $urgency = BriefUrgencyClassifier::classify($row['targetType'], $row['review']['rating'] ?? null);
+            $card = $this->buildCard($row, $canApprove, $whyCache);
+            if ($urgency === BriefUrgencyClassifier::NOW) {
+                $now[] = $card;
+            } else {
+                $watch[] = $card;
+            }
+        }
+
+        $info = array_map(
+            fn (array $row): array => $this->buildCard($this->decorate($row), $canApprove, $whyCache),
+            $resolved,
         );
 
-        return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/merchant-chat/changes.html.twig', [
-            'changes' => $changes,
+        $since = (new \DateTimeImmutable('first day of this month'))->setTime(0, 0);
+        $appliedThisMonth = $this->repository->countAppliedSince($since);
+        $budget = $this->budgetGuard->status();
+
+        return new Response($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/merchant-chat/brief.html.twig', [
+            'groups' => [
+                'now' => $now,
+                'watch' => $watch,
+                'info' => $info,
+            ],
+            'header' => [
+                'pendingCount' => \count($pending),
+                'minutesSavedLabel' => '~'.($appliedThisMonth * self::ESTIMATED_MINUTES_PER_CHANGE).' min',
+                // Real LLM spend is tracked in USD (see BudgetGuard/AdminHookManager::formatUsd),
+                // unlike MYO-469's mockup which used € as a placeholder currency.
+                'budgetIsLimited' => $budget->isLimited(),
+                'budgetSpentLabel' => self::formatUsd($budget->spent),
+                'budgetLimitLabel' => $budget->isLimited() ? self::formatUsd($budget->budget) : null,
+                'budgetPercentUsed' => $budget->percentUsed(),
+                'budgetState' => $budget->state(),
+            ],
             'agentId' => $agentDefinitionId,
-            'canApprove' => $this->securityContext->isGranted(['ADMIN'], [], ['commerceagents'], [AccessManager::UPDATE]),
+            'canApprove' => $canApprove,
             'csrfToken' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
         ]));
     }
@@ -92,6 +157,155 @@ final readonly class StagedChangesController
         }
 
         return $row;
+    }
+
+    /**
+     * Builds one Brief card's view model: the trigger in plain language, the
+     * drafted proposal, the inline edit field (MYO-472 AC4), and the "Why?"
+     * panel content (MYO-472 AC3). Kept in PHP -- like the former
+     * `toSuggestion()` -- so the template stays a dumb renderer.
+     *
+     * @param array<string, mixed> $row
+     * @param array<int|string, array{tools: list<string>, runUrl: ?string}> $whyCache keyed by conversationId (or
+     *                                                                                  'none'), avoids re-querying tools/run for changes that share a conversation
+     *
+     * @return array<string, mixed>
+     */
+    private function buildCard(array $row, bool $canApprove, array &$whyCache): array
+    {
+        $ref = $row['payloadBefore']['pseRef'] ?? ('#'.$row['targetId']);
+        $review = $row['review'] ?? null;
+
+        [$trigger, $proposal, $editField, $whyData, $context] = match ($row['targetType']) {
+            'pse_price' => [
+                $this->translator->trans('Price adjustment proposed for %ref%', ['%ref%' => $ref], 'commerceagents'),
+                $this->translator->trans('Change the price of %ref% from %before% to %after%.', [
+                    '%ref%' => $ref,
+                    '%before%' => $this->formatPrice($row['payloadBefore']['price'] ?? null),
+                    '%after%' => $this->formatPrice($row['payloadAfter']['price'] ?? null),
+                ], 'commerceagents'),
+                [
+                    'name' => 'edited_price',
+                    'type' => 'number',
+                    'step' => '0.01',
+                    'value' => $row['payloadAfter']['price'] ?? null,
+                    'label' => $this->translator->trans('New price (€)', [], 'commerceagents'),
+                ],
+                [
+                    $this->translator->trans('Product reference: %ref%', ['%ref%' => $ref], 'commerceagents'),
+                    $this->translator->trans('Current price: %price%', ['%price%' => $this->formatPrice($row['payloadBefore']['price'] ?? null)], 'commerceagents'),
+                ],
+                null,
+            ],
+            'pse_stock' => [
+                $this->translator->trans('Stock correction needed for %ref%', ['%ref%' => $ref], 'commerceagents'),
+                $this->translator->trans('Update the stock of %ref% from %before% to %after% units.', [
+                    '%ref%' => $ref,
+                    '%before%' => $row['payloadBefore']['quantity'] ?? '?',
+                    '%after%' => $row['payloadAfter']['quantity'] ?? '?',
+                ], 'commerceagents'),
+                [
+                    'name' => 'edited_quantity',
+                    'type' => 'number',
+                    'step' => '1',
+                    'value' => $row['payloadAfter']['quantity'] ?? null,
+                    'label' => $this->translator->trans('New quantity', [], 'commerceagents'),
+                ],
+                [
+                    $this->translator->trans('Product reference: %ref%', ['%ref%' => $ref], 'commerceagents'),
+                    $this->translator->trans('Current stock: %quantity% units', ['%quantity%' => $row['payloadBefore']['quantity'] ?? '?'], 'commerceagents'),
+                ],
+                null,
+            ],
+            'review_reply' => [
+                $review !== null
+                    ? $this->translator->trans('Rating %rating%/5 review on %product%', [
+                        '%rating%' => $review['rating'] ?? '?',
+                        '%product%' => $review['productTitle'] ?? $this->translator->trans('an unknown product', [], 'commerceagents'),
+                    ], 'commerceagents')
+                    : $this->translator->trans('Review #%id% (deleted)', ['%id%' => $row['targetId']], 'commerceagents'),
+                // Agent-drafted, shop-language content: not a catalog label, rendered as-is (see MYO-469 mockup note).
+                $row['payloadAfter']['reply'] ?? '',
+                [
+                    'name' => 'reply_content',
+                    'type' => 'textarea',
+                    'value' => $row['payloadAfter']['reply'] ?? '',
+                    'label' => $this->translator->trans('Edit the draft before approving', [], 'commerceagents'),
+                ],
+                $review !== null ? [
+                    $this->translator->trans('Customer review #%id% (%rating%/5)', ['%id%' => $review['id'], '%rating%' => $review['rating'] ?? '?'], 'commerceagents'),
+                    $this->translator->trans('By %author%', ['%author%' => $review['author']], 'commerceagents'),
+                ] : [
+                    $this->translator->trans('This review no longer exists.', [], 'commerceagents'),
+                ],
+                // The original customer wording, quoted verbatim -- the merchant needs to see exactly
+                // what was said, not just the agent's paraphrase in the trigger line (MYO-324 §1).
+                $review['content'] ?? ($row['payloadBefore']['content'] ?? null),
+            ],
+            default => [
+                $this->translator->trans('Item #%id%', ['%id%' => $row['targetId']], 'commerceagents'),
+                json_encode($row['payloadBefore'], \JSON_UNESCAPED_UNICODE),
+                null,
+                [json_encode($row['payloadBefore'], \JSON_UNESCAPED_UNICODE)],
+                null,
+            ],
+        };
+
+        $cacheKey = $row['conversationId'] ?? 'none';
+        if (!isset($whyCache[$cacheKey])) {
+            $whyCache[$cacheKey] = $this->whyContext($row['conversationId'] ?? null);
+        }
+        $whyTools = $whyCache[$cacheKey];
+
+        return [
+            'id' => $row['id'],
+            'targetType' => $row['targetType'],
+            'status' => $row['status'],
+            'error' => $row['error'],
+            'agentTitle' => $row['agentTitle'],
+            'canDecide' => $canApprove && $row['status'] === StagedChangeData::STATUS_PENDING,
+            'trigger' => $trigger,
+            'context' => $context,
+            'proposal' => $proposal,
+            'editField' => $editField,
+            'why' => [
+                'data' => $whyData,
+                'tools' => $whyTools['tools'],
+                'runUrl' => $whyTools['runUrl'],
+            ],
+        ];
+    }
+
+    /**
+     * "Pourquoi ?" panel data (MYO-472 AC3): the tools the agent actually
+     * called and a link to the full run, both read from real audit data
+     * (`agent_action_log` / `agent_run`) via the conversation the staged
+     * change was produced in -- the same join `AgentRunsController::show()`
+     * already relies on.
+     *
+     * @return array{tools: list<string>, runUrl: ?string}
+     */
+    private function whyContext(?int $conversationId): array
+    {
+        if ($conversationId === null) {
+            return ['tools' => [], 'runUrl' => null];
+        }
+
+        $toolNames = AgentActionLogQuery::create()
+            ->filterByConversationId($conversationId)
+            ->select('ToolName')
+            ->find()
+            ->getData();
+
+        $run = AgentRunQuery::create()
+            ->filterByConversationId($conversationId)
+            ->orderById(Criteria::DESC)
+            ->findOne();
+
+        return [
+            'tools' => array_values(array_unique($toolNames)),
+            'runUrl' => $run !== null ? $this->urlGenerator->generate('commerceagents_agents_runs_show', ['id' => $run->getId()]) : null,
+        ];
     }
 
     /**
@@ -147,21 +361,20 @@ final readonly class StagedChangesController
             return $denied;
         }
 
-        // Lets the merchant amend the agent's draft reply before approving it
-        // (MYO-324 §2). Scoped to review_reply so pse_price/pse_stock approval
-        // never touches StagedChangeManager's existing contract.
-        if ($approve && $change !== null && $change->targetType === 'review_reply' && $change->status === StagedChangeData::STATUS_PENDING && $request->request->has('reply_content')) {
-            $editedReply = trim((string) $request->request->get('reply_content'));
-            if ($editedReply === '') {
+        // Lets the merchant amend the agent's draft before approving it
+        // (MYO-324 §2, generalized to pse_price/pse_stock by MYO-472 AC4).
+        if ($approve && $change !== null && $change->status === StagedChangeData::STATUS_PENDING) {
+            $edited = $this->extractEditedPayload($change->targetType, $request, $change->payloadAfter);
+            if ($edited === self::EDIT_INVALID) {
                 if ($request->isXmlHttpRequest()) {
-                    return new JsonResponse(['success' => false, 'reason' => 'empty_reply', 'message' => 'Reply text is required'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                    return new JsonResponse(['success' => false, 'reason' => 'invalid_edit', 'message' => 'Edited value is required and must be valid'], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
                 return new RedirectResponse($this->urlGenerator->generate('commerceagents_changes'));
             }
 
-            if ($editedReply !== ($change->payloadAfter['reply'] ?? null)) {
-                $this->repository->updatePayloadAfter($id, ['reply' => $editedReply]);
+            if ($edited !== null && $edited !== $change->payloadAfter) {
+                $this->repository->updatePayloadAfter($id, $edited);
             }
         }
 
@@ -188,6 +401,64 @@ final readonly class StagedChangesController
         }
 
         return new RedirectResponse($this->urlGenerator->generate('commerceagents_changes'));
+    }
+
+    /**
+     * Reads the edit field submitted with the approve form, if any, and
+     * merges it into the current payload_after (MYO-472 AC4). Returns null
+     * when no edit was submitted (approve the draft as-is), or
+     * {@see self::EDIT_INVALID} when one was submitted but is not usable.
+     *
+     * @param array<string, mixed> $currentPayloadAfter
+     *
+     * @return array<string, mixed>|string|null
+     */
+    private function extractEditedPayload(string $targetType, Request $request, array $currentPayloadAfter): array|string|null
+    {
+        return match ($targetType) {
+            'review_reply' => $this->extractEditedText($request, 'reply_content', 'reply', $currentPayloadAfter),
+            'pse_price' => $this->extractEditedNumber($request, 'edited_price', 'price', $currentPayloadAfter, allowDecimal: true),
+            'pse_stock' => $this->extractEditedNumber($request, 'edited_quantity', 'quantity', $currentPayloadAfter, allowDecimal: false),
+            default => null,
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $currentPayloadAfter
+     *
+     * @return array<string, mixed>|string|null
+     */
+    private function extractEditedText(Request $request, string $fieldName, string $payloadKey, array $currentPayloadAfter): array|string|null
+    {
+        if (!$request->request->has($fieldName)) {
+            return null;
+        }
+
+        $value = trim((string) $request->request->get($fieldName));
+        if ($value === '') {
+            return self::EDIT_INVALID;
+        }
+
+        return [...$currentPayloadAfter, $payloadKey => $value];
+    }
+
+    /**
+     * @param array<string, mixed> $currentPayloadAfter
+     *
+     * @return array<string, mixed>|string|null
+     */
+    private function extractEditedNumber(Request $request, string $fieldName, string $payloadKey, array $currentPayloadAfter, bool $allowDecimal): array|string|null
+    {
+        if (!$request->request->has($fieldName)) {
+            return null;
+        }
+
+        $raw = trim((string) $request->request->get($fieldName));
+        if ($raw === '' || !is_numeric($raw) || (float) $raw < 0) {
+            return self::EDIT_INVALID;
+        }
+
+        return [...$currentPayloadAfter, $payloadKey => $allowDecimal ? (float) $raw : (int) $raw];
     }
 
     /**
@@ -242,5 +513,13 @@ final readonly class StagedChangesController
     private function formatPrice(mixed $value): string
     {
         return $value !== null ? number_format((float) $value, 2, ',', ' ').' €' : '?';
+    }
+
+    /** Mirrors AdminHookManager::formatUsd() so the Brief header matches the module configuration page's convention. */
+    private static function formatUsd(float $amount): string
+    {
+        $decimals = $amount !== 0.0 && abs($amount) < 0.01 ? 4 : 2;
+
+        return '$'.number_format($amount, $decimals, '.', ' ');
     }
 }
