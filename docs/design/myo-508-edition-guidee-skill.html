@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="fr" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MYO-508 — Maquette « Édition guidée d'une skill »</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    /* --- Reprise des tokens réels de assets/styles/_variables.scss (pas d'invention) --- */
+    :root {
+        --bs-primary: #f26041;
+        --bs-primary-rgb: 242, 96, 65;
+        --bs-secondary: #4f4f4f;
+        --bs-border-radius: .5rem;
+        --bs-border-radius-lg: .625rem;
+        --bs-body-bg: #f4f7fa;
+        --bs-body-color: #4f4f4f;
+        --bs-card-border-radius: .75rem;
+    }
+    body { background: var(--bs-body-bg); color: var(--bs-body-color); font-size: .9rem; padding-bottom: 5rem; }
+    .card { border-radius: .75rem; border-color: #e6e8eb; }
+    .btn { border-radius: .5rem; font-weight: 500; }
+    .btn-primary { background: #f26041; border-color: #f26041; }
+    .btn-primary:hover { background: #be5a1c; border-color: #be5a1c; }
+    .intro-banner { background: #1f2937; color: #fff; }
+    .intro-banner code { color: #ffd8cc; }
+    .intro-banner .bi { color: #ffd8cc; }
+    .dev-note { font-size: .76rem; color: #8a6d3b; background: #fff8ec; border: 1px dashed #e9c46a; border-radius: .5rem; padding: .4rem .6rem; }
+
+    /* --- Tuiles de la bibliothèque de skills : reprise exacte de myo-469-le-brief.html --- */
+    .skill-tile { height: 100%; }
+    .skill-tile__icon { width: 44px; height: 44px; flex: 0 0 44px; }
+    .skill-tile__accept { font-size: 1.1rem; font-weight: 600; }
+
+    /* --- AC2 : segmented control « Ton / registre » --- */
+    .segmented { display: flex; border: 1px solid #dee2e6; border-radius: .5rem; overflow: hidden; }
+    .segmented input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+    .segmented label {
+        flex: 1 1 0; text-align: center; padding: .5rem .5rem; margin: 0; cursor: pointer;
+        font-size: .84rem; font-weight: 500; color: #6c757d; border-right: 1px solid #dee2e6;
+        transition: background-color .1s ease, color .1s ease;
+    }
+    .segmented label:last-child { border-right: 0; }
+    .segmented input[type="radio"]:checked + label { background: #fdece7; color: #b0431f; }
+    .segmented input[type="radio"]:focus-visible + label { outline: 2px solid #f26041; outline-offset: -2px; }
+    .segmented--disabled label { cursor: not-allowed; opacity: .55; }
+    .segmented--disabled input[type="radio"]:checked + label { background: transparent; color: #6c757d; }
+
+    /* --- AC2 : réglage lecture seule (propose/applique) --- */
+    .readonly-setting { background: #f8f9fa; border-radius: .5rem; padding: .6rem .75rem; }
+
+    /* --- AC4 : bandeau de dérive « texte personnalisé » --- */
+    .drift-banner { background: #fff4e5; border: 1px solid #ffd8a8; border-radius: .5rem; }
+    .settings-locked { opacity: .6; }
+    .settings-locked .segmented label,
+    .settings-locked select,
+    .settings-locked input { pointer-events: none; }
+    .settings-locked .js-unlock-row { pointer-events: auto; opacity: 1; }
+
+    .setting-group__label { font-size: .82rem; font-weight: 600; }
+    .setting-group__help { font-size: .78rem; color: #6c757d; }
+    .modal-header .skill-tile__icon { width: 36px; height: 36px; flex: 0 0 36px; }
+</style>
+</head>
+<body>
+
+<div class="intro-banner py-3 px-3 mb-4">
+    <div class="container-fluid">
+        <strong>Maquette statique — MYO-508</strong>
+        <span class="ms-2">Fichier HTML autonome (Bootstrap 5.3 réel chargé en CDN) : les deux boutons <kbd>Réglages guidés</kbd> ouvrent une vraie modale Bootstrap. C'est un écran qui n'existe pas encore — la promesse de la maquette MYO-469 (« vous pourrez l'ajuster ensuite sans jamais toucher au prompt ») n'était nulle part spécifiée avant ce ticket. Il s'ouvre depuis l'onglet <em>Bibliothèque de skills</em> du Brief (<code>myo-469-le-brief.html</code>), pas une nouvelle page indépendante.</span>
+        <div class="mt-2 small">
+            <i class="bi bi-translate me-1" aria-hidden="true"></i>
+            Chaque libellé d'interface porte un attribut <code>data-i18n-key</code> (même convention que les maquettes précédentes). Les encadrés en pointillés jaunes (<code>.dev-note</code>) sont des annotations pour BackendEngineer/FrontendEngineer — ils ne font pas partie de l'écran et ne portent jamais de clé i18n.
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid" style="max-width: 1100px;">
+
+    <h1 class="h5 mb-3">Bibliothèque de skills — deux états démontrés</h1>
+    <p class="text-muted mb-3">Reprend deux tuiles réelles de l'onglet <em>Bibliothèque de skills</em> (<code>myo-469-le-brief.html:354-620</code>), en y ajoutant le bouton d'entrée dans l'édition guidée.</p>
+
+    <div class="row row-cols-1 row-cols-md-2 g-3 mb-5">
+
+        <!-- ==================== État 1 : réglages propres, dérivés du preset ==================== -->
+        <div class="col">
+            <div class="card skill-tile shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="skill-tile__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center">
+                                <i class="bi bi-box-seam fs-5" aria-hidden="true"></i>
+                            </div>
+                            <span class="fw-semibold" data-i18n-key="Skill: Low stock and restock">Stock bas &amp; réassort</span>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" checked aria-label="Activer la compétence Stock bas et réassort">
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mt-3">
+                        <span class="badge text-bg-success-subtle text-success-emphasis" data-i18n-key="Active">Active</span>
+                        <span class="skill-tile__accept text-success">88&nbsp;%</span>
+                    </div>
+                    <div class="text-muted small mt-1">1,20&nbsp;€ / proposition</div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-3 w-100" data-bs-toggle="modal" data-bs-target="#guided-stock" data-i18n-key="Guided settings">
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>Réglages guidés
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== État 2 : role_prompt modifié à la main, dérive détectée ==================== -->
+        <div class="col">
+            <div class="card skill-tile shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="skill-tile__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center">
+                                <i class="bi bi-star-half fs-5" aria-hidden="true"></i>
+                            </div>
+                            <span class="fw-semibold" data-i18n-key="Skill: Review replies">Réponses aux avis</span>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" checked aria-label="Activer la compétence Réponses aux avis">
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mt-3">
+                        <span class="badge text-bg-success-subtle text-success-emphasis" data-i18n-key="Active">Active</span>
+                        <span class="skill-tile__accept text-success">94&nbsp;%</span>
+                    </div>
+                    <div class="text-muted small mt-1" data-i18n-key="Cost per proposal">0,80&nbsp;€ / proposition · <span data-i18n-key="acceptance rate">taux d'acceptation</span></div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-3 w-100" data-bs-toggle="modal" data-bs-target="#guided-reviews" data-i18n-key="Guided settings">
+                        <i class="bi bi-sliders me-1" aria-hidden="true"></i>Réglages guidés
+                    </button>
+                    <div class="dev-note mt-2">Cette tuile démontre l'état « texte personnalisé » (AC4) : quelqu'un a édité <code>role_prompt</code> à la main dans le mode expert.</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ==================== MODALE — État 1 : réglages guidés propres (Stock bas & réassort) ==================== -->
+<div class="modal fade" id="guided-stock" tabindex="-1" aria-labelledby="guided-stock-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="skill-tile__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center">
+                        <i class="bi bi-box-seam" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <h2 class="modal-title h6 mb-0" id="guided-stock-title" data-i18n-key="Guided settings for: Low stock and restock">Réglages guidés — Stock bas &amp; réassort</h2>
+                        <a href="#" class="small text-decoration-none" data-i18n-key="Expert mode (edit the raw prompt)"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Mode expert (éditer le prompt brut)</a>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+
+                <div class="mb-4">
+                    <div class="setting-group__label mb-1" data-i18n-key="Detail level">Niveau de détail</div>
+                    <div class="segmented" role="radiogroup" aria-label="Niveau de détail">
+                        <input type="radio" name="stock-detail" id="stock-detail-concise" checked>
+                        <label for="stock-detail-concise" data-i18n-key="Concise">Concis</label>
+                        <input type="radio" name="stock-detail" id="stock-detail-detailed">
+                        <label for="stock-detail-detailed" data-i18n-key="Detailed">Détaillé</label>
+                    </div>
+                    <div class="setting-group__help mt-1" data-i18n-key="How the restock proposal is written for you to review">Comment la proposition de réassort vous est présentée.</div>
+                    <div class="dev-note mt-1">AC3 : remplace tout <code>role_prompt</code> par une variante complète de <code>AgentPresets::rolePromptVariants</code> (jamais une phrase injectée dans un texte modifiable).</div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6">
+                        <label class="setting-group__label d-block mb-1" for="stock-threshold" data-i18n-key="Alert when remaining stock is at or below">Alerter quand il reste au plus</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="stock-threshold" value="5" min="1" max="50" step="1">
+                            <span class="input-group-text" data-i18n-key="units">unités</span>
+                        </div>
+                        <div class="dev-note mt-1">→ <code>agent_trigger.conditions.threshold</code> (réel, lu par <code>LowStockFinder</code>).</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="setting-group__label d-block mb-1" for="stock-daily-cap" data-i18n-key="No more than this many proposals per day">Pas plus de propositions par jour</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="stock-daily-cap" placeholder="Illimité" min="1" max="100" step="1">
+                        </div>
+                        <div class="dev-note mt-1">→ <code>conditions.max_per_day</code> + comptage sur <code>agent_run</code> (code nouveau, zéro schéma — signalement n°4).</div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="setting-group__label d-block mb-1" for="stock-budget" data-i18n-key="This skill's monthly cap">Plafond mensuel de cette compétence</label>
+                    <div class="input-group" style="max-width: 260px;">
+                        <span class="input-group-text">€</span>
+                        <input type="text" class="form-control" id="stock-budget" placeholder="Illimité (dans le budget boutique)">
+                    </div>
+                    <div class="setting-group__help mt-1" data-i18n-key="Estimate, rate 0.90 of 09/14/2026 — always within the shop-wide budget">Estimation, taux 0,90 du 14/09/2026 · toujours dans le budget boutique global.</div>
+                    <div class="dev-note mt-1">→ <code>agent_definition.monthly_budget_usd</code>, champ déjà réel (section « Options avancées » du wizard expert) — simplement rendu visible ici aussi. Conversion EUR reprise de <code>ModelCatalog::usdToEurRatedAt()</code>, pas réinventée.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="setting-group__label d-block mb-1" for="stock-scope" data-i18n-key="Categories covered">Catégories concernées</label>
+                    <select class="form-select" id="stock-scope" multiple size="3">
+                        <option data-i18n-key="All categories" selected>Toutes les catégories</option>
+                        <option>Chaises</option>
+                        <option>Bureaux</option>
+                        <option>Étagères</option>
+                    </select>
+                    <div class="dev-note mt-1">→ nouvelle classe statique <code>ScopeCatalog</code> (même famille que <code>TriggerCatalog</code>), composée en clause figée ajoutée au <code>role_prompt</code> choisi. Réglage à <strong>écriture seule</strong> : jamais relu depuis le texte pour se pré-remplir (AC4).</div>
+                </div>
+
+                <div class="readonly-setting d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="setting-group__label" data-i18n-key="Proposes or applies">Propose ou applique</div>
+                        <div class="setting-group__help" data-i18n-key="Proposes — you approve each change before it is applied">Propose — vous validez chaque changement avant qu'il ne s'applique.</div>
+                    </div>
+                    <i class="bi bi-lock text-muted" aria-hidden="true" title="Dérivé des capacités de la compétence, non modifiable ici"></i>
+                </div>
+                <div class="dev-note mt-1">AC3 : dérivé de <code>CapabilityCatalog::isStagedChange()</code> sur les capabilities de la skill (<code>inventory.write</code> est staged) — ce n'est pas un réglage, jamais un interrupteur.</div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal" data-i18n-key="Cancel">Annuler</button>
+                <button type="button" class="btn btn-primary" data-i18n-key="Save">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODALE — État 2 : dérive détectée (Réponses aux avis) ==================== -->
+<div class="modal fade" id="guided-reviews" tabindex="-1" aria-labelledby="guided-reviews-title" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="skill-tile__icon rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center">
+                        <i class="bi bi-star-half" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <h2 class="modal-title h6 mb-0" id="guided-reviews-title" data-i18n-key="Guided settings for: Review replies">Réglages guidés — Réponses aux avis</h2>
+                        <a href="#" class="small text-decoration-none" data-i18n-key="Expert mode (edit the raw prompt)"><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>Mode expert (éditer le prompt brut)</a>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+
+                <div class="drift-banner p-3 mb-4 d-flex gap-2">
+                    <i class="bi bi-exclamation-triangle text-warning fs-5" aria-hidden="true"></i>
+                    <div>
+                        <div class="fw-semibold" data-i18n-key="Custom text (expert mode)">Texte personnalisé (mode expert)</div>
+                        <div class="setting-group__help" data-i18n-key="This prompt no longer matches a guided tone. Pick one below to replace it, or keep editing it in expert mode.">Ce texte a été modifié à la main et ne correspond plus à un ton connu. Choisissez un ton ci-dessous pour le remplacer, ou continuez à l'éditer en mode expert.</div>
+                    </div>
+                </div>
+                <div class="dev-note mb-4">AC4 : détection par égalité stricte (texte normalisé) entre <code>role_prompt</code> actuel et les variantes de ton connues du preset. Aucune tentative de « parser » un texte libre — jamais de JSON caché dans le prompt (principe n°1).</div>
+
+                <div class="mb-4 settings-locked">
+                    <div class="setting-group__label mb-1" data-i18n-key="Tone">Ton</div>
+                    <div class="segmented segmented--disabled" role="radiogroup" aria-label="Ton">
+                        <input type="radio" name="reviews-tone" id="reviews-tone-warm" disabled>
+                        <label for="reviews-tone-warm" data-i18n-key="Warm">Chaleureux</label>
+                        <input type="radio" name="reviews-tone" id="reviews-tone-neutral" disabled>
+                        <label for="reviews-tone-neutral" data-i18n-key="Neutral and professional">Neutre et professionnel</label>
+                        <input type="radio" name="reviews-tone" id="reviews-tone-direct" disabled>
+                        <label for="reviews-tone-direct" data-i18n-key="Direct and brief">Direct et bref</label>
+                    </div>
+                    <button type="button" class="btn btn-outline-warning btn-sm mt-2 js-unlock-row" id="js-pick-direct" data-i18n-key="Replace with this tone">
+                        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Remplacer par « Direct et bref »
+                    </button>
+                    <div class="dev-note mt-1">Reprend exactement le pattern et le texte de confirmation du bouton « Reset to preset » déjà en production (<code>_step-role.html.twig:14-19</code>).</div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6">
+                        <label class="setting-group__label d-block mb-1" for="reviews-time" data-i18n-key="Send daily at">Envoyer chaque jour à</label>
+                        <input type="time" class="form-control" id="reviews-time" value="10:00">
+                        <div class="dev-note mt-1">→ <code>agent_trigger.cron_expression</code> — jamais concerné par la dérive du prompt : champ séparé.</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="setting-group__label d-block mb-1" for="reviews-daily-cap" data-i18n-key="No more than this many proposals per day">Pas plus de propositions par jour</label>
+                        <input type="number" class="form-control" id="reviews-daily-cap" placeholder="Illimité" min="1" max="100" step="1">
+                    </div>
+                </div>
+
+                <div class="readonly-setting d-flex align-items-center justify-content-between">
+                    <div>
+                        <div class="setting-group__label" data-i18n-key="Proposes or applies">Propose ou applique</div>
+                        <div class="setting-group__help" data-i18n-key="Proposes — you approve each change before it is applied">Propose — vous validez chaque changement avant qu'il ne s'applique.</div>
+                    </div>
+                    <i class="bi bi-lock text-muted" aria-hidden="true" title="Dérivé des capacités de la compétence, non modifiable ici"></i>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal" data-i18n-key="Cancel">Annuler</button>
+                <button type="button" class="btn btn-primary" disabled data-i18n-key="Save" title="Choisissez d'abord un ton, ou éditez en mode expert">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Convenance de démo uniquement : illustre la confirmation avant remplacement (AC4).
+    // En production ceci réutilise le même flux que le bouton « Reset to preset » existant
+    // (_step-role.html.twig), pas ce script.
+    document.getElementById('js-pick-direct').addEventListener('click', function () {
+        var confirmed = window.confirm('Remplacer ce texte par le ton « Direct et bref » ? Votre texte personnalisé sera perdu.');
+        if (!confirmed) { return; }
+        var row = this.closest('.settings-locked');
+        row.classList.remove('settings-locked');
+        row.querySelectorAll('input[type="radio"]').forEach(function (input) { input.disabled = false; });
+        row.querySelector('.segmented').classList.remove('segmented--disabled');
+        document.getElementById('reviews-tone-direct').checked = true;
+        this.remove();
+        document.querySelector('.drift-banner').remove();
+    });
+</script>
+</body>
+</html>
