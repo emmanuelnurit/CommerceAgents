@@ -276,4 +276,19 @@
         <behavior name="timestampable"/>
     </table>
 
+    <table name="agent_notification_ack" namespace="CommerceAgents\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER"/>
+        <!-- No FK to `admin` (core Thelia table, outside this module's namespace), same convention as
+             agent_staged_change.approved_by. -->
+        <column name="admin_id" required="true" type="INTEGER"/>
+        <column name="source_type" required="true" size="20" type="VARCHAR"/>
+        <column name="source_id" required="true" type="INTEGER"/>
+        <column name="acked_at" type="TIMESTAMP"/>
+        <unique name="uq_agent_notification_ack_admin_source">
+            <unique-column name="admin_id"/>
+            <unique-column name="source_type"/>
+            <unique-column name="source_id"/>
+        </unique>
+    </table>
+
 </database>
