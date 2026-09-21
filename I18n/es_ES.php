@@ -506,7 +506,6 @@ return [
     'Activate a skill in one click. Adjust it later without touching any prompt.' => 'Activa una competencia con un clic. Podrás ajustarla después (tono, umbrales) sin tocar nunca el prompt.',
     'Active' => 'Activa',
     'Not activated yet' => 'Aún no activada',
-    'Coming soon' => 'Próximamente',
     'acceptance rate' => 'tasa de aceptación',
     'Not activated yet, no cost history' => 'Sin historial — nunca activada',
     'Activate %skill%' => 'Activar %skill%',

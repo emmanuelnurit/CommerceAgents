@@ -508,7 +508,6 @@ return [
     'Activate a skill in one click. Adjust it later without touching any prompt.' => 'Activate a skill in one click. Adjust it later without touching any prompt.',
     'Active' => 'Active',
     'Not activated yet' => 'Not activated yet',
-    'Coming soon' => 'Coming soon',
     'acceptance rate' => 'acceptance rate',
     'Not activated yet, no cost history' => 'Not activated yet, no cost history',
     'Activate %skill%' => 'Activate %skill%',

@@ -508,7 +508,6 @@ return [
     'Activate a skill in one click. Adjust it later without touching any prompt.' => 'Activez une compétence en un clic. Vous pourrez l\'ajuster ensuite (ton, seuils) sans jamais toucher au prompt.',
     'Active' => 'Active',
     'Not activated yet' => 'Pas encore activée',
-    'Coming soon' => 'Bientôt',
     'acceptance rate' => 'taux d\'acceptation',
     'Not activated yet, no cost history' => 'Pas d\'historique — jamais activée',
     'Activate %skill%' => 'Activer %skill%',
