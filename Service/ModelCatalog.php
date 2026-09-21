@@ -229,6 +229,17 @@ final readonly class ModelCatalog
     }
 
     /**
+     * Publication date of {@see self::usdToEurRate()}, for merchant-facing
+     * displays that convert a USD figure to EUR (MYO-495 dashboard total):
+     * the rate is a manually maintained snapshot, not a live feed, so any
+     * screen showing an EUR conversion must date it.
+     */
+    public static function usdToEurRatedAt(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable((string) self::bundledCatalog()['rated_at']);
+    }
+
+    /**
      * Freshness date shown under the model picker ("Rates shown in the
      * currency of each provider, as of ...", spec MYO-227 §3.6): the most
      * recent priced_at among the enabled, priced models of the provider.

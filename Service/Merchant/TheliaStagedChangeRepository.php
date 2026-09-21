@@ -146,6 +146,38 @@ final readonly class TheliaStagedChangeRepository implements StagedChangeReposit
             ->count();
     }
 
+    /**
+     * Batched pending-change counter for the dashboard (MYO-489): one
+     * GROUP BY query for every visible agent id instead of N calls to
+     * {@see countPendingForAgent()}, so the caller stays free of N+1.
+     * Uses the existing `idx_agent_staged_change_definition` index.
+     *
+     * @param list<int> $agentDefinitionIds
+     *
+     * @return array<int, int> agent_definition_id => pending count; an agent with zero pending changes is simply absent from the array
+     */
+    public function countPendingByAgentIds(array $agentDefinitionIds): array
+    {
+        if ($agentDefinitionIds === []) {
+            return [];
+        }
+
+        $rows = AgentStagedChangeQuery::create()
+            ->filterByAgentDefinitionId($agentDefinitionIds)
+            ->filterByStatus(StagedChangeData::STATUS_PENDING)
+            ->groupByAgentDefinitionId()
+            ->select(['AgentDefinitionId'])
+            ->withColumn('COUNT(id)', 'PendingCount')
+            ->find();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['AgentDefinitionId']] = (int) $row['PendingCount'];
+        }
+
+        return $counts;
+    }
+
     public function markApplied(int $id, int $approvedBy): void
     {
         $this->mark($id, StagedChangeData::STATUS_APPLIED, $approvedBy, applied: true);
