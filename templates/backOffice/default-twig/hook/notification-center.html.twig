@@ -1,0 +1,79 @@
+{#
+    MYO-485 -- agent notification center (icon + badge + dropdown), anchored by
+    the theme's own `{{ safe_hook('main.topbar-top') }}` in `_top_nav.html.twig`
+    (never modified). Markup mirrors the UX maquette
+    (`docs/design/myo-482-notifications-topbar.html`, MYO-482).
+
+    Renders on every back-office screen, not just CommerceAgents ones, so every
+    string here uses the theme's own 21-locale `translations/messages.<locale>.php`
+    catalog (bare `|trans`, no `'commerceagents'` domain) rather than the module's
+    4-locale one -- see AdminHookManager::onMainTopbarTop().
+
+    All copy is also exposed as data-i18n-* attributes: the panel body is
+    entirely re-rendered client-side on every poll (grouping/counts come from
+    JSON, not a server-rendered fragment), so notification-center.js needs the
+    same strings Twig used for the static skeleton below.
+#}
+<link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/notification-center.css') }}">
+<li class="nav-item dropdown" data-testid="bo-top-nav-agent-notifications"
+    id="bo-agent-notif-root"
+    data-summary-url="{{ summaryUrl }}"
+    data-ack-url="{{ ackUrl }}"
+    data-brief-url="{{ briefUrl }}"
+    data-i18n-title="{{ 'Agent notifications'|trans }}"
+    data-i18n-mobile="{{ 'Notifications'|trans }}"
+    data-i18n-aria-zero="{{ 'Agent notifications: no notification'|trans }}"
+    data-i18n-aria-one="{{ 'Agent notifications: %count% pending action'|trans }}"
+    data-i18n-aria-many="{{ 'Agent notifications: %count% pending actions'|trans }}"
+    data-i18n-stale-suffix="{{ 'data not refreshed'|trans }}"
+    data-i18n-live-one="{{ '%count% new agent notification'|trans }}"
+    data-i18n-live-many="{{ '%count% new agent notifications'|trans }}"
+    data-i18n-mark-all="{{ 'Mark all as read'|trans }}"
+    data-i18n-group-validation="{{ 'Pending validation'|trans }}"
+    data-i18n-group-brief="{{ 'From the Brief'|trans }}"
+    data-i18n-group-message="{{ 'Agent messages'|trans }}"
+    data-i18n-empty-zero="{{ 'Nothing pending. You\'re all caught up.'|trans }}"
+    data-i18n-empty-ack="{{ 'All caught up — nice work.'|trans }}"
+    data-i18n-loading="{{ 'Loading notifications…'|trans }}"
+    data-i18n-error="{{ 'Notifications could not be loaded.'|trans }}"
+    data-i18n-retry="{{ 'Retry'|trans }}"
+    data-i18n-see-all="{{ 'See everything in the Brief'|trans }}"
+    data-i18n-more="{{ '%count% more'|trans }}">
+    <button type="button"
+            id="bo-agent-notif-toggle"
+            class="nav-link bo-agent-notif-toggle d-flex align-items-center border-0 bg-transparent"
+            data-bs-toggle="dropdown"
+            data-bs-auto-close="true"
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-controls="bo-agent-notif-panel"
+            aria-label="{{ 'Agent notifications: no notification'|trans }}">
+        <i class="bi bi-bell fs-5" aria-hidden="true"></i>
+        <span class="d-md-none ms-1">{{ 'Notifications'|trans }}</span>
+        <span class="badge rounded-pill bg-danger d-none" id="bo-agent-notif-badge"></span>
+        <span class="bo-agent-notif-toggle__stale d-none" id="bo-agent-notif-stale" aria-hidden="true"></span>
+    </button>
+
+    <div class="dropdown-menu dropdown-menu-end shadow-sm bo-agent-notif-panel"
+         id="bo-agent-notif-panel"
+         role="dialog"
+         aria-modal="false"
+         aria-labelledby="bo-agent-notif-title">
+        <div class="bo-agent-notif-panel__header d-flex align-items-center justify-content-between px-3 py-2">
+            <span id="bo-agent-notif-title" class="fw-semibold"><i class="bi bi-bell me-1" aria-hidden="true"></i>{{ 'Agent notifications'|trans }}</span>
+            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none d-none" id="bo-agent-notif-mark-all">{{ 'Mark all as read'|trans }}</button>
+        </div>
+        <div class="bo-agent-notif-panel__body" id="bo-agent-notif-body">
+            <div class="px-3 py-3" data-role="initial-skeleton">
+                <div class="placeholder-glow mb-3"><span class="placeholder col-4 mb-1 d-block"></span><span class="placeholder col-10 d-block"></span></div>
+                <div class="placeholder-glow"><span class="placeholder col-4 mb-1 d-block"></span><span class="placeholder col-8 d-block"></span></div>
+            </div>
+        </div>
+        <div class="border-top px-3 py-2 text-center d-none" id="bo-agent-notif-footer">
+            <a href="{{ briefUrl }}" class="small">{{ 'See everything in the Brief'|trans }}</a>
+        </div>
+    </div>
+</li>
+<div aria-live="polite" aria-atomic="true" class="visually-hidden" id="bo-agent-notif-live"></div>
+
+<script src="{{ module_asset('CommerceAgents', 'assets/js/notification-center.js') }}"></script>

@@ -1,0 +1,132 @@
+/* MYO-485 -- agent notification center (topbar BO). Classes and layout lifted
+   from the UX maquette (docs/design/myo-482-notifications-topbar.html,
+   MYO-482): only the custom bits Bootstrap 5.3 utilities don't already cover
+   (badge positioning, panel sizing, item line-clamp). Everything else reuses
+   Bootstrap tokens (--bs-*) already defined by the theme, not hardcoded
+   colors -- see the maquette's own note on reusing _variables.scss. */
+
+.bo-agent-notif-toggle {
+    position: relative;
+}
+
+.bo-agent-notif-toggle .badge {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    transform: translate(-50%, -50%);
+    font-size: .62rem;
+    min-width: 1.2rem;
+    padding: .28em .4em;
+    line-height: 1;
+    border: 2px solid var(--bs-body-bg, #fff);
+}
+
+.bo-agent-notif-toggle__stale {
+    position: absolute;
+    bottom: 2px;
+    left: 100%;
+    transform: translate(-90%, 0);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fd7e14;
+    border: 2px solid var(--bs-body-bg, #fff);
+}
+
+.bo-agent-notif-panel {
+    min-width: 340px;
+    max-width: 400px;
+    padding: 0;
+}
+
+.bo-agent-notif-panel__header {
+    position: sticky;
+    top: 0;
+    background: var(--bs-body-tertiary-bg, #fff);
+    border-bottom: 1px solid var(--bs-border-color);
+    z-index: 1;
+}
+
+.bo-agent-notif-panel__body {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.bo-agent-notif-group__label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.bo-agent-notif-group--validation .bo-agent-notif-group__label {
+    color: #b02a02;
+}
+
+.bo-agent-notif-item {
+    display: flex;
+    gap: .65rem;
+    padding: .6rem .9rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color .1s ease, opacity .15s ease, transform .15s ease;
+}
+
+.bo-agent-notif-item:hover,
+.bo-agent-notif-item:focus-visible {
+    background: var(--bs-tertiary-bg, #f4f7fa);
+    color: inherit;
+}
+
+.bo-agent-notif-item.is-leaving {
+    opacity: 0;
+    transform: translateX(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Same rule as main.scss:1272-1280 (MYO-469): no transition in reduced-motion mode. */
+    .bo-agent-notif-item {
+        transition: none !important;
+    }
+
+    .bo-agent-notif-item.is-leaving {
+        transform: none;
+    }
+}
+
+.bo-agent-notif-item__icon {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.bo-agent-notif-item__title {
+    font-weight: 600;
+    font-size: .85rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bo-agent-notif-item__time {
+    font-size: .72rem;
+    color: var(--bs-secondary-color, #6c757d);
+    white-space: nowrap;
+}
+
+.bo-agent-notif-empty {
+    padding: 2.25rem 1.5rem;
+    text-align: center;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.bo-agent-notif-empty .bi {
+    font-size: 1.75rem;
+}

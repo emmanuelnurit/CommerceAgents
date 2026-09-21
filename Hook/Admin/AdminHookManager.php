@@ -80,7 +80,32 @@ class AdminHookManager extends BaseHook
             'module.config-js' => [['type' => 'back', 'method' => 'onModuleConfigJs']],
             'main.footer-js' => [['type' => 'back', 'method' => 'onMainFooterJs']],
             'main.before-content' => [['type' => 'back', 'method' => 'onMainBeforeContent']],
+            'main.topbar-top' => [['type' => 'back', 'method' => 'onMainTopbarTop']],
         ];
+    }
+
+    /**
+     * MYO-485: agent notification center (icon + badge + dropdown), anchored
+     * by the theme's own {@see \safe_hook('main.topbar-top')} in
+     * `_top_nav.html.twig` -- that file is never touched, this listener is
+     * the only thing that makes the anchor render something. Renders on
+     * every back-office screen (not gated by {@see isCommerceAgentsScreen()}
+     * like the locale banner), so its i18n rides the theme's own 21-locale
+     * `translations/messages.<locale>.php` catalog (bare `|trans`, no
+     * `'commerceagents'` domain) instead of the module's 4-locale one --
+     * see the Twig template.
+     */
+    public function onMainTopbarTop(HookRenderEvent $event): void
+    {
+        if (!$this->securityContext->isGranted(['ADMIN'], [], ['commerceagents'], [AccessManager::VIEW])) {
+            return;
+        }
+
+        $event->add($this->twig->render('@CommerceAgentsModule/backOffice/default-twig/hook/notification-center.html.twig', [
+            'summaryUrl' => $this->urlGenerator->generate('commerceagents_notifications'),
+            'ackUrl' => $this->urlGenerator->generate('commerceagents_notifications_ack'),
+            'briefUrl' => $this->urlGenerator->generate('commerceagents_changes'),
+        ]));
     }
 
     /**
