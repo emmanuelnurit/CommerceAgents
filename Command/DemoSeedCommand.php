@@ -26,10 +26,17 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Thelia\Condition\ConditionCollection;
+use Thelia\Condition\ConditionFactory;
+use Thelia\Condition\Implementation\MatchForTotalAmount;
+use Thelia\Condition\Operators;
+use Thelia\Domain\Promotion\Coupon\FacadeInterface as CouponFacadeInterface;
 use Thelia\Model\Address;
 use Thelia\Model\AddressQuery;
 use Thelia\Model\AdminQuery;
 use Thelia\Model\Cart;
+use Thelia\Model\Coupon;
+use Thelia\Model\CouponQuery;
 use Thelia\Model\Currency;
 use Thelia\Model\CurrencyQuery;
 use Thelia\Model\Customer;
@@ -86,12 +93,21 @@ final class DemoSeedCommand extends Command
     private const VELOCITY_CART_TOKEN_PREFIX = 'demo-seed-velocity-';
     private const RUN_DEDUP_KEY = 'myo468_demo_seed';
 
+    private const WELCOME_COUPON_CODE = 'WELCOME10';
+    private const WELCOME_COUPON_MIN_AMOUNT = 25.0;
+    private const TIER_COUPONS = [
+        ['code' => 'PALIER50', 'percentage' => 10, 'threshold' => 50.0, 'titleFr' => 'Palier fidélité : -10% dès 50€', 'titleEn' => 'Loyalty tier: -10% from €50'],
+        ['code' => 'PALIER90', 'percentage' => 15, 'threshold' => 90.0, 'titleFr' => 'Palier fidélité : -15% dès 90€', 'titleEn' => 'Loyalty tier: -15% from €90'],
+    ];
+
     public function __construct(
         private readonly ModuleAvailabilityInterface $moduleAvailability,
         private readonly AgentDefinitionManager $agentManager,
         private readonly ConversationService $conversationService,
         private readonly StagingGatewayInterface $stagingGateway,
         private readonly RouterInterface $router,
+        private readonly ConditionFactory $conditionFactory,
+        private readonly CouponFacadeInterface $couponFacade,
     ) {
         parent::__construct();
     }
@@ -124,6 +140,7 @@ final class DemoSeedCommand extends Command
         $reviewCount = $this->seedReviews($output);
         [$heroProduct, $heroPse] = $this->seedHeroCampaign($output);
         $stagedCount = $this->seedStagedChanges($output, $adminId, $heroPse);
+        $this->seedCouponScenarios($output);
 
         $output->writeln('');
         $output->writeln(\sprintf(
@@ -710,5 +727,76 @@ final class DemoSeedCommand extends Command
             ->setStartedAt($now)
             ->setFinishedAt($now)
             ->save();
+    }
+
+    // ------------------------------------------------------------------
+    // Opt-in visitor scenarios (board request on MYO-467, 2026-09-21 evening):
+    // WelcomeCouponScenarioResolver / CartCouponScenarioResolver read real
+    // Coupon rows — nothing to build here, only credible data. The core
+    // demo (`thelia:demo:import` -> CouponsImporter) already creates
+    // WELCOME10 with a "welcome" keyword in its title, but with an empty
+    // condition collection (no minimum-amount condition); the board asked
+    // for one explicitly. The 2 amount-tier coupons it also asked for do
+    // not exist anywhere in the core demo data.
+    // ------------------------------------------------------------------
+
+    private function seedCouponScenarios(OutputInterface $output): void
+    {
+        $currencyCode = CurrencyQuery::create()->filterByByDefault(1)->findOne()?->getCode() ?? 'EUR';
+
+        $welcome = CouponQuery::create()->filterByCode(self::WELCOME_COUPON_CODE)->findOne();
+        if ($welcome !== null) {
+            $welcome->setSerializedConditions($this->amountConditions(self::WELCOME_COUPON_MIN_AMOUNT, $currencyCode))->save();
+            $output->writeln(\sprintf('Welcome coupon "%s": minimum-amount condition set (>= %.0f%s).', self::WELCOME_COUPON_CODE, self::WELCOME_COUPON_MIN_AMOUNT, $currencyCode));
+        } else {
+            $output->writeln(\sprintf('<comment>Coupon %s not found (was "thelia:demo:import" run with --with-demo?) — welcome scenario left unconfigured.</comment>', self::WELCOME_COUPON_CODE));
+        }
+
+        $created = 0;
+        foreach (self::TIER_COUPONS as $tier) {
+            if (CouponQuery::create()->filterByCode($tier['code'])->exists()) {
+                continue;
+            }
+
+            $coupon = new Coupon();
+            $coupon->setCode($tier['code']);
+            $coupon->setType('thelia.coupon.type.remove_x_percent');
+            $coupon->setSerializedEffects(json_encode(['percentage' => $tier['percentage']], \JSON_THROW_ON_ERROR));
+            $coupon->setIsEnabled(true);
+            $coupon->setExpirationDate(new \DateTime('+1 year'));
+            $coupon->setMaxUsage(Coupon::UNLIMITED_COUPON_USE);
+            $coupon->setIsCumulative(false);
+            $coupon->setIsRemovingPostage(false);
+            $coupon->setIsAvailableOnSpecialOffers(true);
+            $coupon->setIsUsed(false);
+            $coupon->setPerCustomerUsageCount(false);
+            $coupon->setSerializedConditions($this->amountConditions((float) $tier['threshold'], $currencyCode));
+            $coupon
+                ->setLocale('fr_FR')->setTitle($tier['titleFr'])->setShortDescription($tier['titleFr'])->setDescription('')
+                ->setLocale('en_US')->setTitle($tier['titleEn'])->setShortDescription($tier['titleEn'])->setDescription('');
+            $coupon->save();
+            ++$created;
+        }
+
+        $output->writeln(\sprintf('Amount-tier coupons: %d newly created (target: %s).', $created, implode(', ', array_column(self::TIER_COUPONS, 'code'))));
+    }
+
+    private function amountConditions(float $threshold, string $currencyCode): string
+    {
+        $condition = (new MatchForTotalAmount($this->couponFacade))->setValidatorsFromForm(
+            [
+                MatchForTotalAmount::CART_TOTAL => Operators::SUPERIOR_OR_EQUAL,
+                MatchForTotalAmount::CART_CURRENCY => Operators::EQUAL,
+            ],
+            [
+                MatchForTotalAmount::CART_TOTAL => (string) $threshold,
+                MatchForTotalAmount::CART_CURRENCY => $currencyCode,
+            ],
+        );
+
+        $collection = new ConditionCollection();
+        $collection[] = $condition;
+
+        return $this->conditionFactory->serializeConditionCollection($collection);
     }
 }
