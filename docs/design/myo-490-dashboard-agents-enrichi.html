@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="fr" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MYO-490 — Concept dashboard agents enrichi</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    /* --- Reprise des tokens réels de assets/styles/_variables.scss (pas d'invention, cf. MYO-469) --- */
+    :root {
+        --bs-primary: #f26041;
+        --bs-primary-rgb: 242, 96, 65;
+        --bs-border-radius: .5rem;
+        --bs-border-radius-lg: .625rem;
+        --bs-body-bg: #f4f7fa;
+        --bs-body-color: #4f4f4f;
+        --bs-card-border-radius: .75rem;
+    }
+    body { background: var(--bs-body-bg); color: var(--bs-body-color); font-size: .9rem; padding-bottom: 6rem; }
+    .card { border-radius: .75rem; border-color: #e6e8eb; }
+    .btn { border-radius: .5rem; font-weight: 500; }
+    .btn-primary { background: #f26041; border-color: #f26041; }
+    .btn-primary:hover { background: #be5a1c; border-color: #be5a1c; }
+    .intro-banner { background: #1f2937; color: #fff; }
+    .intro-banner code { color: #ffd8cc; }
+    .intro-banner .bi { color: #ffd8cc; }
+    .section-title { font-size: 1rem; font-weight: 600; margin: 2.5rem 0 .75rem; display: flex; align-items: center; gap: .5rem; }
+    .section-title .badge { font-weight: 500; }
+    .section-note { font-size: .82rem; color: #6c757d; margin-bottom: 1rem; }
+
+    /* --- Bandeau KPI (reprend exactement bo-kpi de Dashboard.html.twig) --- */
+    .bo-kpi { border-radius: .75rem; }
+    .bo-kpi__delta { font-size: .78rem; font-weight: 600; display: inline-flex; align-items: center; }
+    .bo-kpi__delta--up { color: #198754; }
+    .bo-kpi__delta--down { color: #dc3545; }
+    .bo-kpi__delta--flat { color: #6c757d; }
+    .bo-kpi__budget-bar { height: 4px; border-radius: 2px; background: #e9ecef; overflow: hidden; margin-top: .5rem; }
+    .bo-kpi__budget-fill { height: 100%; }
+    .bo-kpi__budget-fill--ok { background: #198754; }
+    .bo-kpi__budget-fill--watch { background: #fd7e14; }
+    .bo-kpi__budget-fill--over { background: #dc3545; }
+
+    /* --- Carte agent (reprend agent-row de Dashboard.html.twig) --- */
+    .agent-row { padding: .65rem 1rem; }
+    .agent-row__main { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+    .agent-row__identity { display: flex; align-items: center; gap: .5rem; flex: 0 0 auto; min-width: 140px; max-width: 200px; }
+    .agent-row__status { flex: 0 0 auto; min-width: 150px; }
+    .agent-row__pending { flex: 0 0 auto; }
+    .agent-row__pending .btn { font-size: .76rem; padding: .2rem .55rem; }
+    .agent-row__action { flex: 1 1 220px; min-width: 0; }
+    .agent-row__task { flex: 1 1 200px; min-width: 0; }
+    .agent-row__ctas { display: flex; gap: .25rem; margin-left: auto; }
+    .agent-row__cta { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: .4rem; color: #6c757d; text-decoration: none; border: 1px solid transparent; }
+    .agent-row__cta:hover { background: #f4f7fa; color: #f26041; }
+    .agent-row--degraded { background: #fffaf5; }
+
+    /* --- États vides / dégradés --- */
+    .state-demo { border: 1px dashed #d8dce1; border-radius: .75rem; padding: 1rem; background: #fff; }
+    .state-demo__label { font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; color: #9aa1a9; margin-bottom: .5rem; }
+    .placeholder-row .placeholder { border-radius: .375rem; }
+
+    /* --- Page agent dédiée (aperçu d'en-tête) --- */
+    .agent-detail-header { background: #fff; border-radius: .75rem; }
+    .agent-detail-metric__value { font-size: 1.25rem; font-weight: 600; line-height: 1.1; }
+    .agent-detail-metric__label { font-size: .76rem; color: #6c757d; }
+</style>
+</head>
+<body>
+
+<div class="intro-banner py-3 px-3 mb-4">
+    <div class="container-fluid">
+        <strong>Maquette statique — MYO-490</strong>
+        <span class="ms-2">Fichier HTML autonome (Bootstrap 5.3 réel en CDN), même convention que la maquette MYO-469 « Le Brief ». Ce n'est pas une nouvelle page : c'est une évolution du bandeau KPI et du bloc « Agents IA » de <code>Dashboard.html.twig</code>, plus un aperçu de l'en-tête à ajouter sur la page agent existante (<code>agents/show.html.twig</code>).</span>
+        <div class="mt-2 small">
+            <i class="bi bi-translate me-1" aria-hidden="true"></i>
+            Chaque libellé porte un attribut <code>data-i18n-key</code> (clé = texte source anglais, convention <code>changes.html.twig</code>/MYO-469). Les valeurs chiffrées (montants, compteurs) sont des données, pas des clés de catalogue.
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid" style="max-width: 1100px;">
+
+    <!-- ==================== A. Bandeau KPI global — remonte le coût total et le total à valider ==================== -->
+    <div class="section-title"><i class="bi bi-graph-up-arrow text-primary" aria-hidden="true"></i> A — Bandeau KPI global (existant, 2 tuiles ajoutées) <span class="badge text-bg-light">réutilise <code>bo-kpi</code></span></div>
+    <p class="section-note">Ces deux tuiles s'ajoutent à la ligne <code>data.kpis</code> déjà présente sous le bloc « Agents IA » (revenus, commandes, …) — même composant, même grille <code>row-cols-xl-5</code>, aucun nouveau pattern visuel. C'est la seule chose du coût qui « remonte » au niveau du dashboard entier ; le détail par agent reste sur la carte et sur la page agent (sections B et D).</p>
+
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-5 g-3 mb-3" data-testid="dashboard-kpis">
+        <!-- Tuile existante, pour contexte visuel -->
+        <div class="col">
+            <div class="card h-100 shadow-sm border-0 bo-kpi text-body">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div class="rounded-circle bg-success-subtle text-success-emphasis d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-currency-euro fs-5" aria-hidden="true"></i></div>
+                        <span class="bo-kpi__delta bo-kpi__delta--up"><i class="bi bi-arrow-up-short" aria-hidden="true"></i>4,2 %</span>
+                    </div>
+                    <div class="text-muted small mt-3" data-i18n-key="Revenue">Chiffre d'affaires</div>
+                    <div class="h4 mb-0 fw-semibold">12 480 €</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOUVEAU — coût IA total, mois calendaire en cours -->
+        <div class="col">
+            <a href="#" class="card h-100 shadow-sm border-0 bo-kpi text-decoration-none text-body" data-testid="dashboard-ai-cost">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div class="rounded-circle bg-primary-subtle text-primary-emphasis d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-robot fs-5" aria-hidden="true"></i></div>
+                        <span class="bo-kpi__action text-primary" aria-hidden="true"><i class="bi bi-chevron-right"></i></span>
+                    </div>
+                    <div class="text-muted small mt-3" data-i18n-key="AI cost this month">Coût IA ce mois-ci</div>
+                    <div class="h4 mb-0 fw-semibold">8,40&nbsp;€ <span class="fs-6 fw-normal text-muted" data-i18n-key="of budget">/ 20&nbsp;€</span></div>
+                    <div class="bo-kpi__budget-bar"><div class="bo-kpi__budget-fill bo-kpi__budget-fill--ok" style="width: 42%;"></div></div>
+                </div>
+            </a>
+        </div>
+
+        <!-- NOUVEAU — même tuile, variante "vigilance" (≥ 80% du budget) -->
+        <div class="col">
+            <a href="#" class="card h-100 shadow-sm border-0 bo-kpi text-decoration-none text-body" data-testid="dashboard-ai-cost-watch">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div class="rounded-circle bg-warning-subtle text-warning-emphasis d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-robot fs-5" aria-hidden="true"></i></div>
+                        <span class="text-warning-emphasis small fw-semibold"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i><span data-i18n-key="Nearing budget">Proche du budget</span></span>
+                    </div>
+                    <div class="text-muted small mt-3" data-i18n-key="AI cost this month">Coût IA ce mois-ci</div>
+                    <div class="h4 mb-0 fw-semibold">17,10&nbsp;€ <span class="fs-6 fw-normal text-muted" data-i18n-key="of budget">/ 20&nbsp;€</span></div>
+                    <div class="bo-kpi__budget-bar"><div class="bo-kpi__budget-fill bo-kpi__budget-fill--watch" style="width: 85%;"></div></div>
+                </div>
+            </a>
+        </div>
+
+        <!-- NOUVEAU — validations en attente, file UNIFIÉE staged_change + outbound_message -->
+        <div class="col">
+            <a href="#" class="card h-100 shadow-sm border-0 bo-kpi text-decoration-none text-body" data-testid="dashboard-pending-validations">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div class="rounded-circle bg-danger-subtle text-danger-emphasis d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-clipboard-check fs-5" aria-hidden="true"></i></div>
+                        <span class="bo-kpi__action text-danger" aria-hidden="true"><i class="bi bi-chevron-right"></i></span>
+                    </div>
+                    <div class="text-muted small mt-3" data-i18n-key="Pending your approval">À valider</div>
+                    <div class="h4 mb-0 fw-semibold">5</div>
+                    <div class="text-muted small" data-i18n-key="Go to the Brief">Voir dans Le Brief</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ==================== B. Carte agent enrichie ==================== -->
+    <div class="section-title"><i class="bi bi-robot text-primary" aria-hidden="true"></i> B — Bloc « Agents IA » (carte inchangée + 1 signal ajouté) <span class="badge text-bg-light">file unifiée</span></div>
+    <p class="section-note">
+        La carte garde exactement ce que MYO-294 a dégraissé : nom, statut métier, 1 dernière action, 1 prochaine échéance, les 3 raccourcis (historique / configurer / lancer). Le <strong>seul</strong> ajout est un badge « N à valider », qui fusionne <code>agent_staged_change</code> en attente et <code>agent_outbound_message</code> en attente pour <em>cet agent</em> — voir l'argumentaire « deux files ou une » dans le commentaire de synthèse. Le badge est absent quand N = 0 (pas de "0" affiché, cf. MYO-482 §1.1). Le coût par agent <strong>n'est pas</strong> sur la carte — il est one tap plus loin, sur la page agent (section D), pour ne pas raviver le fourre-tout que MYO-294 a corrigé.
+    </p>
+
+    <div class="card h-100 border-0 agent-block shadow-sm">
+        <div class="card-header bg-body-tertiary d-flex align-items-center justify-content-between py-2">
+            <h2 class="h6 mb-0"><i class="bi bi-robot me-2 text-primary" aria-hidden="true"></i>Agents IA</h2>
+            <a href="#" class="btn btn-sm btn-outline-secondary">Gérer <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+        </div>
+        <div class="list-group list-group-flush">
+
+            <!-- Carte 1 — agent avec des validations en attente (staged_change + outbound_message mélangés) -->
+            <div class="list-group-item agent-row" data-testid="dashboard-agent-card">
+                <div class="agent-row__main">
+                    <div class="agent-row__identity text-truncate">
+                        <span class="agent-icon rounded-circle bg-primary-subtle text-primary-emphasis d-flex align-items-center justify-content-center flex-shrink-0" style="width:24px;height:24px;font-size:.75rem;"><i class="bi bi-robot" aria-hidden="true"></i></span>
+                        <span class="fw-semibold text-truncate">Agent SAV</span>
+                    </div>
+                    <div class="agent-row__status">
+                        <span class="d-inline-flex align-items-center gap-1 small text-primary-emphasis"><i class="bi bi-arrow-repeat" aria-hidden="true"></i>Rédaction en cours</span>
+                    </div>
+                    <div class="agent-row__pending">
+                        <a href="#" class="btn btn-outline-danger" data-testid="dashboard-agent-pending" title="3 propositions et messages en attente de votre validation">
+                            <i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>3&nbsp;<span data-i18n-key="to validate">à valider</span>
+                        </a>
+                    </div>
+                    <div class="agent-row__action text-truncate small text-muted">
+                        <i class="bi bi-clock-history me-1" aria-hidden="true"></i><span class="text-truncate">Réponse envoyée à l'avis 2★ sur Chaise Lina</span>
+                    </div>
+                    <div class="agent-row__task text-truncate small text-muted">
+                        <i class="bi bi-calendar-event me-1" aria-hidden="true"></i><span class="text-truncate">Relance paniers abandonnés</span> <time class="text-nowrap ms-1">dans 2 h</time>
+                    </div>
+                    <div class="agent-row__ctas">
+                        <a href="#" class="agent-row__cta" title="Historique"><i class="bi bi-clock-history" aria-hidden="true"></i></a>
+                        <a href="#" class="agent-row__cta" title="Configurer"><i class="bi bi-gear" aria-hidden="true"></i></a>
+                        <a href="#" class="agent-row__cta" title="Lancer maintenant"><i class="bi bi-play-circle" aria-hidden="true"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carte 2 — agent sain, rien en attente : pas de badge du tout -->
+            <div class="list-group-item agent-row" data-testid="dashboard-agent-card">
+                <div class="agent-row__main">
+                    <div class="agent-row__identity text-truncate">
+                        <span class="agent-icon rounded-circle bg-primary-subtle text-primary-emphasis d-flex align-items-center justify-content-center flex-shrink-0" style="width:24px;height:24px;font-size:.75rem;"><i class="bi bi-robot" aria-hidden="true"></i></span>
+                        <span class="fw-semibold text-truncate">Agent Réassort</span>
+                    </div>
+                    <div class="agent-row__status">
+                        <span class="d-inline-flex align-items-center gap-1 small text-secondary-emphasis"><i class="bi bi-hourglass-split" aria-hidden="true"></i>En attente</span>
+                    </div>
+                    <div class="agent-row__pending"><!-- vide : aucun badge, aucun "0" --></div>
+                    <div class="agent-row__action text-truncate small text-muted">
+                        <i class="bi bi-clock-history me-1" aria-hidden="true"></i><span class="text-truncate">Alerte de rupture envoyée pour Bureau Oslo</span>
+                    </div>
+                    <div class="agent-row__task text-truncate small text-muted">
+                        <i class="bi bi-calendar-event me-1" aria-hidden="true"></i><span class="text-truncate">Vérification stock hebdomadaire</span> <time class="text-nowrap ms-1">demain 09:00</time>
+                    </div>
+                    <div class="agent-row__ctas">
+                        <a href="#" class="agent-row__cta" title="Historique"><i class="bi bi-clock-history" aria-hidden="true"></i></a>
+                        <a href="#" class="agent-row__cta" title="Configurer"><i class="bi bi-gear" aria-hidden="true"></i></a>
+                        <a href="#" class="agent-row__cta" title="Lancer maintenant"><i class="bi bi-play-circle" aria-hidden="true"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carte 3 — agent en pause suite à échecs consécutifs (état dégradé déjà existant, pour contexte) -->
+            <div class="list-group-item agent-row agent-row--degraded" data-testid="dashboard-agent-card">
+                <div class="agent-row__main">
+                    <div class="agent-row__identity text-truncate">
+                        <span class="agent-icon rounded-circle bg-primary-subtle text-primary-emphasis d-flex align-items-center justify-content-center flex-shrink-0" style="width:24px;height:24px;font-size:.75rem;"><i class="bi bi-robot" aria-hidden="true"></i></span>
+                        <span class="fw-semibold text-truncate">Agent Merchandising</span>
+                    </div>
+                    <div class="agent-row__status">
+                        <span class="d-inline-flex align-items-center gap-1 small text-warning-emphasis"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>En pause (échecs)</span>
+                    </div>
+                    <div class="agent-row__pending"><!-- un agent en pause n'accumule pas de validations tant qu'il ne tourne pas --></div>
+                    <div class="agent-row__action text-truncate small text-muted">
+                        <i class="bi bi-exclamation-triangle text-danger me-1" aria-hidden="true"></i><span class="visually-hidden">Échec : </span><span class="text-truncate">Erreur d'appel au fournisseur de prix</span>
+                    </div>
+                    <div class="agent-row__ctas">
+                        <a href="#" class="agent-row__cta" title="Historique"><i class="bi bi-clock-history" aria-hidden="true"></i></a>
+                        <a href="#" class="agent-row__cta" title="Configurer"><i class="bi bi-gear" aria-hidden="true"></i></a>
+                        <button type="button" class="agent-row__cta" disabled title="Agent désactivé"><i class="bi bi-play-circle" aria-hidden="true"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== C. États vides et dégradés ==================== -->
+    <div class="section-title"><i class="bi bi-life-preserver text-primary" aria-hidden="true"></i> C — États vides et dégradés (à charge du dev, dessinés ici)</div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="state-demo h-100">
+                <div class="state-demo__label">Aucune dépense sur la période</div>
+                <div class="card h-100 shadow-sm border-0 bo-kpi">
+                    <div class="card-body">
+                        <div class="rounded-circle bg-primary-subtle text-primary-emphasis d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-robot fs-5" aria-hidden="true"></i></div>
+                        <div class="text-muted small mt-3">Coût IA ce mois-ci</div>
+                        <div class="h4 mb-0 fw-semibold">0,00&nbsp;€ <span class="fs-6 fw-normal text-muted">/ 20&nbsp;€</span></div>
+                        <div class="bo-kpi__budget-bar"><div class="bo-kpi__budget-fill bo-kpi__budget-fill--ok" style="width: 0%;"></div></div>
+                    </div>
+                </div>
+                <p class="section-note mb-0 mt-2">La tuile reste affichée avec « 0,00&nbsp;€ » — jamais masquée. Une absence de tuile se lirait comme un module cassé (Occam's Razor / cohérence des attentes), alors que « 0 » est une vraie réponse rassurante.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="state-demo h-100">
+                <div class="state-demo__label">Aucun budget mensuel configuré (aucune limite)</div>
+                <div class="card h-100 shadow-sm border-0 bo-kpi">
+                    <div class="card-body">
+                        <div class="rounded-circle bg-primary-subtle text-primary-emphasis d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-robot fs-5" aria-hidden="true"></i></div>
+                        <div class="text-muted small mt-3">Coût IA ce mois-ci</div>
+                        <div class="h4 mb-0 fw-semibold">8,40&nbsp;€</div>
+                        <div class="text-muted small mt-1"><i class="bi bi-gear me-1" aria-hidden="true"></i>Aucun plafond défini</div>
+                    </div>
+                </div>
+                <p class="section-note mb-0 mt-2">Sans <code>monthly_budget_usd</code> renseigné (<code>AgentConfigService::getMonthlyBudgetUsd()</code> = 0), pas de barre de progression ni de "/ X €" — on n'invente pas un plafond qui n'existe pas. Lien direct vers la config du budget plutôt qu'une barre à 0 % trompeuse.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="state-demo h-100">
+                <div class="state-demo__label">Chargement (1ᵉʳ affichage du dashboard)</div>
+                <div class="card h-100 shadow-sm border-0 bo-kpi">
+                    <div class="card-body placeholder-row" aria-hidden="true">
+                        <div class="rounded-circle bg-secondary-subtle d-flex align-items-center justify-content-center" style="width:40px;height:40px;"></div>
+                        <span class="placeholder col-6 mt-3 d-block"></span>
+                        <span class="placeholder col-4 mt-2 d-block" style="height:1.5rem;"></span>
+                    </div>
+                </div>
+                <p class="section-note mb-0 mt-2">Squelette Bootstrap standard (<code>placeholder-glow</code>), même famille que les autres tuiles KPI du dashboard — pas de nouveau pattern de chargement.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="state-demo h-100">
+                <div class="state-demo__label">Erreur de récupération du coût</div>
+                <div class="card h-100 shadow-sm border-0 bo-kpi">
+                    <div class="card-body">
+                        <div class="rounded-circle bg-secondary-subtle text-secondary-emphasis d-flex align-items-center justify-content-center" style="width:40px;height:40px;"><i class="bi bi-robot fs-5" aria-hidden="true"></i></div>
+                        <div class="text-muted small mt-3">Coût IA ce mois-ci</div>
+                        <div class="h5 mb-0 fw-semibold text-muted">Indisponible <i class="bi bi-exclamation-circle text-warning ms-1" aria-hidden="true"></i></div>
+                        <div class="text-muted small mt-1">Dernière valeur connue : 8,40&nbsp;€ (il y a 1&nbsp;h)</div>
+                    </div>
+                </div>
+                <p class="section-note mb-0 mt-2">Jamais de "0 €" en cas d'échec de requête — afficherait un budget sain à tort (Loss Aversion, même principe que l'état d'erreur de <code>agent-notif-panel</code> en MYO-482). On montre la dernière valeur connue, horodatée, plutôt qu'un silence.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="state-demo h-100">
+                <div class="state-demo__label">Aucun agent configuré (état déjà existant — pour mémoire)</div>
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-header bg-body-tertiary d-flex align-items-center justify-content-between py-2">
+                        <h2 class="h6 mb-0"><i class="bi bi-robot me-2 text-primary" aria-hidden="true"></i>Agents IA</h2>
+                    </div>
+                    <div class="card-body py-2">
+                        <div class="text-center py-3">
+                            <i class="bi bi-robot d-block mb-1 text-muted" aria-hidden="true"></i>
+                            <p class="text-muted small mb-2">Aucun agent configuré pour l'instant.</p>
+                            <a href="#" class="btn btn-sm btn-primary">Créer un agent</a>
+                        </div>
+                    </div>
+                </div>
+                <p class="section-note mb-0 mt-2">Inchangé (<code>dashboard-agents-empty</code>). Conséquence pour A/B&nbsp;: dans cet état, les 2 tuiles KPI « Coût IA » et « À valider » ne s'affichent pas non plus — rien à mesurer sans agent, les afficher à 0 ajouterait du bruit sans information.</p>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="state-demo h-100">
+                <div class="state-demo__label">Module CommerceAgents inactif</div>
+                <div class="card h-100 shadow-sm border-0 d-flex align-items-center justify-content-center text-center p-4" style="min-height: 160px;">
+                    <div class="text-muted small"><i class="bi bi-dash-circle d-block mb-1 fs-4" aria-hidden="true"></i>(bloc « Agents IA » et tuiles absents du dashboard)</div>
+                </div>
+                <p class="section-note mb-0 mt-2">Comportement actuel inchangé : <code>{% if data.agents is not null %}</code> masque tout le bloc si le provider ne peut pas répondre ou si le module est inactif — les 2 nouvelles tuiles KPI suivent la même condition, pas de tuile orpheline "Coût IA" sans le bloc agents qui va avec.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== D. Aperçu — en-tête de la page agent dédiée ==================== -->
+    <div class="section-title"><i class="bi bi-file-earmark-bar-graph text-primary" aria-hidden="true"></i> D — Page agent existante (<code>agents/show.html.twig</code>) — en-tête enrichi</div>
+    <p class="section-note">C'est ici, et seulement ici, que vivent le détail du coût par agent, l'historique complet des actions et la ventilation des validations par type. Rien de nouveau côté navigation : la page et ses 3 onglets (Conversation / Historique des runs / Résultats) existent déjà, on ajoute un bandeau de résumé sous le titre.</p>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
+                <div>
+                    <h1 class="h4 mb-0">Agent SAV</h1>
+                    <p class="text-muted mb-0 small">Répond aux avis clients et aux réclamations de livraison</p>
+                </div>
+                <a class="btn btn-outline-secondary btn-sm flex-shrink-0" href="#"><i class="bi bi-gear me-1" aria-hidden="true"></i>Réglages</a>
+            </div>
+
+            <div class="agent-detail-header shadow-sm p-3 mb-1 d-flex flex-wrap align-items-center gap-4">
+                <div>
+                    <div class="agent-detail-metric__value">6,20&nbsp;€ <span class="fs-6 fw-normal text-muted">/ 20&nbsp;€ ce mois</span></div>
+                    <div class="agent-detail-metric__label">Coût IA pour cet agent</div>
+                </div>
+                <div class="vr d-none d-md-block"></div>
+                <div>
+                    <div class="agent-detail-metric__value">3</div>
+                    <div class="agent-detail-metric__label">À valider (2 modifications, 1 message)</div>
+                </div>
+                <div class="vr d-none d-md-block"></div>
+                <div>
+                    <div class="agent-detail-metric__value">18</div>
+                    <div class="agent-detail-metric__label">Actions ce mois-ci</div>
+                </div>
+                <div class="ms-md-auto">
+                    <a href="#" class="btn btn-sm btn-outline-danger"><i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>Voir les 3 en attente</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p class="section-note mt-2">Le détail « 2 modifications, 1 message » réapparaît ici — c'est le seul endroit où la distinction technique redevient visible, une fois que le marchand a choisi de creuser un agent en particulier (voir l'argumentaire files d'attente dans le commentaire).</p>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
