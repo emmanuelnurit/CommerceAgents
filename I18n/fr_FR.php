@@ -510,6 +510,7 @@ return [
     'Not activated yet' => 'Pas encore activée',
     'acceptance rate' => 'taux d\'acceptation',
     'Not activated yet, no cost history' => 'Pas d\'historique — jamais activée',
+    'No cost history yet' => 'Pas encore d\'historique de coût',
     'Activate %skill%' => 'Activer %skill%',
     'Estimated cost: %cost% / proposal' => 'Coût estimé : %cost% / proposition',
     'Estimated cost, converted from USD at a fixed rate of %rate% (as of %date%).' => 'Coût estimé, converti depuis l\'USD à un taux fixe de %rate% (au %date%).',

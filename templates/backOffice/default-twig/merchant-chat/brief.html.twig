@@ -216,6 +216,8 @@
                         {% if skill.costPerProposalEur is not null %}
                             {{ 'Estimated cost: %cost% / proposal'|trans({'%cost%': skill.costPerProposalEur|number_format(2, ',', ' ') ~ ' €'}, 'commerceagents') }}
                             {%- if skill.acceptanceRate is not null %} · {{ 'acceptance rate'|trans({}, 'commerceagents') }}{% endif %}
+                        {% elseif skill.state == 'active' %}
+                            {{ 'No cost history yet'|trans({}, 'commerceagents') }}
                         {% else %}
                             {{ 'Not activated yet, no cost history'|trans({}, 'commerceagents') }}
                         {% endif %}
