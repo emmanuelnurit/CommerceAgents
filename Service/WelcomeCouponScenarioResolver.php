@@ -64,9 +64,12 @@ final readonly class WelcomeCouponScenarioResolver implements ProactiveScenarioR
     }
 
     /**
+     * Public so NewsletterOptinScenarioResolver (MYO-475) can reuse the exact
+     * same classification instead of duplicating the keyword heuristic.
+     *
      * @param array{code: string, title: string, shortDescription: string, discountLabel: string} $coupon
      */
-    private static function looksLikeWelcomeOffer(array $coupon): bool
+    public static function looksLikeWelcomeOffer(array $coupon): bool
     {
         $haystack = mb_strtolower($coupon['title'].' '.$coupon['shortDescription'].' '.$coupon['code']);
 

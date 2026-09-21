@@ -34,6 +34,7 @@ final readonly class CapabilityCatalog
         Capability::ORDERS_WRITE => ['label' => 'Apply an existing coupon to an order', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
         Capability::REVIEWS_READ => ['label' => 'Read product reviews', 'group' => self::GROUP_READ, 'stagedChange' => false],
         Capability::REVIEWS_WRITE => ['label' => 'Draft a reply to a product review', 'group' => self::GROUP_WRITE, 'stagedChange' => true],
+        Capability::MARKETING_WRITE => ['label' => 'Subscribe a visitor to the newsletter', 'group' => self::GROUP_WRITE, 'stagedChange' => false],
     ];
 
     public function __construct(

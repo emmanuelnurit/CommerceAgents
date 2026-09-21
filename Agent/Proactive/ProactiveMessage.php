@@ -21,6 +21,10 @@ namespace CommerceAgents\Agent\Proactive;
  * (scenario 5) resolvers. $productStockLabel is a ready-to-display string
  * ("Plus que 3 en stock") computed server-side from the real PSE quantity —
  * the widget only ever renders it, it never composes stock wording itself.
+ *
+ * $newsletterOptin (MYO-471/MYO-475) flags the opt-in-for-a-coupon card:
+ * unlike $couponCode, no code is ever attached here — it only reaches the
+ * visitor by e-mail once they actually subscribe.
  */
 final readonly class ProactiveMessage
 {
@@ -44,6 +48,7 @@ final readonly class ProactiveMessage
         public ?string $productCurrency = null,
         public ?bool $productInStock = null,
         public ?string $productStockLabel = null,
+        public ?bool $newsletterOptin = null,
     ) {
     }
 }

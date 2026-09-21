@@ -19,6 +19,7 @@ use CommerceAgents\Service\ChatStreamer;
 use CommerceAgents\Service\ConversationService;
 use CommerceAgents\Service\LanguageReminder;
 use CommerceAgents\Service\Locale\AssistantLocaleResolver;
+use CommerceAgents\Service\NewsletterOptinService;
 use CommerceAgents\Service\ProactiveGuard;
 use CommerceAgents\Service\ProactiveScenarioRegistry;
 use CommerceAgents\Service\ProactiveSessionRepository;
@@ -77,6 +78,7 @@ final class ChatController extends BaseFrontController
         private readonly LoggerInterface $logger,
         private readonly AssistantLocaleResolver $localeResolver,
         private readonly CustomerGatewayInterface $customerGateway,
+        private readonly NewsletterOptinService $newsletterOptinService,
     ) {
     }
 
@@ -240,7 +242,7 @@ final class ChatController extends BaseFrontController
         return new JsonResponse([
             'scenario' => $signalType,
             'text' => $message->message,
-            'card' => self::productCard($message) ?? self::couponCard($message),
+            'card' => self::productCard($message) ?? self::couponCard($message) ?? self::newsletterOptinCard($message),
         ]);
     }
 
@@ -292,6 +294,58 @@ final class ChatController extends BaseFrontController
     }
 
     /**
+     * The "S'abonner" button on the newsletter opt-in card (MYO-471/MYO-475)
+     * mirrors proactiveApplyCoupon: same guards, real server-side
+     * revalidation of both the e-mail and the consent flag, and the coupon
+     * code (if any) never leaves NewsletterOptinService — it is e-mailed,
+     * never put in this JSON response.
+     */
+    #[Route('/agent/chat/proactive-subscribe-newsletter', name: 'commerceagents_chat_proactive_subscribe_newsletter', methods: ['POST'])]
+    public function proactiveSubscribeNewsletter(Request $request): Response
+    {
+        if ($denied = $this->assertRequestedWithHeader($request)) {
+            return $denied;
+        }
+        if (!$this->configService->isFrontChatEnabled()) {
+            throw new NotFoundHttpException();
+        }
+
+        $payload = json_decode((string) $request->getContent(), true);
+        $email = trim((string) ($payload['email'] ?? ''));
+        $consent = ($payload['consent'] ?? null) === true;
+
+        if ($email === '') {
+            return new JsonResponse(['error' => 'email is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $session = $request->getSession();
+        $customerId = $session->getCustomerUser()?->getId();
+        $locale = $this->localeResolver->forVisitor($session->getLang()->getLocale());
+
+        $toolContext = new ToolContext(
+            isAdmin: false,
+            customerId: $customerId,
+            sessionId: $session->getId(),
+            locale: $locale,
+            currencyCode: $session->getCurrency()->getCode(),
+        );
+
+        $result = $this->newsletterOptinService->subscribe($email, $consent, $toolContext);
+
+        if (!$result['subscribed']) {
+            $this->logger->info('[commerce-agents] proactive newsletter opt-in rejected', [
+                'reason' => $result['error'] ?? 'unknown',
+            ]);
+
+            return new JsonResponse(['subscribed' => false, 'error' => $result['error'] ?? 'Subscription failed'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $this->logger->info('[commerce-agents] proactive newsletter opt-in subscribed');
+
+        return new JsonResponse(['subscribed' => true]);
+    }
+
+    /**
      * @return array{type: string, data: array<string, mixed>}|null
      */
     private static function couponCard(ProactiveMessage $message): ?array
@@ -334,6 +388,22 @@ final class ChatController extends BaseFrontController
         ], static fn (mixed $value): bool => $value !== null);
 
         return ['type' => 'product', 'data' => $data];
+    }
+
+    /**
+     * @return array{type: string, data: array<string, mixed>}|null
+     */
+    private static function newsletterOptinCard(ProactiveMessage $message): ?array
+    {
+        if ($message->newsletterOptin !== true) {
+            return null;
+        }
+
+        $data = array_filter([
+            'conditionLabel' => $message->conditionLabel,
+        ], static fn (mixed $value): bool => $value !== null);
+
+        return ['type' => 'newsletter_optin', 'data' => $data];
     }
 
     /**

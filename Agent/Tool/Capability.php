@@ -51,6 +51,14 @@ final class Capability
      */
     public const REVIEWS_WRITE = 'reviews.write';
 
+    /**
+     * Subscribing a visitor's own e-mail to the newsletter (MYO-471/MYO-475
+     * opt-in-for-coupon scenario). A direct write, not a StagedChange: a
+     * visitor consenting for themselves needs no merchant approval, unlike
+     * the admin-side write capabilities above.
+     */
+    public const MARKETING_WRITE = 'marketing.write';
+
     public const ALL = [
         self::CATALOG_READ,
         self::PRICING_WRITE,
@@ -66,6 +74,7 @@ final class Capability
         self::ORDERS_WRITE,
         self::REVIEWS_READ,
         self::REVIEWS_WRITE,
+        self::MARKETING_WRITE,
     ];
 
     private function __construct()

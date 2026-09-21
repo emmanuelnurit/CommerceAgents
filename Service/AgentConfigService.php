@@ -219,16 +219,35 @@ final readonly class AgentConfigService
     }
 
     /**
-     * Max proactive solicitations per widget session (plan MYO-236, ProactiveGuard).
+     * Max proactive solicitations per widget session (plan MYO-236,
+     * ProactiveGuard). Lowered from 3 to 2 (MYO-475): with the newsletter
+     * opt-in scenario now competing with the coupon/welcome/low-stock ones
+     * for the same budget, 3 unsolicited prompts in one session reads as
+     * pushy rather than helpful.
      */
     public function getMaxProactivePrompts(): int
     {
-        return max(0, (int) CommerceAgents::getConfigValue('max_proactive_prompts', 3));
+        return max(0, (int) CommerceAgents::getConfigValue('max_proactive_prompts', 2));
     }
 
     public function setMaxProactivePrompts(int $maxProactivePrompts): void
     {
         CommerceAgents::setConfigValue('max_proactive_prompts', (string) max(0, $maxProactivePrompts));
+    }
+
+    /**
+     * MYO-475: the getMaxProactivePrompts() fallback moved from 3 to 2, but
+     * an already-initialized install may have that old default persisted as
+     * a real config row (any save of the config page writes whatever value
+     * was on screen) — a row beats the in-code fallback, so lowering the
+     * fallback alone would not change anything for it. Only a row still
+     * exactly at the old default is touched; anything else is left alone.
+     */
+    public function reseedMaxProactivePromptsDefaultDownTo2(): void
+    {
+        if (CommerceAgents::getConfigValue('max_proactive_prompts', null) === '3') {
+            $this->setMaxProactivePrompts(2);
+        }
     }
 
     /**
