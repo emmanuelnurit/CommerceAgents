@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="fr" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MYO-482 — Maquette centre de notifications agents (topbar BO)</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+    /* --- Reprise des tokens réels de assets/styles/_variables.scss (pas d'invention) --- */
+    :root {
+        --bs-primary: #f26041;
+        --bs-primary-rgb: 242, 96, 65;
+        --bs-secondary: #4f4f4f;
+        --bs-border-radius: .5rem;
+        --bs-border-radius-lg: .625rem;
+        --bs-body-bg: #f4f7fa;
+        --bs-body-color: #4f4f4f;
+        --bs-card-border-radius: .75rem;
+    }
+    body { background: var(--bs-body-bg); color: var(--bs-body-color); font-size: .9rem; padding-bottom: 5rem; }
+    .card { border-radius: .75rem; border-color: #e6e8eb; }
+    .btn { border-radius: .5rem; font-weight: 500; }
+    .btn-primary { background: #f26041; border-color: #f26041; }
+    .btn-primary:hover { background: #be5a1c; border-color: #be5a1c; }
+    .intro-banner { background: #1f2937; color: #fff; }
+    .intro-banner code { color: #ffd8cc; }
+    .intro-banner .bi { color: #ffd8cc; }
+
+    /* --- Reprise exacte de _top_nav.html.twig pour situer l'ancrage --- */
+    .bo-top-nav { border-bottom: 1px solid var(--bs-border-color); }
+
+    /* --- Déclencheur (icône + pastille) — §1.1 de la spec --- */
+    .bo-agent-notif-toggle { position: relative; }
+    .bo-agent-notif-toggle .badge {
+        position: absolute; top: 0; left: 100%; transform: translate(-50%, -50%);
+        font-size: .62rem; min-width: 1.2rem; padding: .28em .4em; line-height: 1;
+        border: 2px solid var(--bs-body-bg, #fff);
+    }
+    .bo-agent-notif-toggle .bo-agent-notif-toggle__stale {
+        position: absolute; bottom: 2px; left: 100%; transform: translate(-90%, 0);
+        width: 8px; height: 8px; border-radius: 50%; background: #fd7e14;
+        border: 2px solid var(--bs-body-bg, #fff);
+    }
+
+    /* --- Panneau — §1.2 --- */
+    .bo-agent-notif-panel { min-width: 340px; max-width: 400px; padding: 0; }
+    .bo-agent-notif-panel__header {
+        position: sticky; top: 0; background: var(--bs-body-tertiary-bg, #fff);
+        border-bottom: 1px solid var(--bs-border-color); z-index: 1;
+    }
+    .bo-agent-notif-panel__body { max-height: 420px; overflow-y: auto; }
+    .bo-agent-notif-group__label {
+        font-size: .72rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .04em; color: var(--bs-secondary-color, #6c757d);
+    }
+    .bo-agent-notif-group--validation .bo-agent-notif-group__label { color: #b02a02; }
+
+    /* --- Ligne de notification — §1.3 --- */
+    .bo-agent-notif-item {
+        display: flex; gap: .65rem; padding: .6rem .9rem; text-decoration: none;
+        color: inherit; transition: background-color .1s ease, opacity .15s ease, transform .15s ease;
+    }
+    .bo-agent-notif-item:hover,
+    .bo-agent-notif-item:focus-visible { background: var(--bs-tertiary-bg, #f4f7fa); color: inherit; }
+    .bo-agent-notif-item.is-leaving { opacity: 0; transform: translateX(8px); }
+    @media (prefers-reduced-motion: reduce) {
+        /* Reprise exacte de la règle main.scss:1272-1280 : en mode réduit, aucune transition */
+        .bo-agent-notif-item { transition: none !important; }
+        .bo-agent-notif-item.is-leaving { transform: none; }
+    }
+    .bo-agent-notif-item__icon {
+        width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    }
+    .bo-agent-notif-item__title { font-weight: 600; font-size: .85rem; }
+    .bo-agent-notif-item__excerpt {
+        font-size: .78rem; color: var(--bs-secondary-color, #6c757d);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .bo-agent-notif-item__time { font-size: .72rem; color: var(--bs-secondary-color, #6c757d); white-space: nowrap; }
+    .bo-agent-notif-item__dot {
+        width: 8px; height: 8px; border-radius: 50%; background: var(--bs-primary);
+        flex: 0 0 8px; margin-top: .35rem;
+    }
+    .bo-agent-notif-item.is-read .bo-agent-notif-item__title { font-weight: 500; }
+    .bo-agent-notif-item.is-read .bo-agent-notif-item__dot { visibility: hidden; }
+
+    /* --- États "vide" (zéro / après acquittement) --- */
+    .bo-agent-notif-empty { padding: 2.25rem 1.5rem; text-align: center; color: var(--bs-secondary-color, #6c757d); }
+    .bo-agent-notif-empty .bi { font-size: 1.75rem; }
+
+    /* --- Bloc démo (banc d'essai) — n'existe pas dans le thème réel --- */
+    .demo-bench .btn-group-vertical .btn,
+    .demo-bench .btn { text-align: left; }
+    .demo-toast-region { position: fixed; bottom: 1rem; right: 1rem; z-index: 1080; }
+</style>
+</head>
+<body>
+
+<div class="intro-banner px-4 py-3 mb-4">
+    <div class="container-fluid">
+        <h1 class="h5 mb-1"><i class="bi bi-bell me-2"></i>MYO-482 — Centre de notifications agents (topbar BO)</h1>
+        <p class="mb-0 small">
+            Maquette markup réelle (Bootstrap 5.3 + Bootstrap Icons), tokens repris de
+            <code>assets/styles/_variables.scss</code>. Ancrage réel non modifié :
+            <code>_top_nav.html.twig:31</code> — <code>{{ safe_hook('main.topbar-top') }}</code>.
+            Spec complète : <code>myo-482-notifications-topbar-spec.md</code> (à côté de ce fichier).
+            Le bloc « Banc d'essai » ci-dessous et son script ne font pas partie de la maquette livrée
+            au CTO ; ils servent uniquement à parcourir tous les états (AC2) et à vérifier le
+            comportement clavier/aria dans ce fichier (AC4).
+        </p>
+    </div>
+</div>
+
+<div class="container-fluid">
+
+    <!-- ==================================================================== -->
+    <!-- Barre du haut — reproduction fidèle de _top_nav.html.twig            -->
+    <!-- ==================================================================== -->
+    <nav class="bo-top-nav navbar navbar-expand-md bg-body shadow-sm rounded mb-4" data-testid="bo-top-nav">
+        <div class="container-fluid">
+            <button class="navbar-toggler border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#bo-side-nav-offcanvas" aria-label="Ouvrir le menu">
+                <i class="bi bi-list fs-3" aria-hidden="true"></i>
+            </button>
+
+            <form class="d-none d-md-flex flex-grow-1 mx-3" role="search">
+                <div class="input-group">
+                    <span class="input-group-text bg-body-secondary border-end-0"><i class="bi bi-search" aria-hidden="true"></i></span>
+                    <input type="search" class="form-control border-start-0" placeholder="Rechercher…" disabled>
+                </div>
+            </form>
+
+            <ul class="navbar-nav ms-auto align-items-md-center">
+
+                <!-- ============================================================ -->
+                <!-- Ce que le hook main.topbar-top rend — c'est TOUT le livrable -->
+                <!-- ============================================================ -->
+                <li class="nav-item dropdown" data-testid="bo-top-nav-agent-notifications">
+                    <button type="button"
+                            id="bo-agent-notif-toggle"
+                            class="nav-link bo-agent-notif-toggle d-flex align-items-center border-0 bg-transparent"
+                            data-bs-toggle="dropdown"
+                            data-bs-auto-close="true"
+                            aria-haspopup="dialog"
+                            aria-expanded="false"
+                            aria-controls="bo-agent-notif-panel"
+                            aria-label="Notifications agents : 6 actions en attente">
+                        <i class="bi bi-bell fs-5" aria-hidden="true"></i>
+                        <span class="d-md-none ms-1">Notifications</span>
+                        <span class="badge rounded-pill bg-danger" id="bo-agent-notif-badge">6</span>
+                        <span class="bo-agent-notif-toggle__stale d-none" id="bo-agent-notif-stale" aria-hidden="true"></span>
+                    </button>
+
+                    <div class="dropdown-menu dropdown-menu-end shadow-sm bo-agent-notif-panel"
+                         id="bo-agent-notif-panel"
+                         role="dialog"
+                         aria-modal="false"
+                         aria-labelledby="bo-agent-notif-title">
+                        <div class="bo-agent-notif-panel__header d-flex align-items-center justify-content-between px-3 py-2">
+                            <span id="bo-agent-notif-title" class="fw-semibold"><i class="bi bi-bell me-1" aria-hidden="true"></i>Notifications agents</span>
+                            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" id="bo-agent-notif-mark-all">Tout marquer comme lu</button>
+                        </div>
+                        <div class="bo-agent-notif-panel__body" id="bo-agent-notif-body">
+                            <!-- Rempli par renderState() au chargement -->
+                        </div>
+                        <div class="border-top px-3 py-2 text-center d-none" id="bo-agent-notif-footer">
+                            <a href="#brief" class="small">Voir tout dans Le Brief</a>
+                        </div>
+                    </div>
+                </li>
+                <!-- Région d'annonce — séparée de la pastille, jamais dedans (§4 spec) -->
+                <div aria-live="polite" aria-atomic="true" class="visually-hidden" id="bo-agent-notif-live"></div>
+                <!-- ============================================================ -->
+                <!-- Fin du livrable hook                                          -->
+                <!-- ============================================================ -->
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" title="Langue de l'interface">
+                        <i class="bi bi-flag me-1" aria-hidden="true"></i>
+                        <span class="d-none d-lg-inline">Français</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" title="Voir le site"><i class="bi bi-eye" aria-hidden="true"></i></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" title="Modifier le profil"><i class="bi bi-person-circle" aria-hidden="true"></i></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-danger" href="#" title="Déconnexion"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- ==================================================================== -->
+    <!-- Banc d'essai — pas du markup livré, seulement pour parcourir AC2/AC4 -->
+    <!-- ==================================================================== -->
+    <div class="card demo-bench">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <strong><i class="bi bi-sliders me-1" aria-hidden="true"></i>Banc d'essai — états (AC2)</strong>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="theme-toggle">
+                <i class="bi bi-moon-stars me-1" aria-hidden="true"></i>Basculer en thème sombre
+            </button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Cliquez un état pour reconstruire la pastille et le panneau en conditions réelles
+                (mêmes classes, même DOM que le hook). Ouvrez le panneau (icône cloche ci-dessus)
+                après chaque changement pour vérifier son contenu ; testez aussi Tab / Échap / clic
+                sur un item pour l'acquittement (§6 de la spec).
+            </p>
+            <div class="btn-group flex-wrap" role="group" aria-label="États de démonstration">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="zero">Zéro notification</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="one">1 item</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="several">Plusieurs (mixte)</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="overflow9">Débordement &gt; 9</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="overflow99">Débordement &gt; 99</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="loading">Chargement</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="error">Erreur de récupération</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-state="ack">Vidé après acquittement</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="demo-toast-region" id="demo-toast-region" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ------------------------------------------------------------------
+    // Convenance de démo uniquement : en production, ces données viennent
+    // de l'endpoint JSON de comptage (polling 30-60s, cf. §7 de la spec),
+    // pas d'un objet JS statique. Les items ci-dessous illustrent les 3
+    // variantes du §1.3 avec un contenu réaliste (schema.xml).
+    // ------------------------------------------------------------------
+    var ITEM_TEMPLATES = {
+        validation: [
+            { id: 'v1', icon: 'bi-clipboard-check', title: 'Prix produit', excerpt: 'T-shirt "Nomade" : 24,90 € → 21,90 € (proposé par Agent Merchandising)', time: 'Il y a 8 min' },
+            { id: 'v2', icon: 'bi-clipboard-check', title: 'Réponse à un avis', excerpt: 'Brouillon de réponse à l\'avis 2★ sur "Sac week-end"', time: 'Il y a 22 min' },
+            { id: 'v3', icon: 'bi-clipboard-check', title: 'Stock produit', excerpt: 'Veste imperméable : marquer en rupture (0 unité restante)', time: 'Il y a 1 h' },
+            { id: 'v4', icon: 'bi-clipboard-check', title: 'Prix produit', excerpt: 'Bonnet laine : -15 % pour écouler le stock hiver', time: 'Il y a 3 h' }
+        ],
+        message: [
+            { id: 'm1', icon: 'bi-envelope', title: 'Agent Relance panier — e-mail', excerpt: 'Relance envoyée à 12 clients (panier > 48h)', time: 'Il y a 15 min' },
+            { id: 'm2', icon: 'bi-chat-left-text', title: 'Agent Support — Mattermost', excerpt: 'Signalement : pic de retours sur la catégorie Chaussures', time: 'Il y a 40 min' },
+            { id: 'm3', icon: 'bi-envelope', title: 'Agent Merchandising — e-mail', excerpt: 'Rapport hebdo des ajustements de prix envoyé', time: 'Hier' },
+            { id: 'm4', icon: 'bi-chat-left-text', title: 'Agent Support — Mattermost', excerpt: 'Question cliente restée sans réponse depuis 2h', time: 'Hier' },
+            { id: 'm5', icon: 'bi-envelope', title: 'Agent Relance panier — e-mail', excerpt: 'Campagne du jour terminée : 34 envois, 3 conversions', time: 'Hier' },
+            { id: 'm6', icon: 'bi-chat-left-text', title: 'Agent Support — Mattermost', excerpt: 'Ticket #482 escaladé côté humain', time: 'Il y a 2 j' }
+        ],
+        brief: [
+            { id: 'b1', icon: 'bi-lightbulb', title: 'Du Brief', excerpt: 'Budget mensuel Agent Merchandising à 80% — décider d\'un relèvement', time: 'Il y a 1 h' },
+            { id: 'b2', icon: 'bi-lightbulb', title: 'Du Brief', excerpt: '3 propositions en attente depuis plus de 24h', time: 'Il y a 5 h' }
+        ]
+    };
+
+    var GROUPS = [
+        { key: 'validation', label: 'À valider', badgeClass: 'bg-danger', iconBg: 'bg-danger-subtle', iconColor: 'text-danger' },
+        { key: 'message', label: 'Messages', badgeClass: 'bg-primary', iconBg: 'bg-primary-subtle', iconColor: 'text-primary' },
+        { key: 'brief', label: 'Du Brief', badgeClass: 'bg-secondary', iconBg: 'bg-secondary-subtle', iconColor: 'text-secondary-emphasis' }
+    ];
+
+    var lastKnownTotal = 0;
+    var lastKnownBadgeClass = 'bg-danger';
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function renderGroup(group, items) {
+        if (!items || !items.length) return '';
+        var shown = items.slice(0, 5);
+        var overflow = items.length - shown.length;
+        var html = '<div class="bo-agent-notif-group bo-agent-notif-group--' + group.key + '">';
+        html += '<div class="d-flex align-items-center gap-2 px-3 pt-2 pb-1">';
+        html += '<span class="bo-agent-notif-group__label">' + group.label + '</span>';
+        html += '<span class="badge rounded-pill ' + group.badgeClass + '">' + items.length + '</span>';
+        html += '</div>';
+        shown.forEach(function (item) {
+            html += '<a href="#' + item.id + '" class="bo-agent-notif-item" data-item-id="' + item.id + '">';
+            html += '<span class="bo-agent-notif-item__icon ' + group.iconBg + ' ' + group.iconColor + '"><i class="bi ' + item.icon + '" aria-hidden="true"></i></span>';
+            html += '<span class="flex-grow-1 min-width-0">';
+            html += '<span class="d-block bo-agent-notif-item__title">' + esc(item.title) + '</span>';
+            html += '<span class="d-block bo-agent-notif-item__excerpt">' + esc(item.excerpt) + '</span>';
+            html += '<span class="d-block bo-agent-notif-item__time">' + esc(item.time) + '</span>';
+            html += '</span>';
+            html += '<span class="bo-agent-notif-item__dot" aria-hidden="true"></span>';
+            html += '</a>';
+        });
+        if (overflow > 0) {
+            html += '<div class="px-3 pb-2"><a href="#brief" class="small">' + overflow + ' de plus</a></div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function emptyState(message, icon) {
+        return '<div class="bo-agent-notif-empty"><i class="bi ' + icon + ' d-block mb-2 text-success" aria-hidden="true"></i>' + message + '</div>';
+    }
+
+    function setBadge(total, badgeClass, ariaSuffix) {
+        var badge = document.getElementById('bo-agent-notif-badge');
+        var toggle = document.getElementById('bo-agent-notif-toggle');
+        if (total <= 0) {
+            badge.classList.add('d-none');
+        } else {
+            badge.classList.remove('d-none');
+            badge.className = 'badge rounded-pill ' + badgeClass;
+            badge.textContent = total > 99 ? '99+' : (total > 9 ? '9+' : String(total));
+        }
+        toggle.setAttribute('aria-label', ariaSuffix);
+    }
+
+    function announceIfChanged(total) {
+        var live = document.getElementById('bo-agent-notif-live');
+        if (total !== lastKnownTotal && total > 0) {
+            live.textContent = total === 1
+                ? '1 nouvelle notification agent'
+                : total + ' nouvelles notifications agents';
+        } else if (total === 0) {
+            live.textContent = '';
+        }
+    }
+
+    function pendingAriaLabel(total) {
+        if (total <= 0) return 'Notifications agents : aucune notification';
+        return 'Notifications agents : ' + total + (total === 1 ? ' action en attente' : ' actions en attente');
+    }
+
+    function renderState(state) {
+        var body = document.getElementById('bo-agent-notif-body');
+        var footer = document.getElementById('bo-agent-notif-footer');
+        var stale = document.getElementById('bo-agent-notif-stale');
+        var markAll = document.getElementById('bo-agent-notif-mark-all');
+        stale.classList.add('d-none');
+        footer.classList.add('d-none');
+        markAll.classList.remove('d-none');
+
+        if (state === 'zero') {
+            body.innerHTML = emptyState('Rien en attente. Tout est à jour.', 'bi-check2-circle');
+            markAll.classList.add('d-none');
+            setBadge(0, 'bg-danger', pendingAriaLabel(0));
+            announceIfChanged(0);
+            lastKnownTotal = 0; lastKnownBadgeClass = 'bg-danger';
+            return;
+        }
+        if (state === 'ack') {
+            body.innerHTML = emptyState('Tout est traité — bravo.', 'bi-check2-circle');
+            markAll.classList.add('d-none');
+            setBadge(0, 'bg-danger', pendingAriaLabel(0));
+            announceIfChanged(0);
+            lastKnownTotal = 0; lastKnownBadgeClass = 'bg-danger';
+            return;
+        }
+        if (state === 'loading') {
+            body.innerHTML =
+                '<div class="px-3 py-3">' +
+                '<div class="placeholder-glow mb-3"><span class="placeholder col-4 mb-1 d-block"></span><span class="placeholder col-10 d-block"></span></div>' +
+                '<div class="placeholder-glow mb-3"><span class="placeholder col-4 mb-1 d-block"></span><span class="placeholder col-8 d-block"></span></div>' +
+                '<div class="placeholder-glow"><span class="placeholder col-4 mb-1 d-block"></span><span class="placeholder col-9 d-block"></span></div>' +
+                '</div>';
+            // La pastille garde le dernier total connu pendant le chargement (§3 spec).
+            setBadge(lastKnownTotal, lastKnownBadgeClass, pendingAriaLabel(lastKnownTotal));
+            markAll.classList.add('d-none');
+            return;
+        }
+        if (state === 'error') {
+            body.innerHTML =
+                '<div class="px-3 py-3 text-center">' +
+                '<p class="text-muted mb-2">Impossible de charger les notifications.</p>' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary" id="bo-agent-notif-retry">Réessayer</button>' +
+                '</div>';
+            // Dernier total connu conservé + pastille "donnée non fraîche" (§3 spec) : jamais 0 sur un échec.
+            setBadge(lastKnownTotal, lastKnownBadgeClass, pendingAriaLabel(lastKnownTotal) + ' (donnée non rafraîchie)');
+            stale.classList.remove('d-none');
+            markAll.classList.add('d-none');
+            document.getElementById('bo-agent-notif-retry').addEventListener('click', function () {
+                showToast('Nouvelle tentative… (démo)');
+            });
+            return;
+        }
+
+        var data, total, badgeClass, overflowFooter;
+        if (state === 'one') {
+            data = { validation: ITEM_TEMPLATES.validation.slice(0, 1), message: [], brief: [] };
+        } else if (state === 'several') {
+            data = { validation: ITEM_TEMPLATES.validation.slice(0, 2), message: ITEM_TEMPLATES.message.slice(0, 3), brief: ITEM_TEMPLATES.brief.slice(0, 1) };
+        } else if (state === 'overflow9') {
+            data = { validation: ITEM_TEMPLATES.validation, message: ITEM_TEMPLATES.message, brief: ITEM_TEMPLATES.brief };
+        } else if (state === 'overflow99') {
+            // 143 items simulés au total : seule la pastille change (9+ -> 99+), la liste reste plafonnée à 5/groupe (§3 spec).
+            data = { validation: ITEM_TEMPLATES.validation, message: ITEM_TEMPLATES.message, brief: ITEM_TEMPLATES.brief };
+        }
+
+        total = data.validation.length + data.message.length + data.brief.length;
+        if (state === 'overflow99') total = 143;
+
+        badgeClass = data.validation.length ? 'bg-danger' : (data.message.length ? 'bg-primary' : 'bg-secondary');
+
+        var html = '';
+        GROUPS.forEach(function (group) {
+            html += renderGroup(group, data[group.key]);
+        });
+        body.innerHTML = html;
+
+        overflowFooter = (data.validation.length > 5 || data.message.length > 5 || data.brief.length > 5) || state === 'overflow99';
+        if (overflowFooter) footer.classList.remove('d-none');
+
+        setBadge(total, badgeClass, pendingAriaLabel(total));
+        announceIfChanged(total);
+        lastKnownTotal = total; lastKnownBadgeClass = badgeClass;
+
+        bindItemAcknowledge();
+    }
+
+    function bindItemAcknowledge() {
+        // Clic sur un item = acquittement de CET item (marque lu + décrémente la pastille),
+        // jamais l'ouverture seule du panneau (§6 de la spec). En prod, ceci navigue en plus
+        // vers la destination réelle ; ici on empêche la navigation pour rester dans la démo.
+        document.querySelectorAll('.bo-agent-notif-item').forEach(function (link) {
+            link.addEventListener('click', function (evt) {
+                evt.preventDefault();
+                if (link.classList.contains('is-read')) return;
+                link.classList.add('is-read');
+                if (lastKnownTotal > 0) {
+                    lastKnownTotal -= 1;
+                    setBadge(lastKnownTotal, lastKnownBadgeClass, pendingAriaLabel(lastKnownTotal));
+                }
+                showToast('Ouverture de « ' + link.querySelector('.bo-agent-notif-item__title').textContent + ' » (démo, pas de navigation réelle)');
+            });
+        });
+    }
+
+    document.getElementById('bo-agent-notif-mark-all').addEventListener('click', function () {
+        var reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var items = document.querySelectorAll('.bo-agent-notif-item:not(.is-read)');
+        items.forEach(function (item) { item.classList.add('is-leaving'); });
+        showToast('Tout marqué comme lu', true);
+        setTimeout(function () {
+            renderState('ack');
+        }, reduceMotion ? 0 : 150);
+    });
+
+    function showToast(message, withUndo) {
+        var region = document.getElementById('demo-toast-region');
+        var toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-bg-dark border-0 show mb-2';
+        toast.setAttribute('role', 'status');
+        var undoBtn = withUndo ? '<button type="button" class="btn btn-sm btn-link text-white text-decoration-underline p-0 ms-2" id="undo-btn">Annuler</button>' : '';
+        toast.innerHTML = '<div class="d-flex"><div class="toast-body">' + esc(message) + undoBtn + '</div></div>';
+        region.appendChild(toast);
+        if (withUndo) {
+            toast.querySelector('#undo-btn').addEventListener('click', function () {
+                toast.remove();
+                renderState('several');
+                showToast('Acquittement annulé');
+            });
+        }
+        setTimeout(function () { toast.remove(); }, 5000);
+    }
+
+    document.querySelectorAll('[data-state]').forEach(function (btn) {
+        btn.addEventListener('click', function () { renderState(btn.dataset.state); });
+    });
+
+    document.getElementById('theme-toggle').addEventListener('click', function () {
+        var html = document.documentElement;
+        var isDark = html.getAttribute('data-bs-theme') === 'dark';
+        html.setAttribute('data-bs-theme', isDark ? 'light' : 'dark');
+        this.innerHTML = isDark
+            ? '<i class="bi bi-moon-stars me-1"></i>Basculer en thème sombre'
+            : '<i class="bi bi-sun me-1"></i>Basculer en thème clair';
+    });
+
+    // État initial : "plusieurs (mixte)" pour montrer directement les 3 groupes.
+    renderState('several');
+</script>
+</body>
+</html>
