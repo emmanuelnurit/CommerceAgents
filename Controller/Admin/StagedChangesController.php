@@ -9,6 +9,8 @@ use CommerceAgents\Model\AgentActionLogQuery;
 use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\Merchant\TheliaStagedChangeRepository;
+use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\SkillCatalog;
 use CommerceAgents\StagedChange\BriefUrgencyClassifier;
 use CommerceAgents\StagedChange\StagedChangeData;
 use CommerceAgents\StagedChange\StagedChangeManager;
@@ -74,6 +76,7 @@ final readonly class StagedChangesController
         private StagedChangeManager $manager,
         private ReviewsGatewayInterface $reviewsGateway,
         private BudgetGuard $budgetGuard,
+        private SkillCatalog $skillCatalog,
         private CsrfTokenManagerInterface $csrfTokenManager,
         private UrlGeneratorInterface $urlGenerator,
         private Environment $twig,
@@ -138,6 +141,13 @@ final readonly class StagedChangesController
             'agentId' => $agentDefinitionId,
             'canApprove' => $canApprove,
             'csrfToken' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
+            // Skills library tab (MYO-506, AC6 of MYO-469 / MYO-507 on the Twig side):
+            // server-derived state, never a hardcoded number (guardrail #2). Reuses the
+            // same `csrfToken` as the change approve/reject forms above -- brief.html.twig
+            // (MYO-507) posts the skill toggle with it, not a separate token.
+            'skills' => $this->skillCatalog->all(),
+            'usdToEurRate' => ModelCatalog::usdToEurRate(),
+            'usdToEurRatedAt' => ModelCatalog::usdToEurRatedAt(),
         ]));
     }
 

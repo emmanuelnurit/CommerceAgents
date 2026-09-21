@@ -17,6 +17,8 @@ final class AgentPresets
     public const DAILY_SALES_SUMMARY = 'daily_sales_summary';
     public const STOCK_WATCH_RESTOCK = 'stock_watch_restock';
     public const CUSTOMER_REVIEWS_REPLY = 'customer_reviews_reply';
+    public const STUCK_ORDERS_WATCH = 'stuck_orders_watch';
+    public const PRODUCT_SHEET_AUDIT = 'product_sheet_audit';
     public const FROM_SCRATCH = 'from_scratch';
 
     /**
@@ -93,6 +95,32 @@ final class AgentPresets
                 'channel' => null,
                 'capabilities' => ['reviews.read', 'reviews.write'],
                 'requiresModule' => 'Comment',
+            ],
+            self::STUCK_ORDERS_WATCH => [
+                'code' => self::STUCK_ORDERS_WATCH,
+                'title' => 'Stuck orders',
+                'subtitle' => 'Flags orders stuck in the same status for too long and drafts a follow-up e-mail to the customer',
+                'icon' => 'bi-hourglass-split',
+                'color' => 'warning',
+                'rolePrompt' => "Chaque jour, tu passes en revue les commandes récentes de la boutique et tu repères celles qui semblent bloquées (aucune évolution de statut depuis plusieurs jours, alors qu'une commande similaire aurait déjà avancé). Pour chaque commande bloquée que tu identifies, rédige un e-mail bref et rassurant au client pour lui donner des nouvelles. Tu n'envoies jamais cet e-mail toi-même : chaque brouillon attend une validation humaine dans les changements proposés.",
+                'tier' => 'fast',
+                'triggers' => [['type' => TriggerCatalog::SCHEDULE, 'time' => '09:00']],
+                'channel' => 'mail',
+                'capabilities' => ['orders.read', 'customer.read', 'customer.profile.read'],
+                'requiresModule' => null,
+            ],
+            self::PRODUCT_SHEET_AUDIT => [
+                'code' => self::PRODUCT_SHEET_AUDIT,
+                'title' => 'Product sheet audit',
+                'subtitle' => 'Reviews product sheets for missing or inconsistent content and reports findings to the merchant',
+                'icon' => 'bi-card-checklist',
+                'color' => 'info',
+                'rolePrompt' => "Chaque semaine, tu relis un échantillon de fiches produits de la boutique (descriptions, informations manquantes ou incohérentes) et tu envoies au marchand un compte-rendu clair des fiches à améliorer en priorité, avec pour chacune le problème repéré. Tu ne modifies jamais une fiche toi-même : tu te contentes de signaler.",
+                'tier' => 'balanced',
+                'triggers' => [['type' => TriggerCatalog::SCHEDULE, 'time' => '08:00']],
+                'channel' => 'mail',
+                'capabilities' => ['catalog.read', 'content.read'],
+                'requiresModule' => null,
             ],
             self::FROM_SCRATCH => [
                 'code' => self::FROM_SCRATCH,
