@@ -8,12 +8,11 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- vendor/thelia/modules/Cheque/Config/setup.sql: a module has no mail-theme
 -- directory of its own to put .html/.txt files in. Delete-then-insert keeps
 -- this file safely replayable (see the comment on CommerceAgents::update()).
-SET @var := 0;
-SELECT @var := `id` FROM `message` WHERE `name` = 'commerceagents_newsletter_optin_coupon';
+SET @var := (SELECT `id` FROM `message` WHERE `name` = 'commerceagents_newsletter_optin_coupon' LIMIT 1);
 DELETE FROM `message_i18n` WHERE `id` = @var;
 DELETE FROM `message` WHERE `id` = @var;
 
-SELECT @max := IFNULL(MAX(`id`), 0) FROM `message`;
+SET @max := (SELECT IFNULL(MAX(`id`), 0) FROM `message`);
 SET @max := @max + 1;
 
 INSERT INTO `message` (`id`, `name`, `secured`) VALUES
