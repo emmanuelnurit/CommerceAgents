@@ -112,3 +112,24 @@
     font-family: var(--bs-font-monospace, monospace);
     font-size: .75rem;
 }
+
+/* Skills library (MYO-507, AC6 of MYO-469): mockup lines 68-72, ported as-is. */
+
+.skill-tile {
+    height: 100%;
+}
+
+.skill-tile__icon {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+}
+
+.skill-tile--soon {
+    opacity: .6;
+}
+
+.skill-tile__accept {
+    font-size: 1.1rem;
+    font-weight: 600;
+}

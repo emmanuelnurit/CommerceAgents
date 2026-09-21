@@ -12,6 +12,17 @@
     uses one Bootstrap offcanvas per card (declarative data-bs-toggle),
     reusing Bootstrap 5.3 components already loaded by the BO shell instead
     of inventing a shared-offcanvas JS controller.
+
+    MYO-507 adds the level-1 "Le Brief" / "Bibliothèque de skills" tabs
+    (mockup lines 98-106 and 354-620, AC6 of MYO-469). The skills tab is
+    driven entirely by the `skills`/`usdToEurRate`/`usdToEurRatedAt`
+    variables that the controller (MYO-506, backend) is expected to pass --
+    every reference is guarded with `is defined`/`is not empty` so this
+    template renders correctly (empty state) before that lands and picks up
+    real data the moment it does, no further Twig change required. Route
+    names `commerceagents_skill_activate` / `commerceagents_skill_deactivate`
+    (POST, `{code}` param) are likewise a coordination point with MYO-506 --
+    see the closing comment on MYO-507 for the exact contract.
 #}
 
 {% block title %}{{ 'Merchant Agent — The Brief'|trans({}, 'commerceagents') }}{% endblock %}
@@ -20,6 +31,10 @@
 {% block stylesheets %}
     {{ parent() }}
     <link rel="stylesheet" href="{{ module_asset('CommerceAgents', 'assets/css/brief.css') }}">
+{% endblock %}
+
+{% block scripts_extra %}
+    <script src="{{ module_asset('CommerceAgents', 'assets/js/skills-library.js') }}"></script>
 {% endblock %}
 
 {% block breadcrumb %}
@@ -157,10 +172,89 @@
     {{ brief.whyOffcanvas(change) }}
 {% endmacro %}
 
+{% macro skillTile(skill, csrfToken) %}
+    <div class="col">
+        <div class="card skill-tile {{ skill.state == 'soon' ? 'skill-tile--soon' : '' }} shadow-sm border-0" data-testid="skill-tile" data-skill-state="{{ skill.state }}">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between">
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <div class="skill-tile__icon rounded-circle bg-{{ skill.color }}-subtle text-{{ skill.color }}-emphasis d-flex align-items-center justify-content-center flex-shrink-0">
+                            <i class="bi {{ skill.icon }} fs-5" aria-hidden="true"></i>
+                        </div>
+                        <span class="fw-semibold">{{ skill.labelKey|trans({}, 'commerceagents') }}</span>
+                    </div>
+
+                    {% if skill.state == 'soon' %}
+                        <div class="form-check form-switch mb-0 flex-shrink-0">
+                            <input class="form-check-input" type="checkbox" role="switch" disabled aria-label="{{ 'Activate %skill%'|trans({'%skill%': skill.labelKey|trans({}, 'commerceagents')}, 'commerceagents') }}">
+                        </div>
+                    {% else %}
+                        <form action="{{ path(skill.state == 'active' ? 'commerceagents_skill_deactivate' : 'commerceagents_skill_activate', {code: skill.code}) }}" method="post" class="form-check form-switch mb-0 skill-toggle-form flex-shrink-0">
+                            <input type="hidden" name="_token" value="{{ csrfToken }}">
+                            <input class="form-check-input skill-toggle-input" type="checkbox" role="switch" id="skill-switch-{{ skill.code }}" {{ skill.state == 'active' ? 'checked' : '' }} data-testid="skill-toggle-{{ skill.code }}">
+                            <label class="form-check-label visually-hidden" for="skill-switch-{{ skill.code }}">{{ 'Activate %skill%'|trans({'%skill%': skill.labelKey|trans({}, 'commerceagents')}, 'commerceagents') }}</label>
+                        </form>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between mt-3">
+                    {% if skill.state == 'soon' %}
+                        <span class="badge text-bg-light">{{ 'Coming soon'|trans({}, 'commerceagents') }}</span>
+                    {% elseif skill.state == 'active' %}
+                        <span class="badge text-bg-success-subtle text-success-emphasis">{{ 'Active'|trans({}, 'commerceagents') }}</span>
+                    {% else %}
+                        <span class="badge text-bg-secondary-subtle text-secondary-emphasis">{{ 'Not activated yet'|trans({}, 'commerceagents') }}</span>
+                    {% endif %}
+
+                    {% if skill.acceptanceRate is not null %}
+                        <span class="skill-tile__accept text-success">{{ (skill.acceptanceRate * 100)|round }}&nbsp;%</span>
+                    {% endif %}
+                </div>
+
+                {% if skill.state != 'soon' %}
+                    <div class="text-muted small mt-1">
+                        {% if skill.costPerProposalEur is not null %}
+                            {{ 'Estimated cost: %cost% / proposal'|trans({'%cost%': skill.costPerProposalEur|number_format(2, ',', ' ') ~ ' €'}, 'commerceagents') }}
+                            {%- if skill.acceptanceRate is not null %} · {{ 'acceptance rate'|trans({}, 'commerceagents') }}{% endif %}
+                        {% else %}
+                            {{ 'Not activated yet, no cost history'|trans({}, 'commerceagents') }}
+                        {% endif %}
+                    </div>
+
+                    {% if skill.editUrl %}
+                        <a href="{{ skill.editUrl }}" class="btn btn-sm btn-outline-secondary mt-3 skill-tile__edit">
+                            <i class="bi bi-pencil me-1" aria-hidden="true"></i>{{ 'Edit'|trans({}, 'commerceagents') }}
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endmacro %}
+
 {% block content %}
     {% import _self as brief %}
     <div class="container-fluid" data-testid="brief-page">
         <h1 class="h3 mb-3">{{ 'The Brief'|trans({}, 'commerceagents') }}</h1>
+
+        {# MYO-507 AC1: level-1 navigation -- mockup lines 98-106. "The Brief" stays the
+           default active tab so the MYO-487 demo rehearsal (T5, mono-page) keeps behaving
+           identically for every repeated step. #}
+        <ul class="nav nav-pills mb-3" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="brief-tab-brief" data-bs-toggle="pill" data-bs-target="#tab-brief" type="button" role="tab" aria-controls="tab-brief" aria-selected="true">
+                    {{ 'The Brief'|trans({}, 'commerceagents') }}
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="brief-tab-skills" data-bs-toggle="pill" data-bs-target="#tab-skills" type="button" role="tab" aria-controls="tab-skills" aria-selected="false" data-testid="brief-tab-skills">
+                    {{ 'Skills library'|trans({}, 'commerceagents') }}
+                </button>
+            </li>
+        </ul>
+
+    <div class="tab-content">
+    <div class="tab-pane fade show active" id="tab-brief" role="tabpanel" aria-labelledby="brief-tab-brief">
 
         {% if agentId %}
             <div class="alert alert-secondary d-flex justify-content-between align-items-center" data-testid="changes-agent-filter">
@@ -233,5 +327,28 @@
                 {% for change in groups.info %}{{ brief.proposalCard(change, csrfToken, 'info') }}{% endfor %}
             </div>
         {% endif %}
+
+    </div>
+
+    {# MYO-507 AC2-AC5: skills library -- mockup lines 354-620. `skills` is the render
+       of the backend's SkillCatalog::all() (MYO-506); until that controller wiring
+       lands this renders the empty state below, never an error. #}
+    <div class="tab-pane fade" id="tab-skills" role="tabpanel" aria-labelledby="brief-tab-skills">
+        <p class="text-muted mb-1">{{ 'Activate a skill in one click. Adjust it later without touching any prompt.'|trans({}, 'commerceagents') }}</p>
+
+        {% if usdToEurRate is defined and usdToEurRatedAt is defined and usdToEurRatedAt is not null %}
+            <p class="text-muted small mb-3" data-testid="skills-rate-note">
+                {{ 'Estimated cost, converted from USD at a fixed rate of %rate% (as of %date%).'|trans({'%rate%': usdToEurRate, '%date%': usdToEurRatedAt|date('d/m/Y')}, 'commerceagents') }}
+            </p>
+        {% endif %}
+
+        {% if skills is defined and skills is not empty %}
+            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3" data-testid="skills-grid">
+                {% for skill in skills %}{{ brief.skillTile(skill, csrfToken) }}{% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info" data-testid="skills-empty">{{ 'No skill available yet.'|trans({}, 'commerceagents') }}</div>
+        {% endif %}
+    </div>
     </div>
 {% endblock %}
