@@ -62,6 +62,48 @@
                 </div>
             </template>
 
+            {# Carte opt-in newsletter (MYO-471/MYO-475 backend, T7 spec MYO-476) :
+               e-mail + case de consentement non pré-cochée. Aucun code promo
+               dans ce payload — newsletterOptinCard() ne renvoie jamais que
+               conditionLabel, le code (s'il y en a un) part par e-mail côté
+               backend, jamais dans cette réponse JSON. #}
+            <template x-if="proactive?.card?.type === 'newsletter_optin'">
+                <form class="caw-newsletter" x-on:submit.prevent="subscribeNewsletter(proactive.card.data)">
+                    <p class="caw-coupon-condition" x-show="proactive.card.data.conditionLabel" x-text="proactive.card.data.conditionLabel"></p>
+
+                    <template x-if="!proactive.card.data.subscribed">
+                        <div class="caw-newsletter-form">
+                            <input type="email" class="caw-newsletter-input"
+                                   x-model="proactive.card.data.email"
+                                   x-bind:disabled="proactive.card.data.submitting"
+                                   autocomplete="email"
+                                   aria-label="{{ i18n.newsletterOptinEmailPlaceholder }}"
+                                   placeholder="{{ i18n.newsletterOptinEmailPlaceholder }}">
+
+                            <label class="caw-newsletter-consent">
+                                <input type="checkbox"
+                                       x-model="proactive.card.data.consent"
+                                       x-bind:disabled="proactive.card.data.submitting">
+                                <span>
+                                    {{ i18n.newsletterOptinConsentLabel }}
+                                    {% if privacyPolicyUrl %}
+                                        <a href="{{ privacyPolicyUrl }}" target="_blank" rel="noopener">{{ i18n.newsletterOptinPrivacyLink }}</a>
+                                    {% endif %}
+                                </span>
+                            </label>
+
+                            <button type="submit" class="caw-btn caw-btn-primary caw-btn-block"
+                                    x-bind:disabled="proactive.card.data.submitting || !proactive.card.data.email || !proactive.card.data.consent"
+                                    x-text="proactive.card.data.submitting ? i18n.newsletterOptinSubscribing : i18n.newsletterOptinSubscribe"></button>
+                        </div>
+                    </template>
+
+                    <p class="caw-newsletter-success" x-show="proactive.card.data.subscribed" x-text="i18n.newsletterOptinSubscribed" role="status"></p>
+
+                    <p class="caw-coupon-error" x-show="proactive.card.data.error" x-text="proactive.card.data.error" role="alert"></p>
+                </form>
+            </template>
+
             <div class="caw-proactive-actions">
                 <button type="button" class="caw-btn caw-btn-primary" x-on:click="acceptProactive()" x-text="i18n.proactiveSeeMore"></button>
                 <button type="button" class="caw-btn caw-btn-ghost" x-on:click="dismissProactive()" x-text="i18n.noThanks"></button>
@@ -389,6 +431,43 @@
 
                                                 <p class="caw-coupon-error" x-show="message.card.data.error" x-text="message.card.data.error" role="alert"></p>
                                             </div>
+                                        </template>
+
+                                        <template x-if="message.card?.type === 'newsletter_optin'">
+                                            <form class="caw-newsletter" x-on:submit.prevent="subscribeNewsletter(message.card.data)">
+                                                <p class="caw-coupon-condition" x-show="message.card.data.conditionLabel" x-text="message.card.data.conditionLabel"></p>
+
+                                                <template x-if="!message.card.data.subscribed">
+                                                    <div class="caw-newsletter-form">
+                                                        <input type="email" class="caw-newsletter-input"
+                                                               x-model="message.card.data.email"
+                                                               x-bind:disabled="message.card.data.submitting"
+                                                               autocomplete="email"
+                                                               aria-label="{{ i18n.newsletterOptinEmailPlaceholder }}"
+                                                               placeholder="{{ i18n.newsletterOptinEmailPlaceholder }}">
+
+                                                        <label class="caw-newsletter-consent">
+                                                            <input type="checkbox"
+                                                                   x-model="message.card.data.consent"
+                                                                   x-bind:disabled="message.card.data.submitting">
+                                                            <span>
+                                                                {{ i18n.newsletterOptinConsentLabel }}
+                                                                {% if privacyPolicyUrl %}
+                                                                    <a href="{{ privacyPolicyUrl }}" target="_blank" rel="noopener">{{ i18n.newsletterOptinPrivacyLink }}</a>
+                                                                {% endif %}
+                                                            </span>
+                                                        </label>
+
+                                                        <button type="submit" class="caw-btn caw-btn-primary caw-btn-block"
+                                                                x-bind:disabled="message.card.data.submitting || !message.card.data.email || !message.card.data.consent"
+                                                                x-text="message.card.data.submitting ? i18n.newsletterOptinSubscribing : i18n.newsletterOptinSubscribe"></button>
+                                                    </div>
+                                                </template>
+
+                                                <p class="caw-newsletter-success" x-show="message.card.data.subscribed" x-text="i18n.newsletterOptinSubscribed" role="status"></p>
+
+                                                <p class="caw-coupon-error" x-show="message.card.data.error" x-text="message.card.data.error" role="alert"></p>
+                                            </form>
                                         </template>
                                     </div>
                                 </template>

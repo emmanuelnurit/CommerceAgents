@@ -142,6 +142,12 @@ function commerceAgentsChat() {
             couponApplying: 'Applying…',
             couponAppliedPrefix: 'Code applied:',
             quickRepliesLabel: 'Suggestions',
+            newsletterOptinEmailPlaceholder: 'Your email address',
+            newsletterOptinConsentLabel: 'I agree to receive marketing emails from this store.',
+            newsletterOptinPrivacyLink: 'Privacy policy',
+            newsletterOptinSubscribe: 'Subscribe',
+            newsletterOptinSubscribing: 'Subscribing…',
+            newsletterOptinSubscribed: 'Email sent — check your inbox to confirm your subscription.',
         },
 
         init() {
@@ -833,13 +839,22 @@ function commerceAgentsChat() {
          * which is what actually triggers reactivity on a plain object.
          */
         prepareCard(card) {
-            if (!card || card.type !== 'coupon') {
-                return card || null;
+            if (!card) {
+                return null;
             }
-            return {
-                type: card.type,
-                data: Object.assign({ applying: false, applied: false, appliedDiscount: null, error: null }, card.data),
-            };
+            if (card.type === 'coupon') {
+                return {
+                    type: card.type,
+                    data: Object.assign({ applying: false, applied: false, appliedDiscount: null, error: null }, card.data),
+                };
+            }
+            if (card.type === 'newsletter_optin') {
+                return {
+                    type: card.type,
+                    data: Object.assign({ email: '', consent: false, submitting: false, subscribed: false, error: null }, card.data),
+                };
+            }
+            return card;
         },
 
         /**
@@ -873,6 +888,42 @@ function commerceAgentsChat() {
                 })
                 .catch(() => {
                     cardData.applying = false;
+                    cardData.error = this.i18n.connectionLost;
+                });
+        },
+
+        /**
+         * The "S'abonner" button on the newsletter opt-in card (MYO-471/MYO-475
+         * backend) mirrors applyCoupon(): `cardData` is mutated in place so
+         * both the floating bubble and the inline thread variant reflect the
+         * outcome. The server re-validates the e-mail and consent flag; any
+         * coupon code tied to the subscription is e-mailed by the backend and
+         * never appears in this JSON response (newsletterOptinCard() only
+         * ever sends conditionLabel).
+         */
+        subscribeNewsletter(cardData) {
+            if (!cardData || !cardData.email || !cardData.consent || cardData.submitting || cardData.subscribed) {
+                return;
+            }
+            cardData.submitting = true;
+            cardData.error = null;
+            return fetch('/agent/chat/proactive-subscribe-newsletter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ email: cardData.email, consent: cardData.consent }),
+            })
+                .then((response) => response.json().catch(() => ({})).then((payload) => ({ ok: response.ok, payload: payload })))
+                .then(({ ok, payload }) => {
+                    cardData.submitting = false;
+                    if (ok && payload && payload.subscribed) {
+                        cardData.subscribed = true;
+                    } else {
+                        cardData.error = (payload && payload.error) || this.i18n.serviceUnavailable;
+                    }
+                    this.persist();
+                })
+                .catch(() => {
+                    cardData.submitting = false;
                     cardData.error = this.i18n.connectionLost;
                 });
         },

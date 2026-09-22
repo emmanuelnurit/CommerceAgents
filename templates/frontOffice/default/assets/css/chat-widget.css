@@ -1549,6 +1549,58 @@ body.caw-body-locked {
     }
 }
 
+/* ---------- Proactive bubble: newsletter opt-in card (T7, spec MYO-476) ---------- */
+
+#commerce-agents-widget .caw-newsletter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#commerce-agents-widget .caw-newsletter-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#commerce-agents-widget .caw-newsletter-input {
+    border: 1px solid var(--caw-line);
+    border-radius: 0.625rem;
+    background: var(--caw-surface);
+    color: inherit;
+    font: inherit;
+    padding: 0.5rem 0.75rem;
+}
+
+#commerce-agents-widget .caw-newsletter-input:disabled {
+    opacity: 0.6;
+}
+
+#commerce-agents-widget .caw-newsletter-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    color: var(--caw-muted);
+    font-size: 0.8125rem;
+    cursor: pointer;
+}
+
+#commerce-agents-widget .caw-newsletter-consent input[type='checkbox'] {
+    flex: none;
+    margin-top: 0.125rem;
+}
+
+#commerce-agents-widget .caw-newsletter-consent a {
+    color: var(--caw-proactive-accent);
+}
+
+#commerce-agents-widget .caw-newsletter-success {
+    margin: 0;
+    color: var(--caw-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
 /* ---------- Proactive bubble: entrance/exit animation ---------- */
 
 #commerce-agents-widget .caw-proactive-enter {
