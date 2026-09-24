@@ -8,6 +8,17 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- vendor/thelia/modules/Cheque/Config/setup.sql: a module has no mail-theme
 -- directory of its own to put .html/.txt files in. Delete-then-insert keeps
 -- this file safely replayable (see the comment on CommerceAgents::update()).
+--
+-- MYO-524: this message has no template file, so MailerFactory::getParser()
+-- falls back to ParserResolver::getDefaultParser() -- on this install that is
+-- TwigEngine (priority 10) over TheliaSmarty (priority 0), not Smarty. The
+-- original content below was Smarty syntax ({$var}, {config key="..."}),
+-- which TwigParser::renderString() does not understand and leaves verbatim
+-- in the sent e-mail. Twig equivalent: {{ var }} for a message parameter
+-- (NewsletterOptinService::sendCouponEmailIfAny() assigns coupon_code /
+-- discount_label / condition_label), {{ config('key') }} for the Smarty
+-- {config key="..."} tag (TwigEngine\Extension\ConfigExtension, the Twig
+-- counterpart of Thelia\Core\Template\Helper\ConfigAccess).
 SET @var := (SELECT `id` FROM `message` WHERE `name` = 'commerceagents_newsletter_optin_coupon' LIMIT 1);
 DELETE FROM `message_i18n` WHERE `id` = @var;
 DELETE FROM `message` WHERE `id` = @var;
@@ -22,16 +33,16 @@ INSERT INTO `message_i18n` (`id`, `locale`, `title`, `subject`, `text_message`, 
   (@max,
    'fr_FR',
    'Code promo newsletter (Commerce Agents)',
-   'Votre code promo {config key="store_name"}',
-   'Bonjour,\r\n\r\nMerci de vous être abonné à la newsletter de {config key="store_name"} !\r\n\r\nVoici votre code promo : {$coupon_code} ({$discount_label})\r\n\r\nUtilisez-le lors de votre prochaine commande sur {config key="url_site"}.\r\n\r\nA bientôt !\r\nL''équipe {config key="store_name"}',
-   '<p>Bonjour,</p><p>Merci de vous être abonné à la newsletter de {config key="store_name"} !</p><p>Voici votre code promo : <strong>{$coupon_code}</strong> ({$discount_label})</p><p>Utilisez-le lors de votre prochaine commande sur <a href="{config key="url_site"}">{config key="url_site"}</a>.</p><p>A bientôt !<br>L''équipe {config key="store_name"}</p>'
+   'Votre code promo {{ config(''store_name'') }}',
+   'Bonjour,\r\n\r\nMerci de vous être abonné à la newsletter de {{ config(''store_name'') }} !\r\n\r\nVoici votre code promo : {{ coupon_code }} ({{ discount_label }})\r\n\r\nUtilisez-le lors de votre prochaine commande sur {{ config(''url_site'') }}.\r\n\r\nA bientôt !\r\nL''équipe {{ config(''store_name'') }}',
+   '<p>Bonjour,</p><p>Merci de vous être abonné à la newsletter de {{ config(''store_name'') }} !</p><p>Voici votre code promo : <strong>{{ coupon_code }}</strong> ({{ discount_label }})</p><p>Utilisez-le lors de votre prochaine commande sur <a href="{{ config(''url_site'') }}">{{ config(''url_site'') }}</a>.</p><p>A bientôt !<br>L''équipe {{ config(''store_name'') }}</p>'
   ),
   (@max,
    'en_US',
    'Newsletter opt-in coupon (Commerce Agents)',
-   'Your {config key="store_name"} promo code',
-   'Hello,\r\n\r\nThank you for subscribing to the {config key="store_name"} newsletter!\r\n\r\nHere is your promo code: {$coupon_code} ({$discount_label})\r\n\r\nUse it on your next order at {config key="url_site"}.\r\n\r\nSee you soon!\r\nThe {config key="store_name"} team',
-   '<p>Hello,</p><p>Thank you for subscribing to the {config key="store_name"} newsletter!</p><p>Here is your promo code: <strong>{$coupon_code}</strong> ({$discount_label})</p><p>Use it on your next order at <a href="{config key="url_site"}">{config key="url_site"}</a>.</p><p>See you soon!<br>The {config key="store_name"} team</p>'
+   'Your {{ config(''store_name'') }} promo code',
+   'Hello,\r\n\r\nThank you for subscribing to the {{ config(''store_name'') }} newsletter!\r\n\r\nHere is your promo code: {{ coupon_code }} ({{ discount_label }})\r\n\r\nUse it on your next order at {{ config(''url_site'') }}.\r\n\r\nSee you soon!\r\nThe {{ config(''store_name'') }} team',
+   '<p>Hello,</p><p>Thank you for subscribing to the {{ config(''store_name'') }} newsletter!</p><p>Here is your promo code: <strong>{{ coupon_code }}</strong> ({{ discount_label }})</p><p>Use it on your next order at <a href="{{ config(''url_site'') }}">{{ config(''url_site'') }}</a>.</p><p>See you soon!<br>The {{ config(''store_name'') }} team</p>'
   );
 
 SET FOREIGN_KEY_CHECKS = 1;
