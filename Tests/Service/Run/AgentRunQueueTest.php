@@ -70,6 +70,23 @@ class AgentRunQueueTest extends IntegrationTestCase
         self::assertSame([], $runs);
     }
 
+    /**
+     * MYO-508 AC3 "plafond quotidien de propositions": once a trigger has
+     * queued `max_per_day` runs today, a further match is skipped rather than
+     * queued, even though it is a distinct (non-duplicate) dedup_key.
+     */
+    public function testEnqueueForEventSkipsWhenDailyCapAlreadyReached(): void
+    {
+        $agent = $this->createAgentDefinition();
+        $this->createTrigger($agent, AgentTriggerType::EVENT, eventName: 'action.order.pay', conditions: '{"max_per_day": 1}');
+
+        $first = $this->queue->enqueueForEvent('action.order.pay', 'order:1:paid');
+        $second = $this->queue->enqueueForEvent('action.order.pay', 'order:2:paid');
+
+        self::assertCount(1, $first, 'the first run of the day is queued normally');
+        self::assertSame([], $second, 'a second, distinct run the same day is blocked by the daily cap, not by dedup');
+    }
+
     public function testEnqueueForEventSkipsDisabledAgent(): void
     {
         $agent = $this->createAgentDefinition(enabled: false);
@@ -166,6 +183,44 @@ class AgentRunQueueTest extends IntegrationTestCase
         $runs = $this->queue->enqueueDueAbandonedCartRuns($now);
 
         self::assertNotContains($cart->getId(), $this->cartIdsFrom($runs), 'a cart already converted to an order is never abandoned');
+    }
+
+    /**
+     * MYO-508 AC3: "ne relancer que les paniers de plus de X €" reuses
+     * `min_amount`, until now only ever read for event triggers.
+     */
+    public function testEnqueueDueAbandonedCartRunsSkipsCartBelowMinAmount(): void
+    {
+        $now = new \DateTimeImmutable('2026-09-15 10:00:00');
+        $agent = $this->createAgentDefinition();
+        $this->createTrigger($agent, AgentTriggerType::ABANDONED_CART, conditions: '{"delay_hours": 2, "min_amount": 100}', nextRunAt: $now);
+
+        $customer = $this->factory->customer($this->factory->customerTitle());
+        $cart = $this->factory->cart($customer);
+        $product = $this->factory->product($this->factory->category(), $this->factory->taxRule(), $this->factory->currency());
+        $this->factory->cartItem($cart, $product, overrides: ['price' => '20.000000', 'quantity' => 1.0]);
+        $cart->setUpdatedAt(\DateTime::createFromImmutable($now->modify('-3 hours')))->save($this->getPropelConnection());
+
+        $runs = $this->queue->enqueueDueAbandonedCartRuns($now);
+
+        self::assertNotContains($cart->getId(), $this->cartIdsFrom($runs), 'a cart under min_amount is not relaunched');
+    }
+
+    public function testEnqueueDueAbandonedCartRunsIncludesCartAboveMinAmount(): void
+    {
+        $now = new \DateTimeImmutable('2026-09-15 10:00:00');
+        $agent = $this->createAgentDefinition();
+        $this->createTrigger($agent, AgentTriggerType::ABANDONED_CART, conditions: '{"delay_hours": 2, "min_amount": 100}', nextRunAt: $now);
+
+        $customer = $this->factory->customer($this->factory->customerTitle());
+        $cart = $this->factory->cart($customer);
+        $product = $this->factory->product($this->factory->category(), $this->factory->taxRule(), $this->factory->currency());
+        $this->factory->cartItem($cart, $product, overrides: ['price' => '150.000000', 'quantity' => 1.0]);
+        $cart->setUpdatedAt(\DateTime::createFromImmutable($now->modify('-3 hours')))->save($this->getPropelConnection());
+
+        $runs = $this->queue->enqueueDueAbandonedCartRuns($now);
+
+        self::assertContains($cart->getId(), $this->cartIdsFrom($runs), 'a cart above min_amount is relaunched as usual');
     }
 
     public function testEnqueueDueAbandonedCartRunsSkipsRecentCart(): void

@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace CommerceAgents\Service;
+
+/**
+ * Guided-edition "scope" setting (MYO-508 AC3), same family as TriggerCatalog
+ * and CapabilityCatalog: a fixed catalog, zero schema of its own. Composes a
+ * fixed sentence appended to `role_prompt` for the chosen category/customer
+ * scope — always a full-text append, never a fragment inserted mid-text.
+ *
+ * Write-only by design: the composed sentence is never re-parsed to pre-fill
+ * the setting back. Drift detection (AC4) only compares role_prompt against
+ * the tone/detail `rolePromptVariants` of {@see AgentPresets}, never against
+ * scope sentences.
+ */
+final class ScopeCatalog
+{
+    public const CUSTOMER_SCOPE_ALL = 'all';
+    public const CUSTOMER_SCOPE_RETURNING = 'returning_customers';
+    public const CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS = 'exclude_key_accounts';
+
+    /**
+     * customer scope code => fixed sentence appended to role_prompt.
+     * CUSTOMER_SCOPE_ALL (the default, "all customers") has no sentence: no
+     * restriction to state.
+     *
+     * @var array<string, string>
+     */
+    private const CUSTOMER_SCOPE_SENTENCES = [
+        self::CUSTOMER_SCOPE_RETURNING => "Ne t'adresse qu'aux clients ayant déjà passé au moins une commande.",
+        self::CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS => 'N\'inclus jamais les clients grand compte dans ton périmètre.',
+    ];
+
+    /**
+     * @return list<string> known customer scope codes, in display order
+     */
+    public static function customerScopes(): array
+    {
+        return [self::CUSTOMER_SCOPE_ALL, self::CUSTOMER_SCOPE_RETURNING, self::CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS];
+    }
+
+    /**
+     * @param list<string> $categoryTitles shop category titles selected as scope, already resolved to display text; an empty list means "all categories" and leaves the prompt untouched
+     */
+    public static function appendCategoryScope(string $rolePrompt, array $categoryTitles): string
+    {
+        if ($categoryTitles === []) {
+            return $rolePrompt;
+        }
+
+        return self::append($rolePrompt, \sprintf('Concentre-toi uniquement sur les produits des catégories : %s.', implode(', ', $categoryTitles)));
+    }
+
+    public static function appendCustomerScope(string $rolePrompt, string $customerScope): string
+    {
+        $sentence = self::CUSTOMER_SCOPE_SENTENCES[$customerScope] ?? null;
+
+        return $sentence === null ? $rolePrompt : self::append($rolePrompt, $sentence);
+    }
+
+    private static function append(string $rolePrompt, string $sentence): string
+    {
+        $rolePrompt = rtrim($rolePrompt);
+
+        return $rolePrompt === '' ? $sentence : $rolePrompt.' '.$sentence;
+    }
+}

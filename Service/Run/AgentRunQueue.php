@@ -37,10 +37,20 @@ final readonly class AgentRunQueue
 
     /**
      * Queues one run. Returns null when an identical dedup_key is already
-     * queued or executed for this agent (idempotent triggers).
+     * queued or executed for this agent (idempotent triggers), or when the
+     * trigger's daily proposal cap (MYO-508 AC3) is already reached today.
      */
     public function enqueue(AgentDefinition $definition, array $context = [], ?AgentTrigger $trigger = null, ?string $dedupKey = null): ?AgentRun
     {
+        if ($trigger !== null && $this->dailyCapReached($trigger)) {
+            $this->logger->info('[commerce-agents] run skipped: daily proposal cap reached', [
+                'agent' => $definition->getCode(),
+                'trigger_id' => $trigger->getId(),
+            ]);
+
+            return null;
+        }
+
         $run = (new AgentRun())
             ->setAgentDefinitionId($definition->getId())
             ->setAgentTriggerId($trigger?->getId())
@@ -166,6 +176,11 @@ final readonly class AgentRunQueue
      * server-resolved facts removes the guess entirely instead of adding a
      * tool the model could still skip.
      *
+     * `min_amount` (MYO-508 AC3, "ne relancer que les paniers de plus de X €")
+     * is evaluated here against the cart's untaxed total through the same
+     * `TriggerConditions::matches()` used for event triggers — carts under
+     * the threshold are silently skipped, never queued.
+     *
      * @return AgentRun[] the newly queued runs
      */
     public function enqueueDueAbandonedCartRuns(\DateTimeImmutable $now = new \DateTimeImmutable()): array
@@ -175,6 +190,10 @@ final readonly class AgentRunQueue
             $delayHours = TriggerConditions::intOption($trigger->getConditions(), 'delay_hours', AbandonedCartFinder::DEFAULT_DELAY_HOURS);
 
             foreach ($this->abandonedCartFinder->find($delayHours, $now) as $cart) {
+                if (!TriggerConditions::matches($trigger->getConditions(), ['amount' => $cart->getTotalAmount()])) {
+                    continue;
+                }
+
                 $run = $this->enqueue(
                     $trigger->getAgentDefinition(),
                     ['trigger' => AgentTriggerType::ABANDONED_CART] + $this->abandonedCartContext($cart),
@@ -234,6 +253,27 @@ final readonly class AgentRunQueue
             ->limit($limit)
             ->find()
             ->getData();
+    }
+
+    /**
+     * MYO-508 AC3 "plafond quotidien de propositions": `conditions.max_per_day`
+     * caps how many runs a trigger may queue per calendar day, counted
+     * against `agent_run` (already existing table, zero schema change). No
+     * value or a value ≤ 0 means unlimited, the settings screen's default.
+     */
+    private function dailyCapReached(AgentTrigger $trigger): bool
+    {
+        $maxPerDay = TriggerConditions::intOption($trigger->getConditions(), 'max_per_day', 0);
+        if ($maxPerDay <= 0) {
+            return false;
+        }
+
+        $runsToday = AgentRunQuery::create()
+            ->filterByAgentTriggerId($trigger->getId())
+            ->filterByCreatedAt(['min' => new \DateTimeImmutable('today')])
+            ->count();
+
+        return $runsToday >= $maxPerDay;
     }
 
     /**
