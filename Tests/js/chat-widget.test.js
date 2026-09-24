@@ -1022,6 +1022,74 @@ test('applyCoupon surfaces the server error message and stays reusable', async (
     assert.equal(cardData.error, "Ce code n'est plus valide");
 });
 
+test('prepareCard seeds the newsletter opt-in card with local widget state (T7, MYO-476)', () => {
+    const widget = component({ locale: 'fr_FR' });
+    const card = { type: 'newsletter_optin', data: { conditionLabel: 'Recevez -10% par e-mail' } };
+
+    assert.deepEqual(widget.prepareCard(card), {
+        type: 'newsletter_optin',
+        data: {
+            conditionLabel: 'Recevez -10% par e-mail',
+            email: '',
+            consent: false,
+            submitting: false,
+            subscribed: false,
+            error: null,
+        },
+    });
+});
+
+test('subscribeNewsletter posts the email and consent, never the code, and marks the card subscribed on success', async () => {
+    const calls = stubFetch({ subscribed: true });
+    const widget = component({ locale: 'fr_FR' });
+    const cardData = { email: 'visiteur@example.com', consent: true, submitting: false, subscribed: false, error: null };
+
+    const pending = widget.subscribeNewsletter(cardData);
+    assert.equal(cardData.submitting, true, 'the button must disable itself immediately');
+
+    await pending;
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/agent/chat/proactive-subscribe-newsletter');
+    assert.deepEqual(JSON.parse(calls[0].options.body), { email: 'visiteur@example.com', consent: true });
+    assert.equal(calls[0].options.headers['X-Requested-With'], 'XMLHttpRequest');
+    assert.equal(cardData.submitting, false);
+    assert.equal(cardData.subscribed, true);
+    assert.equal(cardData.error, null);
+});
+
+test('subscribeNewsletter surfaces the server error message and stays reusable', async () => {
+    stubFetch({ subscribed: false, error: 'Adresse invalide' }, { ok: false });
+    const widget = component({ locale: 'fr_FR' });
+    const cardData = { email: 'pas-un-email', consent: true, submitting: false, subscribed: false, error: null };
+
+    await widget.subscribeNewsletter(cardData);
+
+    assert.equal(cardData.submitting, false);
+    assert.equal(cardData.subscribed, false);
+    assert.equal(cardData.error, 'Adresse invalide');
+});
+
+test('subscribeNewsletter does nothing without an email or without consent, and never fires twice while pending or subscribed', async () => {
+    const calls = stubFetch({ subscribed: true });
+    const widget = component({ locale: 'fr_FR' });
+
+    await widget.subscribeNewsletter({ email: '', consent: true, submitting: false, subscribed: false, error: null });
+    assert.equal(calls.length, 0, 'no email: no call');
+
+    await widget.subscribeNewsletter({ email: 'visiteur@example.com', consent: false, submitting: false, subscribed: false, error: null });
+    assert.equal(calls.length, 0, 'consent not checked: no call');
+
+    const cardData = { email: 'visiteur@example.com', consent: true, submitting: true, subscribed: false, error: null };
+    await widget.subscribeNewsletter(cardData);
+    assert.equal(calls.length, 0, 'already submitting: no duplicate call');
+
+    cardData.submitting = false;
+    cardData.subscribed = true;
+    await widget.subscribeNewsletter(cardData);
+    assert.equal(calls.length, 0, 'already subscribed: no duplicate call');
+});
+
 test('applyCoupon does nothing without a code, and never fires twice while pending or applied', async () => {
     const calls = stubFetch({ applied: true, discount: 1 });
     const widget = component({ locale: 'fr_FR' });
