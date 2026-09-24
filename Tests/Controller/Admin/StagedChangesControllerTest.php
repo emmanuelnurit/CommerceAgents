@@ -8,9 +8,12 @@ use Comment\Model\Comment;
 use CommerceAgents\Model\AgentActionLog;
 use CommerceAgents\Model\AgentConversation;
 use CommerceAgents\Model\AgentDefinition;
+use CommerceAgents\Model\AgentDefinitionQuery;
 use CommerceAgents\Model\AgentReviewReplyQuery;
 use CommerceAgents\Model\AgentRun;
 use CommerceAgents\Model\AgentStagedChange;
+use CommerceAgents\Service\AgentPresets;
+use CommerceAgents\Service\SkillCatalog;
 use CommerceAgents\StagedChange\StagedChangeData;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Thelia\Model\CurrencyQuery;
@@ -339,5 +342,49 @@ final class StagedChangesControllerTest extends WebIntegrationTestCase
         self::assertGreaterThan(0, $panel->count());
         self::assertStringContainsString('get_product_reviews', $panel->text());
         self::assertStringContainsString('/admin/module/CommerceAgents/agents/runs/'.$run->getId(), $panel->html());
+    }
+
+    /**
+     * MYO-519 (AC2 of MYO-508): the skills library tab renders a "Guided
+     * settings" button and its modal for an activated skill, but never for
+     * the protected conversational copilot (AC3).
+     */
+    public function testSkillsTabRendersTheGuidedSettingsButtonAndModalForAnActivatedSkill(): void
+    {
+        $this->getService(SkillCatalog::class)->activate(AgentPresets::STOCK_WATCH_RESTOCK);
+
+        $crawler = $this->client->request('GET', '/admin/merchant-agent/changes');
+
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        self::assertGreaterThan(0, $crawler->filter('[data-testid="skill-guided-settings-stock_watch_restock"]')->count());
+        $modal = $crawler->filter('[data-testid="skill-guided-modal-stock_watch_restock"]');
+        self::assertGreaterThan(0, $modal->count());
+        self::assertGreaterThan(0, $modal->filter('input[name="threshold"][value="5"]')->count());
+        self::assertSame(0, $crawler->filter('[data-testid="skill-guided-settings-merchant_assistant"]')->count());
+    }
+
+    /**
+     * MYO-519 (AC4 of MYO-508): a role_prompt hand-edited in the expert
+     * wizard renders the drift banner with the tone selector locked, instead
+     * of silently pre-filling a wrong tone.
+     */
+    public function testSkillsTabRendersTheDriftBannerForAHandEditedRolePrompt(): void
+    {
+        $skillCatalog = $this->getService(SkillCatalog::class);
+        $skillCatalog->activate(AgentPresets::CUSTOMER_REVIEWS_REPLY);
+        $definitionId = null;
+        foreach ($skillCatalog->all() as $row) {
+            if ($row['code'] === AgentPresets::CUSTOMER_REVIEWS_REPLY) {
+                $definitionId = $row['agentDefinitionId'];
+            }
+        }
+        AgentDefinitionQuery::create()->findPk($definitionId)->setRolePrompt('Texte tapé à la main par le marchand.')->save();
+
+        $crawler = $this->client->request('GET', '/admin/merchant-agent/changes');
+
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        $modal = $crawler->filter('[data-testid="skill-guided-modal-customer_reviews_reply"]');
+        self::assertGreaterThan(0, $modal->filter('[data-testid="guided-drift-banner-customer_reviews_reply"]')->count());
+        self::assertGreaterThan(0, $modal->filter('button[type="submit"][disabled]')->count());
     }
 }
