@@ -89,6 +89,7 @@ final readonly class SkillCatalog
                 'acceptanceRate' => null,
                 'costPerProposalEur' => null,
                 'editUrl' => null,
+                'guidedSettings' => null,
             ];
         }
 

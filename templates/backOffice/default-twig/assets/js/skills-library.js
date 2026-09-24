@@ -64,12 +64,12 @@
     });
 
     /**
-     * Guided settings modal: AC4 drift banner "Replace with this tone".
-     * Same confirm()-then-apply pattern as the "Reset to preset" button
-     * (agents-memory.js), except it unlocks a whole radio group instead of
-     * resetting one textarea: confirm, enable the disabled inputs, check the
-     * suggested variant, then drop the banner and unlock button so the form
-     * reads as a normal (now editable) guided settings form.
+     * Guided settings modal: AC4 drift banner, one "Replace with %tone%" button
+     * per available variant. Same confirm()-then-apply pattern as the "Reset to
+     * preset" button (agents-memory.js), except it unlocks a whole radio group
+     * instead of resetting one textarea: confirm, enable the disabled inputs,
+     * check the chosen variant, then drop the banner and all unlock buttons so
+     * the form reads as a normal (now editable) guided settings form.
      */
     document.querySelectorAll('.js-guided-unlock').forEach(function (button) {
         button.addEventListener('click', function () {
@@ -93,7 +93,9 @@
             if (toCheck) {
                 toCheck.checked = true;
             }
-            button.remove();
+            group.querySelectorAll('.js-guided-unlock').forEach(function (unlockButton) {
+                unlockButton.remove();
+            });
 
             var modalContent = group.closest('.modal-content');
             if (!modalContent) {

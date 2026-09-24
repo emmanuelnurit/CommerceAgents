@@ -292,24 +292,28 @@
                                 </div>
 
                                 <div class="mb-4 settings-locked" data-testid="guided-variant-group-{{ skill.code }}">
-                                    <div class="setting-group__label mb-1">{{ (gs.variantKind == 'tone' ? 'Tone' : 'Detail level')|trans({}, 'commerceagents') }}</div>
-                                    <div class="segmented segmented--disabled" role="radiogroup">
+                                    <div class="setting-group__label mb-1" id="guided-{{ skill.code }}-variant-label">{{ (gs.variantKind == 'tone' ? 'Tone' : 'Detail level')|trans({}, 'commerceagents') }}</div>
+                                    <div class="segmented segmented--disabled" role="radiogroup" aria-labelledby="guided-{{ skill.code }}-variant-label">
                                         {% for option in gs.variantOptions %}
                                             <input type="radio" name="variant" id="guided-{{ skill.code }}-variant-{{ option.code }}" value="{{ option.code }}" disabled>
                                             <label for="guided-{{ skill.code }}-variant-{{ option.code }}">{{ option.labelKey|trans({}, 'commerceagents') }}</label>
                                         {% endfor %}
                                     </div>
-                                    <button type="button" class="btn btn-outline-warning btn-sm mt-2 js-guided-unlock"
-                                            data-unlock-value="{{ gs.variantOptions[0].code }}"
-                                            data-confirm="{{ 'Reset this text to the original preset content? Your unsaved edits will be lost.'|trans({}, 'commerceagents') }}"
-                                            data-testid="guided-replace-tone-{{ skill.code }}">
-                                        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>{{ 'Replace with this tone'|trans({}, 'commerceagents') }}
-                                    </button>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        {% for option in gs.variantOptions %}
+                                            <button type="button" class="btn btn-outline-warning btn-sm js-guided-unlock"
+                                                    data-unlock-value="{{ option.code }}"
+                                                    data-confirm="{{ 'Reset this text to the original preset content? Your unsaved edits will be lost.'|trans({}, 'commerceagents') }}"
+                                                    data-testid="guided-replace-tone-{{ skill.code }}-{{ option.code }}">
+                                                <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>{{ 'Replace with %tone%'|trans({'%tone%': option.labelKey|trans({}, 'commerceagents')}, 'commerceagents') }}
+                                            </button>
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             {% else %}
                                 <div class="mb-4">
-                                    <div class="setting-group__label mb-1">{{ (gs.variantKind == 'tone' ? 'Tone' : 'Detail level')|trans({}, 'commerceagents') }}</div>
-                                    <div class="segmented" role="radiogroup">
+                                    <div class="setting-group__label mb-1" id="guided-{{ skill.code }}-variant-label">{{ (gs.variantKind == 'tone' ? 'Tone' : 'Detail level')|trans({}, 'commerceagents') }}</div>
+                                    <div class="segmented" role="radiogroup" aria-labelledby="guided-{{ skill.code }}-variant-label">
                                         {% for option in gs.variantOptions %}
                                             <input type="radio" name="variant" id="guided-{{ skill.code }}-variant-{{ option.code }}" value="{{ option.code }}" {{ option.code == gs.currentVariant ? 'checked' : '' }}>
                                             <label for="guided-{{ skill.code }}-variant-{{ option.code }}">{{ option.labelKey|trans({}, 'commerceagents') }}</label>

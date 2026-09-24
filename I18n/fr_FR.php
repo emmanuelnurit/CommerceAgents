@@ -547,7 +547,7 @@ return [
     'Detailed' => 'Détaillé',
     'Custom text (expert mode)' => 'Texte personnalisé (mode expert)',
     'This prompt no longer matches a guided tone. Pick one below to replace it, or keep editing it in expert mode.' => 'Ce texte a été modifié à la main et ne correspond plus à un ton connu. Choisissez un ton ci-dessous pour le remplacer, ou continuez à l\'éditer en mode expert.',
-    'Replace with this tone' => 'Remplacer par ce ton',
+    'Replace with %tone%' => 'Remplacer par « %tone% »',
     'Alert when remaining stock is at or below' => 'Alerter quand il reste au plus',
     'units' => 'unités',
     'Relaunch after' => 'Relancer après',
