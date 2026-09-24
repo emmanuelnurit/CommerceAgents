@@ -23,6 +23,18 @@
     names `commerceagents_skill_activate` / `commerceagents_skill_deactivate`
     (POST, `{code}` param) are likewise a coordination point with MYO-506 --
     see the closing comment on MYO-507 for the exact contract.
+
+    MYO-519 (AC2/AC3/AC4 of MYO-508) adds a "Réglages guidés" button + modal
+    per activated, non-protected skill (mockup
+    docs/design/myo-508-edition-guidee-skill.html): tone/detail segmented
+    control or the AC4 "custom text" drift banner, threshold/delay/schedule
+    fields, daily cap, monthly budget, category/customer scope, and the
+    read-only "Propose"/"Applique" badge. Entirely driven by
+    `skill.guidedSettings` (null when not applicable -- see SkillCatalog)
+    plus the page-level `guidedCategories`/`guidedCustomerScopes` variables,
+    shared across every skill's modal since {@see
+    \CommerceAgents\Service\ScopeCatalog} is write-only (never re-read to
+    pre-fill a previous selection).
 #}
 
 {% block title %}{{ 'Merchant Agent — The Brief'|trans({}, 'commerceagents') }}{% endblock %}
@@ -224,11 +236,179 @@
                     </div>
 
                     {% if skill.editUrl %}
+                        {% if skill.guidedSettings %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-3 w-100" data-bs-toggle="modal" data-bs-target="#guided-{{ skill.code }}" data-testid="skill-guided-settings-{{ skill.code }}">
+                                <i class="bi bi-sliders me-1" aria-hidden="true"></i>{{ 'Guided settings'|trans({}, 'commerceagents') }}
+                            </button>
+                        {% endif %}
                         <a href="{{ skill.editUrl }}" class="btn btn-sm btn-outline-secondary mt-3 skill-tile__edit">
                             <i class="bi bi-pencil me-1" aria-hidden="true"></i>{{ 'Edit'|trans({}, 'commerceagents') }}
                         </a>
                     {% endif %}
                 {% endif %}
+            </div>
+        </div>
+    </div>
+{% endmacro %}
+
+{# MYO-519 (AC2 of MYO-508): guided settings modal -- ton/détail (ou bandeau de
+   dérive AC4), seuils/heure du déclencheur, plafond quotidien, budget mensuel,
+   portées catégories/clients, badge "Propose"/"Applique" en lecture seule.
+   One modal per activated, non-protected skill; `merchant_assistant` never
+   gets one (skill.guidedSettings is null for it, see SkillCatalog). #}
+{% macro guidedSettingsModal(skill, csrfToken, categories, customerScopes, usdToEurRate, usdToEurRatedAt) %}
+    {% set gs = skill.guidedSettings %}
+    <div class="modal fade" id="guided-{{ skill.code }}" tabindex="-1" aria-labelledby="guided-{{ skill.code }}-title" aria-hidden="true" data-testid="skill-guided-modal-{{ skill.code }}">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <form action="{{ gs.saveUrl }}" method="post" class="guided-settings-form" data-testid="guided-settings-form-{{ skill.code }}">
+                    <input type="hidden" name="_token" value="{{ csrfToken }}">
+                    <div class="modal-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="skill-tile__icon rounded-circle bg-{{ skill.color }}-subtle text-{{ skill.color }}-emphasis d-flex align-items-center justify-content-center">
+                                <i class="bi {{ skill.icon }}" aria-hidden="true"></i>
+                            </div>
+                            <div>
+                                <h2 class="modal-title h6 mb-0" id="guided-{{ skill.code }}-title">
+                                    {{ 'Guided settings for %skill%'|trans({'%skill%': skill.labelKey|trans({}, 'commerceagents')}, 'commerceagents') }}
+                                </h2>
+                                <a href="{{ skill.editUrl }}" class="small text-decoration-none">
+                                    <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>{{ 'Expert mode (edit the raw prompt)'|trans({}, 'commerceagents') }}
+                                </a>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ 'Close'|trans }}"></button>
+                    </div>
+                    <div class="modal-body">
+
+                        {% if gs.variantKind %}
+                            {% if gs.drift %}
+                                <div class="drift-banner p-3 mb-4 d-flex gap-2" data-testid="guided-drift-banner-{{ skill.code }}">
+                                    <i class="bi bi-exclamation-triangle text-warning fs-5" aria-hidden="true"></i>
+                                    <div>
+                                        <div class="fw-semibold">{{ 'Custom text (expert mode)'|trans({}, 'commerceagents') }}</div>
+                                        <div class="setting-group__help">{{ 'This prompt no longer matches a guided tone. Pick one below to replace it, or keep editing it in expert mode.'|trans({}, 'commerceagents') }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4 settings-locked" data-testid="guided-variant-group-{{ skill.code }}">
+                                    <div class="setting-group__label mb-1">{{ (gs.variantKind == 'tone' ? 'Tone' : 'Detail level')|trans({}, 'commerceagents') }}</div>
+                                    <div class="segmented segmented--disabled" role="radiogroup">
+                                        {% for option in gs.variantOptions %}
+                                            <input type="radio" name="variant" id="guided-{{ skill.code }}-variant-{{ option.code }}" value="{{ option.code }}" disabled>
+                                            <label for="guided-{{ skill.code }}-variant-{{ option.code }}">{{ option.labelKey|trans({}, 'commerceagents') }}</label>
+                                        {% endfor %}
+                                    </div>
+                                    <button type="button" class="btn btn-outline-warning btn-sm mt-2 js-guided-unlock"
+                                            data-unlock-value="{{ gs.variantOptions[0].code }}"
+                                            data-confirm="{{ 'Reset this text to the original preset content? Your unsaved edits will be lost.'|trans({}, 'commerceagents') }}"
+                                            data-testid="guided-replace-tone-{{ skill.code }}">
+                                        <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>{{ 'Replace with this tone'|trans({}, 'commerceagents') }}
+                                    </button>
+                                </div>
+                            {% else %}
+                                <div class="mb-4">
+                                    <div class="setting-group__label mb-1">{{ (gs.variantKind == 'tone' ? 'Tone' : 'Detail level')|trans({}, 'commerceagents') }}</div>
+                                    <div class="segmented" role="radiogroup">
+                                        {% for option in gs.variantOptions %}
+                                            <input type="radio" name="variant" id="guided-{{ skill.code }}-variant-{{ option.code }}" value="{{ option.code }}" {{ option.code == gs.currentVariant ? 'checked' : '' }}>
+                                            <label for="guided-{{ skill.code }}-variant-{{ option.code }}">{{ option.labelKey|trans({}, 'commerceagents') }}</label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if gs.trigger.kind == 'threshold' %}
+                            <div class="mb-4">
+                                <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-threshold">{{ 'Alert when remaining stock is at or below'|trans({}, 'commerceagents') }}</label>
+                                <div class="input-group" style="max-width: 220px;">
+                                    <input type="number" class="form-control" id="guided-{{ skill.code }}-threshold" name="threshold" value="{{ gs.trigger.value }}" min="{{ gs.trigger.min }}" max="{{ gs.trigger.max }}" step="1">
+                                    <span class="input-group-text">{{ 'units'|trans({}, 'commerceagents') }}</span>
+                                </div>
+                            </div>
+                        {% elseif gs.trigger.kind == 'delay_hours' %}
+                            <div class="row g-3 mb-4">
+                                <div class="col-sm-6">
+                                    <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-delay">{{ 'Relaunch after'|trans({}, 'commerceagents') }}</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="guided-{{ skill.code }}-delay" name="delay_hours" value="{{ gs.trigger.value }}" min="{{ gs.trigger.min }}" max="{{ gs.trigger.max }}" step="1">
+                                        <span class="input-group-text">{{ 'hours'|trans({}, 'commerceagents') }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-min-amount">{{ 'Minimum cart amount'|trans({}, 'commerceagents') }}</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="guided-{{ skill.code }}-min-amount" name="min_amount" value="{{ gs.trigger.minAmount is not null ? gs.trigger.minAmount : '' }}" min="0" step="0.01" placeholder="{{ 'No minimum'|trans({}, 'commerceagents') }}">
+                                        <span class="input-group-text">€</span>
+                                    </div>
+                                </div>
+                            </div>
+                        {% elseif gs.trigger.kind == 'schedule' %}
+                            <div class="mb-4" style="max-width: 220px;">
+                                <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-time">{{ 'Run daily at'|trans({}, 'commerceagents') }}</label>
+                                <input type="time" class="form-control" id="guided-{{ skill.code }}-time" name="time" value="{{ gs.trigger.time }}">
+                            </div>
+                        {% endif %}
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-sm-6">
+                                <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-daily-cap">{{ 'No more than this many proposals per day'|trans({}, 'commerceagents') }}</label>
+                                <input type="number" class="form-control" id="guided-{{ skill.code }}-daily-cap" name="daily_cap" value="{{ gs.dailyCap is not null ? gs.dailyCap : '' }}" min="1" max="100" step="1" placeholder="{{ 'Unlimited (within the global budget)'|trans({}, 'commerceagents') }}">
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-budget">{{ "This skill's monthly cap (€)"|trans({}, 'commerceagents') }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    <input type="text" class="form-control" id="guided-{{ skill.code }}-budget" name="monthly_budget_eur" value="{{ gs.monthlyBudgetEur is not null ? gs.monthlyBudgetEur : '' }}" placeholder="{{ 'Unlimited (within the global budget)'|trans({}, 'commerceagents') }}">
+                                </div>
+                                {% if usdToEurRate is defined and usdToEurRatedAt is not null %}
+                                    <div class="setting-group__help mt-1">{{ 'Estimate, rate %rate% of %date% — always within the shop-wide budget.'|trans({'%rate%': usdToEurRate, '%date%': usdToEurRatedAt|date('d/m/Y')}, 'commerceagents') }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-scope">{{ 'Categories covered'|trans({}, 'commerceagents') }}</label>
+                            <select class="form-select" id="guided-{{ skill.code }}-scope" name="category_ids[]" multiple size="3">
+                                <option value="" selected>{{ 'All categories'|trans({}, 'commerceagents') }}</option>
+                                {% for category in categories %}
+                                    <option value="{{ category.id }}">{{ category.title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="setting-group__label d-block mb-1" for="guided-{{ skill.code }}-customer-scope">{{ 'Customer scope'|trans({}, 'commerceagents') }}</label>
+                            <select class="form-select" id="guided-{{ skill.code }}-customer-scope" name="customer_scope" style="max-width: 320px;">
+                                {% for scope in customerScopes %}
+                                    <option value="{{ scope.code }}">{{ scope.labelKey|trans({}, 'commerceagents') }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="readonly-setting d-flex align-items-center justify-content-between">
+                            <div>
+                                <div class="setting-group__label">{{ 'Proposes or applies'|trans({}, 'commerceagents') }}</div>
+                                <div class="setting-group__help">
+                                    {% if gs.isStagedChange %}
+                                        {{ 'Proposes — you approve each change before it is applied.'|trans({}, 'commerceagents') }}
+                                    {% else %}
+                                        {{ 'Applies automatically — no approval needed before it runs.'|trans({}, 'commerceagents') }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <i class="bi bi-lock text-muted" aria-hidden="true" title="{{ 'Derived from the skill\'s capabilities, not editable here.'|trans({}, 'commerceagents') }}"></i>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-link text-muted" data-bs-dismiss="modal">{{ 'Cancel'|trans({}, 'commerceagents') }}</button>
+                        <button type="submit" class="btn btn-primary" {{ gs.drift ? 'disabled' : '' }} title="{{ gs.drift ? 'Pick a tone first, or edit in expert mode.'|trans({}, 'commerceagents') : '' }}" data-testid="guided-settings-save-{{ skill.code }}">
+                            {{ 'Save'|trans({}, 'commerceagents') }}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -348,6 +528,11 @@
             <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3" data-testid="skills-grid">
                 {% for skill in skills %}{{ brief.skillTile(skill, csrfToken) }}{% endfor %}
             </div>
+            {% for skill in skills %}
+                {% if skill.guidedSettings %}
+                    {{ brief.guidedSettingsModal(skill, csrfToken, guidedCategories|default([]), guidedCustomerScopes|default([]), usdToEurRate|default(null), usdToEurRatedAt|default(null)) }}
+                {% endif %}
+            {% endfor %}
         {% else %}
             <div class="alert alert-info" data-testid="skills-empty">{{ 'No skill available yet.'|trans({}, 'commerceagents') }}</div>
         {% endif %}

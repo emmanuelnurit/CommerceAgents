@@ -10,6 +10,7 @@ use CommerceAgents\Model\AgentRunQuery;
 use CommerceAgents\Service\BudgetGuard;
 use CommerceAgents\Service\Merchant\TheliaStagedChangeRepository;
 use CommerceAgents\Service\ModelCatalog;
+use CommerceAgents\Service\ScopeCatalog;
 use CommerceAgents\Service\SkillCatalog;
 use CommerceAgents\StagedChange\BriefUrgencyClassifier;
 use CommerceAgents\StagedChange\StagedChangeData;
@@ -28,6 +29,7 @@ use Thelia\Core\Security\AccessManager;
 use Thelia\Core\Security\Resource\AdminResources;
 use Thelia\Core\Security\SecurityContext;
 use Thelia\Core\Translation\Translator;
+use Thelia\Model\CategoryQuery;
 use Twig\Environment;
 
 /**
@@ -148,6 +150,15 @@ final readonly class StagedChangesController
             'skills' => $this->skillCatalog->all(),
             'usdToEurRate' => ModelCatalog::usdToEurRate(),
             'usdToEurRatedAt' => ModelCatalog::usdToEurRatedAt(),
+            // Guided settings card (MYO-508 AC2): shared across every skill's modal, not
+            // per-skill data -- ScopeCatalog::appendCategoryScope()/appendCustomerScope()
+            // are write-only (never re-read to pre-fill), so these lists are always the
+            // same fresh catalog regardless of which skill's modal opens.
+            'guidedCategories' => $this->guidedCategories($request->getLocale()),
+            'guidedCustomerScopes' => array_map(
+                static fn (string $code): array => ['code' => $code, 'labelKey' => ScopeCatalog::customerScopeLabelKey($code)],
+                ScopeCatalog::customerScopes(),
+            ),
         ]));
     }
 
@@ -518,6 +529,26 @@ final readonly class StagedChangesController
                 'createdAt' => $row['createdAt'],
             ],
         };
+    }
+
+    /**
+     * Shop categories for the guided settings card's "Categories covered"
+     * multi-select (MYO-508 AC2) -- same visible/ordered catalog convention
+     * as {@see \CommerceAgents\Service\Shopping\TheliaCategoryGateway}, but
+     * every visible category (not just ones with products): a merchant may
+     * pick a category ahead of stocking it.
+     *
+     * @return list<array{id: int, title: string}>
+     */
+    private function guidedCategories(string $locale): array
+    {
+        $categories = [];
+        foreach (CategoryQuery::create()->filterByVisible(true)->orderByPosition()->find() as $category) {
+            $category->setLocale($locale);
+            $categories[] = ['id' => (int) $category->getId(), 'title' => $category->getTitle() ?? ''];
+        }
+
+        return $categories;
     }
 
     private function formatPrice(mixed $value): string

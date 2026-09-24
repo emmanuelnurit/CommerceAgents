@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace CommerceAgents\Service;
 
+use CommerceAgents\Model\AgentChannel;
+use CommerceAgents\Model\AgentChannelQuery;
 use CommerceAgents\Model\AgentDefinition;
 use CommerceAgents\Model\AgentDefinitionQuery;
 use CommerceAgents\Model\AgentStagedChangeQuery;
+use CommerceAgents\Model\AgentTrigger;
+use CommerceAgents\Model\AgentTriggerQuery;
 use CommerceAgents\Service\Run\AgentTriggerType;
 use CommerceAgents\Service\Run\TriggerCatalogMapping;
+use CommerceAgents\Service\Run\TriggerConditions;
 use CommerceAgents\StagedChange\StagedChangeData;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -56,13 +61,15 @@ final readonly class SkillCatalog
         private AgentDefinitionManager $definitionManager,
         private AgentSpendRepository $spendRepository,
         private UrlGeneratorInterface $urlGenerator,
+        private CapabilityCatalog $capabilityCatalog,
     ) {
     }
 
     /**
      * @return list<array{
      *     code: string, labelKey: string, icon: string, color: string, state: string,
-     *     agentDefinitionId: ?int, acceptanceRate: ?float, costPerProposalEur: ?float, editUrl: ?string
+     *     agentDefinitionId: ?int, acceptanceRate: ?float, costPerProposalEur: ?float, editUrl: ?string,
+     *     guidedSettings: ?array<string, mixed>
      * }>
      */
     public function all(): array
@@ -146,9 +153,149 @@ final readonly class SkillCatalog
     }
 
     /**
+     * Applies the guided-settings card's save (MYO-508 AC2/AC4): the chosen
+     * tone/detail variant (full-text replace, never a fragment) plus the
+     * category/customer scope sentences {@see ScopeCatalog} appends, the
+     * matching trigger's threshold/delay/schedule/min_amount/daily-cap, and
+     * the monthly budget -- through {@see AgentDefinitionManager::save()},
+     * the same write path the wizard itself uses, with every other field
+     * (capabilities, channels, other triggers, title/description/model)
+     * reconstructed from the current row so this call never touches them.
+     *
+     * Every guided save recomposes `role_prompt` from the *canonical* preset
+     * text (the matched variant, or the preset's single prompt when it has
+     * no tone/detail variants) rather than the current possibly-scoped
+     * value: appending scope sentences onto an already-scoped prompt would
+     * otherwise pile up duplicate sentences across repeated saves.
+     *
+     * @param array{
+     *     variant: ?string, threshold: ?int, delayHours: ?int, minAmount: ?float,
+     *     time: ?string, dailyCap: ?int, monthlyBudgetUsd: ?float,
+     *     categoryTitles: list<string>, customerScope: ?string
+     * } $input
+     */
+    public function saveGuidedSettings(string $code, array $input): void
+    {
+        if ($code === AgentDefinitionSeeder::MERCHANT_CODE) {
+            throw new \RuntimeException('The conversational copilot has no guided settings; use expert mode.');
+        }
+
+        $definition = $this->findExisting($code);
+        if ($definition === null) {
+            throw new \RuntimeException(\sprintf('Skill "%s" has not been activated yet.', $code));
+        }
+
+        $preset = AgentPresets::find($code);
+        $variants = $preset['rolePromptVariants'] ?? [];
+        $variantKind = self::variantKind($variants);
+
+        if ($variantKind !== null && ($input['variant'] === null || !isset($variants[$input['variant']]))) {
+            throw new \RuntimeException('Pick a tone before saving, or edit the text in expert mode.');
+        }
+
+        $rolePrompt = $variantKind !== null ? $variants[$input['variant']] : (string) ($preset['rolePrompt'] ?? $definition->getRolePrompt());
+        $rolePrompt = ScopeCatalog::appendCategoryScope($rolePrompt, $input['categoryTitles']);
+        $rolePrompt = ScopeCatalog::appendCustomerScope($rolePrompt, $input['customerScope'] ?? ScopeCatalog::CUSTOMER_SCOPE_ALL);
+
+        $this->definitionManager->save($definition->getId(), [
+            'title' => $definition->getTitle(),
+            'description' => (string) $definition->getDescription(),
+            'rolePrompt' => $rolePrompt,
+            'model' => (string) $definition->getModel(),
+            'provider' => $definition->getProvider(),
+            'monthlyBudgetUsd' => $input['monthlyBudgetUsd'],
+            'enabled' => (bool) $definition->getEnabled(),
+            'capabilities' => $this->definitionManager->capabilitiesFor($definition->getId()),
+            'triggers' => $this->triggersDataWithGuidedEdits($definition, $input),
+            'channels' => self::channelsData($definition->getId()),
+        ]);
+    }
+
+    /**
+     * @param array{threshold: ?int, delayHours: ?int, minAmount: ?float, time: ?string, dailyCap: ?int} $input
+     *
+     * @return list<array{type: string, cronExpression: ?string, eventName: ?string, conditions: ?array<string, mixed>}>
+     */
+    private function triggersDataWithGuidedEdits(AgentDefinition $definition, array $input): array
+    {
+        $rows = AgentTriggerQuery::create()->filterByAgentDefinitionId($definition->getId())->find()->getData();
+
+        $data = [];
+        foreach ($rows as $trigger) {
+            $catalogCode = TriggerCatalogMapping::catalogCodeFor($trigger);
+            $cronExpression = $trigger->getCronExpression();
+            $conditions = self::decodeConditions($trigger->getConditions());
+
+            if ($catalogCode === TriggerCatalog::LOW_STOCK && $input['threshold'] !== null) {
+                $conditions['threshold'] = $input['threshold'];
+            } elseif ($catalogCode === TriggerCatalog::CART_ABANDONED) {
+                if ($input['delayHours'] !== null) {
+                    $conditions['delay_hours'] = $input['delayHours'];
+                }
+                if ($input['minAmount'] !== null && $input['minAmount'] > 0) {
+                    $conditions['min_amount'] = $input['minAmount'];
+                } else {
+                    unset($conditions['min_amount']);
+                }
+            } elseif ($catalogCode === TriggerCatalog::SCHEDULE && $input['time'] !== null) {
+                $cronExpression = self::timeToCron($input['time']);
+            }
+
+            // "Plafond quotidien" (AC2) applies to whichever trigger is this skill's own
+            // recognized business trigger -- never to an unrelated custom trigger the
+            // expert wizard may have added, which this call leaves untouched otherwise.
+            if ($catalogCode !== null) {
+                if ($input['dailyCap'] !== null) {
+                    $conditions['max_per_day'] = $input['dailyCap'];
+                } else {
+                    unset($conditions['max_per_day']);
+                }
+            }
+
+            $data[] = [
+                'type' => $trigger->getType(),
+                'cronExpression' => $cronExpression,
+                'eventName' => $trigger->getEventName(),
+                'conditions' => $conditions === [] ? null : $conditions,
+            ];
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return list<array{connectorCode: string, enabled: bool}>
+     */
+    private static function channelsData(int $agentDefinitionId): array
+    {
+        return array_map(
+            static fn (AgentChannel $c): array => ['connectorCode' => $c->getConnectorCode(), 'enabled' => (bool) $c->getEnabled()],
+            AgentChannelQuery::create()->filterByAgentDefinitionId($agentDefinitionId)->find()->getData(),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function decodeConditions(?string $json): array
+    {
+        if ($json === null || $json === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($json, true, 512, \JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return [];
+        }
+
+        return \is_array($decoded) ? $decoded : [];
+    }
+
+    /**
      * @param array{labelKey: string, icon: string, color: string} $meta
      *
-     * @return array{code: string, labelKey: string, icon: string, color: string, state: string, agentDefinitionId: ?int, acceptanceRate: ?float, costPerProposalEur: ?float, editUrl: ?string}
+     * @return array{code: string, labelKey: string, icon: string, color: string, state: string, agentDefinitionId: ?int, acceptanceRate: ?float, costPerProposalEur: ?float, editUrl: ?string, guidedSettings: ?array<string, mixed>}
      */
     private function buildActivableRow(string $code, array $meta): array
     {
@@ -167,7 +314,159 @@ final readonly class SkillCatalog
             'acceptanceRate' => $this->acceptanceRate($ids),
             'costPerProposalEur' => $this->costPerProposalEur($ids),
             'editUrl' => $agentDefinitionId !== null ? $this->urlGenerator->generate('commerceagents_agents_edit', ['id' => $agentDefinitionId]) : null,
+            'guidedSettings' => $representative !== null ? $this->guidedSettingsFor($code, $representative) : null,
         ];
+    }
+
+    /**
+     * Guided-edition card contract (MYO-508 AC2/AC3/AC4): built once per
+     * activated skill from the real `agent_definition`/`agent_trigger` rows,
+     * never from the preset defaults -- those only seeded the row once at
+     * {@see self::activate()} time. `null` for the protected conversational
+     * copilot (no guided edit button, spec signalement n°3) and for a skill
+     * that was never activated (no row to read settings from -- `editUrl`
+     * stays null too in that case, so the template never renders the button).
+     *
+     * @return ?array<string, mixed>
+     */
+    private function guidedSettingsFor(string $code, AgentDefinition $definition): ?array
+    {
+        if ($code === AgentDefinitionSeeder::MERCHANT_CODE) {
+            return null;
+        }
+
+        $preset = AgentPresets::find($code);
+        $variants = $preset['rolePromptVariants'] ?? [];
+        $variantKind = self::variantKind($variants);
+        $currentVariant = self::matchVariant((string) $definition->getRolePrompt(), $variants);
+
+        $trigger = AgentTriggerQuery::create()->filterByAgentDefinitionId($definition->getId())->findOne();
+        $capabilities = $this->definitionManager->capabilitiesFor($definition->getId());
+
+        return [
+            'variantKind' => $variantKind,
+            'variantOptions' => self::variantOptions($variantKind),
+            'currentVariant' => $currentVariant,
+            'drift' => $variantKind !== null && $currentVariant === null,
+            'trigger' => $trigger !== null ? self::triggerSettings($trigger) : ['kind' => null],
+            'dailyCap' => $trigger !== null ? TriggerConditions::option($trigger->getConditions(), 'max_per_day') : null,
+            'monthlyBudgetEur' => $definition->getMonthlyBudgetUsd() !== null ? round((float) $definition->getMonthlyBudgetUsd() * ModelCatalog::usdToEurRate(), 2) : null,
+            'isStagedChange' => self::anyStagedChange($capabilities, $this->capabilityCatalog),
+            'saveUrl' => $this->urlGenerator->generate('commerceagents_skill_guided_settings', ['code' => $code]),
+        ];
+    }
+
+    /**
+     * @param array<string, string> $variants
+     */
+    private static function variantKind(array $variants): ?string
+    {
+        if ($variants === []) {
+            return null;
+        }
+
+        return array_key_exists(AgentPresets::TONE_WARM, $variants) ? 'tone' : 'detail';
+    }
+
+    /**
+     * Strict, normalized-text match against the preset's known variants
+     * (AC4) -- never a fuzzy comparison, and never re-derived from the scope
+     * sentences {@see ScopeCatalog} appends (those are write-only by design,
+     * see that class's docblock).
+     *
+     * @param array<string, string> $variants
+     */
+    private static function matchVariant(string $rolePrompt, array $variants): ?string
+    {
+        $normalized = trim($rolePrompt);
+        foreach ($variants as $key => $text) {
+            if (trim($text) === $normalized) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<array{code: string, labelKey: string}>
+     */
+    private static function variantOptions(?string $kind): array
+    {
+        return match ($kind) {
+            'tone' => [
+                ['code' => AgentPresets::TONE_WARM, 'labelKey' => 'Warm'],
+                ['code' => AgentPresets::TONE_NEUTRAL, 'labelKey' => 'Neutral and professional'],
+                ['code' => AgentPresets::TONE_DIRECT, 'labelKey' => 'Direct and brief'],
+            ],
+            'detail' => [
+                ['code' => AgentPresets::DETAIL_CONCISE, 'labelKey' => 'Concise'],
+                ['code' => AgentPresets::DETAIL_DETAILED, 'labelKey' => 'Detailed'],
+            ],
+            default => [],
+        };
+    }
+
+    /**
+     * Current value of the skill's single business trigger, read from the
+     * real `agent_trigger` row (never the preset default, which only seeded
+     * it once) -- AC2's threshold/delay/schedule-time settings, never
+     * concerned by the AC4 prompt-text drift (separate columns).
+     *
+     * @return array{kind: ?string, value?: int, min?: int, max?: int, minAmount?: int|float|string|null, time?: ?string}
+     */
+    private static function triggerSettings(AgentTrigger $trigger): array
+    {
+        $conditions = $trigger->getConditions();
+
+        return match (TriggerCatalogMapping::catalogCodeFor($trigger)) {
+            TriggerCatalog::LOW_STOCK => [
+                'kind' => 'threshold',
+                'value' => TriggerConditions::intOption($conditions, 'threshold', 5),
+                'min' => 1,
+                'max' => 50,
+            ],
+            TriggerCatalog::CART_ABANDONED => [
+                'kind' => 'delay_hours',
+                'value' => TriggerConditions::intOption($conditions, 'delay_hours', 24),
+                'min' => 1,
+                'max' => 72,
+                'minAmount' => TriggerConditions::option($conditions, 'min_amount'),
+            ],
+            TriggerCatalog::SCHEDULE => [
+                'kind' => 'schedule',
+                'time' => self::cronToTime($trigger->getCronExpression()),
+            ],
+            default => ['kind' => null],
+        };
+    }
+
+    private static function cronToTime(?string $cron): ?string
+    {
+        $parts = $cron !== null ? explode(' ', $cron) : [];
+        if (\count($parts) < 2) {
+            return null;
+        }
+
+        return \sprintf('%02d:%02d', (int) $parts[1], (int) $parts[0]);
+    }
+
+    /**
+     * "Propose" vs "Applique automatiquement" badge (AC3): strictly derived
+     * from {@see CapabilityCatalog::isStagedChange()} on the skill's actual
+     * capabilities -- read-only here, never a setting of its own.
+     *
+     * @param list<string> $capabilities
+     */
+    private static function anyStagedChange(array $capabilities, CapabilityCatalog $catalog): bool
+    {
+        foreach ($capabilities as $capability) {
+            if ($catalog->isStagedChange($capability)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

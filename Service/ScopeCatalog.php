@@ -35,12 +35,24 @@ final class ScopeCatalog
         self::CUSTOMER_SCOPE_EXCLUDE_RESELLERS => 'N\'inclus jamais les comptes revendeurs dans ton périmètre.',
     ];
 
+    /** customer scope code => untranslated business label key (guided settings select, MYO-508 AC2). */
+    private const CUSTOMER_SCOPE_LABELS = [
+        self::CUSTOMER_SCOPE_ALL => 'All customers',
+        self::CUSTOMER_SCOPE_RETURNING => 'Returning customers only',
+        self::CUSTOMER_SCOPE_EXCLUDE_RESELLERS => 'Exclude reseller accounts',
+    ];
+
     /**
      * @return list<string> known customer scope codes, in display order
      */
     public static function customerScopes(): array
     {
         return [self::CUSTOMER_SCOPE_ALL, self::CUSTOMER_SCOPE_RETURNING, self::CUSTOMER_SCOPE_EXCLUDE_RESELLERS];
+    }
+
+    public static function customerScopeLabelKey(string $code): string
+    {
+        return self::CUSTOMER_SCOPE_LABELS[$code] ?? $code;
     }
 
     /**

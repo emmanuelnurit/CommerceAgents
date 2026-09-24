@@ -43,6 +43,17 @@ final class TriggerConditions
     }
 
     /**
+     * Raw value for a condition key, or null when absent/malformed -- unlike
+     * {@see self::intOption()}, this never substitutes a default, for guided
+     * settings fields (MYO-508 AC2) where "unset" (illimité/désactivé) is
+     * itself a meaningful, distinct value from any number.
+     */
+    public static function option(?string $json, string $key): mixed
+    {
+        return self::decode($json)[$key] ?? null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function decode(?string $json): array
