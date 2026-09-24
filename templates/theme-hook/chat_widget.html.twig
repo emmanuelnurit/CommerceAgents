@@ -10,6 +10,7 @@
 
     {# ---------- Proactive bubble: floating, shown only when the widget is closed/collapsed ---------- #}
     <div class="caw-proactive" x-show="proactive && !isOpen" x-cloak
+         x-bind:class="isCartPage ? 'caw-proactive--cart' : ''"
          x-on:keydown.escape.window="proactive && !isOpen && dismissProactive()"
          x-transition:enter="caw-proactive-enter"
          x-transition:enter-start="caw-proactive-enter-start"
@@ -112,7 +113,7 @@
     </div>
 
     {# ---------- Dock: slim bar anchored at the bottom, grows into the overlay ---------- #}
-    <div class="caw-dock" x-show="!isOpen" x-transition.opacity>
+    <div class="caw-dock" x-show="!isOpen && !isCartPage" x-transition.opacity>
         <form class="caw-glow caw-glow-dock" x-on:submit.prevent="send()">
             <div class="caw-dock-inner">
                 <span class="caw-avatar" aria-hidden="true">✦</span>
@@ -138,8 +139,31 @@
         </form>
     </div>
 
+    {# ---------- Dock (bulle repliée, MYO-479/480/493) : uniquement sur /panier,
+       en remplacement de la barre pleine largeur ci-dessus — même état `dock`
+       de la machine à états, flag d'affichage orthogonal (spec §2). Pas de champ
+       de saisie ni de puce panier (spec §3.3) : un simple bouton d'ouverture. #}
+    <div class="caw-dock-cartpage" x-show="!isOpen && isCartPage"
+         x-transition:enter="caw-dock-bubble-enter"
+         x-transition:enter-start="caw-dock-bubble-enter-start"
+         x-transition:enter-end="caw-dock-bubble-enter-end"
+         x-transition:leave="caw-dock-bubble-leave"
+         x-transition:leave-start="caw-dock-bubble-leave-start"
+         x-transition:leave-end="caw-dock-bubble-leave-end">
+        <button type="button" class="caw-dock-bubble" x-on:click="expand()"
+                aria-haspopup="dialog"
+                x-bind:aria-expanded="isOpen ? 'true' : 'false'"
+                aria-label="{{ i18n.openAssistant }}">
+            <span class="caw-avatar" aria-hidden="true">✦</span>
+            <span class="caw-dock-ping" x-show="proactive" aria-hidden="true"></span>
+            <span class="caw-dock-bubble-label" aria-hidden="true">{{ i18n.openAssistant }}</span>
+        </button>
+        <span class="caw-sr-only" aria-live="polite" x-show="proactive" x-text="i18n.newSuggestionAvailable"></span>
+    </div>
+
     {# ---------- Collapsed: the running conversation, page still readable ---------- #}
-    <div class="caw-collapsed" x-show="isCollapsed" x-transition.opacity>
+    <div class="caw-collapsed" x-show="isCollapsed" x-transition.opacity
+         x-bind:class="isCartPage ? 'caw-collapsed--cart' : ''">
         <section class="caw-collapsed-card" aria-label="{{ assistantName }}">
             <header class="caw-collapsed-head">
                 <span class="caw-avatar" aria-hidden="true">✦</span>

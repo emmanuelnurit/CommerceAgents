@@ -43,6 +43,12 @@ function component(config, saved, windowExtras) {
     }
     widget.readConfig();
     widget.restore();
+    // MYO-479/493: real Alpine usage always runs init() before anything else,
+    // which is what seeds currentPath from window.location.pathname. These
+    // helper-level tests call methods directly without the full init() (its
+    // $watch/DOM side effects are out of scope here), so mirror just that one
+    // assignment — same default ('/') as loadFactory's base fakeWindow.
+    widget.currentPath = (windowExtras && windowExtras.location && windowExtras.location.pathname) || '/';
 
     return widget;
 }

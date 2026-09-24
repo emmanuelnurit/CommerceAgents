@@ -260,6 +260,158 @@ body.caw-body-locked {
     font-size: 0.9375rem;
 }
 
+/* -------------------------------------------- dock bubble (MYO-479/480/493) */
+/* /panier only: the dock renders as a compact circular bubble anchored
+   bottom-left instead of the centered full-width bar, so it never competes
+   with the "Order" CTA (always right-aligned, checkout-base.html.twig). */
+
+#commerce-agents-widget .caw-dock-cartpage {
+    position: fixed;
+    left: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1050;
+}
+
+#commerce-agents-widget .caw-dock-bubble {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--caw-strong);
+    color: #fff;
+    cursor: pointer;
+    /* Halo repris de .caw-glow-dock (mêmes valeurs), intensifié au survol/focus. */
+    box-shadow: 0 10px 30px -10px rgba(124, 58, 237, 0.35), 0 2px 6px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.15s ease-out, transform 0.15s ease-out;
+}
+
+#commerce-agents-widget .caw-dock-bubble .caw-avatar {
+    pointer-events: none;
+}
+
+#commerce-agents-widget .caw-dock-bubble:focus-visible {
+    outline: 2px solid var(--caw-strong);
+    outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    #commerce-agents-widget .caw-dock-bubble:hover,
+    #commerce-agents-widget .caw-dock-bubble:focus-visible {
+        box-shadow: 0 14px 38px -8px rgba(124, 58, 237, 0.5), 0 3px 10px rgba(0, 0, 0, 0.12);
+        transform: scale(1.04);
+    }
+
+    #commerce-agents-widget .caw-dock-bubble:hover .caw-dock-bubble-label,
+    #commerce-agents-widget .caw-dock-bubble:focus-visible .caw-dock-bubble-label {
+        opacity: 1;
+    }
+}
+
+#commerce-agents-widget .caw-dock-bubble-label {
+    position: absolute;
+    right: calc(100% + 0.625rem);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    background: var(--caw-strong);
+    color: #fff;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease-out;
+}
+
+/* Point animé : une suggestion proactive est disponible mais hors champ (la
+   bulle est visible, la carte au-dessus peut ne pas l'être). Réutilise
+   caw-proactive-pulse (déclenchée une fois par apparition, pas de boucle). */
+#commerce-agents-widget .caw-dock-ping {
+    position: absolute;
+    top: -0.125rem;
+    right: -0.125rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--caw-proactive-accent);
+    border: 2px solid var(--caw-surface);
+    animation: caw-proactive-pulse 0.6s ease-out 1;
+}
+
+/* Visually hidden but announced (aria-live) — no visible focus/hover state
+   needed since this span is never interactive. */
+#commerce-agents-widget .caw-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Entrée/sortie de la bulle : mêmes tokens que .caw-proactive-enter/-leave (spec §4),
+   rien de nouveau inventé. */
+#commerce-agents-widget .caw-dock-bubble-enter {
+    transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+}
+
+#commerce-agents-widget .caw-dock-bubble-enter-start {
+    opacity: 0;
+    transform: scale(0.85);
+}
+
+#commerce-agents-widget .caw-dock-bubble-enter-end {
+    opacity: 1;
+    transform: scale(1);
+}
+
+#commerce-agents-widget .caw-dock-bubble-leave {
+    transition: opacity 0.15s ease-in;
+}
+
+#commerce-agents-widget .caw-dock-bubble-leave-start {
+    opacity: 1;
+}
+
+#commerce-agents-widget .caw-dock-bubble-leave-end {
+    opacity: 0;
+}
+
+/* .caw-collapsed / .caw-proactive on /panier: anchored left instead of
+   centered, next to the bubble below them (spec §3.4), width capped so they
+   stay a secondary signal rather than reproducing the full-width bar problem
+   one level up (ticket AC1, cross-referencing spec §3.2/§3.4 for both). */
+#commerce-agents-widget .caw-collapsed.caw-collapsed--cart {
+    left: 1.25rem;
+    transform: none;
+    width: min(360px, calc(100vw - 2rem));
+}
+
+#commerce-agents-widget .caw-proactive.caw-proactive--cart {
+    left: 1.25rem;
+    transform: none;
+    width: min(360px, calc(100vw - 2rem));
+}
+
+/* The base enter/leave transform recenters via translate(-50%, …); the
+   bubble layout no longer centers, so the cart variant drops that offset
+   while keeping the same vertical slide. */
+#commerce-agents-widget .caw-proactive--cart.caw-proactive-enter-start {
+    transform: translateY(0.5rem);
+}
+
+#commerce-agents-widget .caw-proactive--cart.caw-proactive-enter-end {
+    transform: translateY(0);
+}
+
 /* ----------------------------------------------------------------- overlay */
 
 #commerce-agents-widget .caw-backdrop {
@@ -1335,6 +1487,21 @@ body.caw-body-locked {
         display: none;
     }
 
+    /* Bulle repliée /panier (MYO-479/480/493) : mêmes offsets mobiles que le
+       reste du dock (0.75rem), largeur des cartes collapsed/proactive
+       plafonnée pour ne jamais chevaucher la bulle elle-même (spec §3.2). */
+    #commerce-agents-widget .caw-dock-cartpage {
+        left: 0.75rem;
+        bottom: 0.75rem;
+    }
+
+    #commerce-agents-widget .caw-collapsed.caw-collapsed--cart,
+    #commerce-agents-widget .caw-proactive.caw-proactive--cart {
+        left: 0.75rem;
+        right: auto;
+        width: calc(100vw - 1.5rem - 4rem);
+    }
+
     #commerce-agents-widget .caw-shell {
         width: 100%;
         height: 100%;
@@ -1654,6 +1821,33 @@ body.caw-body-locked {
     }
 
     #commerce-agents-widget .caw-proactive-badge-icon {
+        animation: none;
+    }
+
+    /* Bulle repliée /panier (spec §4) : transitions ramenées à un fondu
+       instantané, sans transform ni scale ; pulse du point de notification
+       supprimé (affichage statique). */
+    #commerce-agents-widget .caw-dock-bubble-enter,
+    #commerce-agents-widget .caw-dock-bubble-leave {
+        transition: opacity 0.01s linear;
+    }
+
+    #commerce-agents-widget .caw-dock-bubble-enter-start,
+    #commerce-agents-widget .caw-dock-bubble-enter-end {
+        transform: none;
+    }
+
+    #commerce-agents-widget .caw-dock-bubble,
+    #commerce-agents-widget .caw-dock-bubble-label {
+        transition: none;
+    }
+
+    #commerce-agents-widget .caw-dock-bubble:hover,
+    #commerce-agents-widget .caw-dock-bubble:focus-visible {
+        transform: none;
+    }
+
+    #commerce-agents-widget .caw-dock-ping {
         animation: none;
     }
 }

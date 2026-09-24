@@ -116,6 +116,13 @@ function commerceAgentsChat() {
         locale: 'en-US',
         checkoutUrl: null,
         pendingNavigationUrl: null,
+        // MYO-479/493: window.location.pathname, kept in sync with 'turbo:load'
+        // (see init()) so isCartPage re-evaluates across Turbo Drive navigation
+        // in the checkout tunnel, not just at the initial page load. Read in
+        // init() rather than defaulted here, so constructing the component
+        // never requires a window.location (Tests/js/chat-widget.test.js runs
+        // the factory against minimal window stubs without calling init()).
+        currentPath: '',
         // MYO-236: a pending proactive suggestion, shown as a floating card
         // when the widget is closed/collapsed (null when there is none).
         proactive: null,
@@ -148,11 +155,13 @@ function commerceAgentsChat() {
             newsletterOptinSubscribe: 'Subscribe',
             newsletterOptinSubscribing: 'Subscribing…',
             newsletterOptinSubscribed: 'Email sent — check your inbox to confirm your subscription.',
+            newSuggestionAvailable: 'New suggestion available',
         },
 
         init() {
             this.readConfig();
             this.restore();
+            this.currentPath = window.location.pathname;
 
             this.$watch('messages', () => this.persist());
             this.$watch('state', () => {
@@ -168,6 +177,15 @@ function commerceAgentsChat() {
                 this.scrollDownSoon();
             }
 
+            // MYO-479/493: the checkout tunnel navigates with Turbo Drive
+            // (checkout-base.html.twig, data-turbo="true"). Re-reading the path
+            // here covers both cases without guessing which one applies: a
+            // fresh component instance re-runs init() anyway, and a surviving
+            // one picks up the change through this listener.
+            document.addEventListener('turbo:load', () => {
+                this.currentPath = window.location.pathname;
+            });
+
             this.initInstrumentation();
         },
 
@@ -177,6 +195,23 @@ function commerceAgentsChat() {
 
         get isCollapsed() {
             return this.state === 'collapsed';
+        },
+
+        /**
+         * MYO-479/493: true on /panier (route checkout_cart) — the only page
+         * where the dock renders as a compact bubble instead of the full bar.
+         * A display flag orthogonal to the dock/collapsed/open state machine
+         * (spec MYO-479 §2), not a new state.
+         */
+        get isCartPage() {
+            if (!this.checkoutUrl) {
+                return false;
+            }
+            try {
+                return this.currentPath === new URL(this.checkoutUrl, window.location.origin).pathname;
+            } catch (error) {
+                return false;
+            }
         },
 
         /**
@@ -988,16 +1023,7 @@ function commerceAgentsChat() {
          * rather than a hardcoded path (Thelia URLs are locale/theme-dependent).
          */
         trackCartOpen() {
-            if (!this.checkoutUrl) {
-                return;
-            }
-            let cartPath;
-            try {
-                cartPath = new URL(this.checkoutUrl, window.location.origin).pathname;
-            } catch (error) {
-                return;
-            }
-            if (window.location.pathname !== cartPath) {
+            if (!this.isCartPage) {
                 return;
             }
 

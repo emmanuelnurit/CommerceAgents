@@ -151,6 +151,7 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'newsletterOptinSubscribe' => $translate('Subscribe'),
                 'newsletterOptinSubscribing' => $translate('Subscribing…'),
                 'newsletterOptinSubscribed' => $translate('Email sent — check your inbox to confirm your subscription.'),
+                'newSuggestionAvailable' => $translate('New suggestion available'),
             ],
             'assetVersion' => self::assetVersion(),
             'cart' => $this->cartGateway->snapshot(),
