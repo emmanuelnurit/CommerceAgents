@@ -145,6 +145,12 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
                 'couponApplying' => $translate('Applying…'),
                 'couponAppliedPrefix' => $translate('Code applied:'),
                 'quickRepliesLabel' => $translate('Suggestions'),
+                'newsletterOptinEmailPlaceholder' => $translate('Your email address'),
+                'newsletterOptinConsentLabel' => $translate('I agree to receive marketing emails from this store.'),
+                'newsletterOptinPrivacyLink' => $translate('Privacy policy'),
+                'newsletterOptinSubscribe' => $translate('Subscribe'),
+                'newsletterOptinSubscribing' => $translate('Subscribing…'),
+                'newsletterOptinSubscribed' => $translate('Email sent — check your inbox to confirm your subscription.'),
             ],
             'assetVersion' => self::assetVersion(),
             'cart' => $this->cartGateway->snapshot(),
@@ -152,6 +158,16 @@ final readonly class ChatWidgetThemeHook implements ThemeHookInterface
             'locale' => $locale,
             'checkoutUrl' => $checkoutUrl,
             'isCustomerLoggedIn' => $account['loggedIn'],
+            // T7 (spec MYO-476 AC2) asks for a privacy-policy link next to the
+            // newsletter opt-in consent checkbox, but no clean, already-wired
+            // Thelia source exists for that URL: ConfigQuery::getStoreLegalMentions()
+            // is free-text (not a link), flexy's own `cgvLink` prop on
+            // Summary/Checkout.html.twig is itself never fed a value, and no
+            // CMS/legal-pages convention exists in core or local/modules
+            // (checked before writing this — see MYO-515 closing comment).
+            // Left null on purpose: the template hides the link when this is
+            // empty rather than hardcoding a URL.
+            'privacyPolicyUrl' => null,
         ]);
     }
 
