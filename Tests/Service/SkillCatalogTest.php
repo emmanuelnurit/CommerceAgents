@@ -78,6 +78,31 @@ class SkillCatalogTest extends IntegrationTestCase
         $this->catalog->activate('campaign_proposal');
     }
 
+    /**
+     * Regression net for MYO-519: `SkillCatalog::all()` fed `brief.html.twig`
+     * (`{% if skill.guidedSettings %}`) a `SOON` row with no `guidedSettings`
+     * key at all. With `strict_variables: true` (active in `dev`) that is a
+     * fatal Twig error, but `phpunit.xml.dist` forces `APP_DEBUG=0`, which
+     * disables `strict_variables` for every PHPUnit run -- so the 500 shipped
+     * with a fully green suite. `array_key_exists()`, not `isset()`/`??`: the
+     * key must be *present*, even though its value is legitimately `null` for
+     * every never-activated or `soon` row.
+     */
+    public function testEveryRowHasTheFullRowContract(): void
+    {
+        $contractKeys = [
+            'code', 'labelKey', 'icon', 'color', 'state',
+            'agentDefinitionId', 'acceptanceRate', 'costPerProposalEur', 'editUrl',
+            'guidedSettings',
+        ];
+
+        foreach ($this->catalog->all() as $row) {
+            foreach ($contractKeys as $key) {
+                self::assertArrayHasKey($key, $row, \sprintf('skill "%s" is missing row key "%s"', $row['code'] ?? '?', $key));
+            }
+        }
+    }
+
     public function testActivateCreatesAgentDefinitionFromPresetAndIsIdempotent(): void
     {
         $code = AgentPresets::STUCK_ORDERS_WATCH;
