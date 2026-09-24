@@ -19,7 +19,9 @@ final class ScopeCatalog
 {
     public const CUSTOMER_SCOPE_ALL = 'all';
     public const CUSTOMER_SCOPE_RETURNING = 'returning_customers';
-    public const CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS = 'exclude_key_accounts';
+
+    /** Named after `customer.reseller` (MYO-518 decision 3) — Thelia has no "grand compte" field to honor that wording. */
+    public const CUSTOMER_SCOPE_EXCLUDE_RESELLERS = 'exclude_resellers';
 
     /**
      * customer scope code => fixed sentence appended to role_prompt.
@@ -30,7 +32,7 @@ final class ScopeCatalog
      */
     private const CUSTOMER_SCOPE_SENTENCES = [
         self::CUSTOMER_SCOPE_RETURNING => "Ne t'adresse qu'aux clients ayant déjà passé au moins une commande.",
-        self::CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS => 'N\'inclus jamais les clients grand compte dans ton périmètre.',
+        self::CUSTOMER_SCOPE_EXCLUDE_RESELLERS => 'N\'inclus jamais les comptes revendeurs dans ton périmètre.',
     ];
 
     /**
@@ -38,7 +40,7 @@ final class ScopeCatalog
      */
     public static function customerScopes(): array
     {
-        return [self::CUSTOMER_SCOPE_ALL, self::CUSTOMER_SCOPE_RETURNING, self::CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS];
+        return [self::CUSTOMER_SCOPE_ALL, self::CUSTOMER_SCOPE_RETURNING, self::CUSTOMER_SCOPE_EXCLUDE_RESELLERS];
     }
 
     /**

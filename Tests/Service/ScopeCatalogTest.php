@@ -47,10 +47,10 @@ class ScopeCatalogTest extends TestCase
     public function testBothScopesCanBeComposedTogether(): void
     {
         $rolePrompt = ScopeCatalog::appendCategoryScope('Tu réponds aux avis clients.', ['Chaises']);
-        $rolePrompt = ScopeCatalog::appendCustomerScope($rolePrompt, ScopeCatalog::CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS);
+        $rolePrompt = ScopeCatalog::appendCustomerScope($rolePrompt, ScopeCatalog::CUSTOMER_SCOPE_EXCLUDE_RESELLERS);
 
         $this->assertSame(
-            "Tu réponds aux avis clients. Concentre-toi uniquement sur les produits des catégories : Chaises. N'inclus jamais les clients grand compte dans ton périmètre.",
+            "Tu réponds aux avis clients. Concentre-toi uniquement sur les produits des catégories : Chaises. N'inclus jamais les comptes revendeurs dans ton périmètre.",
             $rolePrompt,
         );
     }
@@ -58,7 +58,7 @@ class ScopeCatalogTest extends TestCase
     public function testCustomerScopesListsAllKnownCodes(): void
     {
         $this->assertSame(
-            [ScopeCatalog::CUSTOMER_SCOPE_ALL, ScopeCatalog::CUSTOMER_SCOPE_RETURNING, ScopeCatalog::CUSTOMER_SCOPE_EXCLUDE_KEY_ACCOUNTS],
+            [ScopeCatalog::CUSTOMER_SCOPE_ALL, ScopeCatalog::CUSTOMER_SCOPE_RETURNING, ScopeCatalog::CUSTOMER_SCOPE_EXCLUDE_RESELLERS],
             ScopeCatalog::customerScopes(),
         );
     }
